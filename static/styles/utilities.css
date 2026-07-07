@@ -1,0 +1,99 @@
+/**
+ * Reusable layout and utility classes
+ */
+
+.t-stack {
+  display: flex;
+  flex-direction: column;
+}
+
+.t-stack--gap-1 { gap: var(--space-1); }
+.t-stack--gap-2 { gap: var(--space-2); }
+.t-stack--gap-3 { gap: var(--space-3); }
+.t-stack--gap-4 { gap: var(--space-4); }
+.t-stack--gap-6 { gap: var(--space-6); }
+
+.t-row {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+}
+
+.t-row--gap-2 { gap: var(--space-2); }
+.t-row--gap-3 { gap: var(--space-3); }
+.t-row--gap-4 { gap: var(--space-4); }
+
+.t-row--between {
+  justify-content: space-between;
+}
+
+.t-row--center {
+  justify-content: center;
+}
+
+.t-center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.t-grid {
+  display: grid;
+}
+
+.t-grid--2 {
+  grid-template-columns: repeat(2, 1fr);
+  gap: var(--space-3);
+}
+
+.t-grid--3 {
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.t-w-full { width: 100%; }
+.t-h-full { height: 100%; }
+
+.t-p-2 { padding: var(--space-2); }
+.t-p-3 { padding: var(--space-3); }
+.t-p-4 { padding: var(--space-4); }
+.t-p-5 { padding: var(--space-5); }
+.t-p-6 { padding: var(--space-6); }
+
+.t-px-4 { padding-left: var(--space-4); padding-right: var(--space-4); }
+.t-py-4 { padding-top: var(--space-4); padding-bottom: var(--space-4); }
+
+.t-m-0 { margin: 0; }
+.t-mt-2 { margin-top: var(--space-2); }
+.t-mt-4 { margin-top: var(--space-4); }
+.t-mb-4 { margin-bottom: var(--space-4); }
+
+.t-rounded { border-radius: var(--radius-base); }
+.t-rounded-pill { border-radius: var(--radius-pill); }
+
+.t-hidden { display: none !important; }
+.t-invisible { visibility: hidden; }
+
+.t-glow-accent {
+  box-shadow: var(--shadow-glow-accent-strong);
+}
+
+.t-transition {
+  transition: all var(--transition-base);
+}
+
+.t-no-select {
+  user-select: none;
+}
+
+.t-scroll-y {
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.t-container {
+  width: 100%;
+  max-width: var(--max-width-mobile);
+  margin-inline: auto;
+  padding-inline: var(--space-4);
+}

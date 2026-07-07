@@ -1,0 +1,94 @@
+/* Icon — shared sizing */
+
+.icon {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+}
+
+.icon--sm {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon--lg {
+  width: 1.5rem;
+  height: 1.5rem;
+}
+
+/* Icon button — square/circle actions */
+
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: var(--touch-target-min);
+  height: var(--touch-target-min);
+  padding: 0;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-subtle);
+  background-color: var(--color-bg-surface);
+  color: var(--color-accent);
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    opacity var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.icon-btn:hover:not(:disabled) {
+  background-color: var(--color-bg-surface-hover);
+  border-color: var(--color-accent-border);
+}
+
+.icon-btn:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.icon-btn--circle {
+  border-radius: var(--radius-pill);
+}
+
+.icon-btn--ghost {
+  background-color: transparent;
+  border-color: transparent;
+}
+
+.icon-btn--accent {
+  background-color: var(--color-accent-muted);
+  border-color: var(--color-accent-border);
+}
+
+.icon-btn--sm {
+  width: 2rem;
+  height: 2rem;
+}
+
+.icon-btn--lg {
+  width: 3rem;
+  height: 3rem;
+}
+
+.icon-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.icon-btn__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  object-fit: contain;
+}
+
+.icon-btn--sm .icon-btn__icon {
+  width: 1rem;
+  height: 1rem;
+}
+
+.icon-btn--lg .icon-btn__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+}

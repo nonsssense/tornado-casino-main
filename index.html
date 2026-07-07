@@ -2,40 +2,17 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>VIP Casino</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>Tornado</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="static/styles/main.css" />
+  <link rel="stylesheet" href="static/styles/foundation.css" />
 </head>
 <body>
-  <div class="ambient ambient-one"></div>
-  <div class="ambient ambient-two"></div>
-  <div class="noise"></div>
+  <div id="app-root"></div>
 
-
-  <div class="app-shell">
-    <div id="page_content">
-    
-        Menu page
-    
-    </div>
-  </div>
-
-  <nav class="bottom-nav glass-panel">
-    <button class="nav-btn active" data-nav="menu">Menu</button>
-    <button class="nav-btn" data-nav="sport">Sport</button>
-    <button class="nav-btn" data-nav="refer">Refer</button>
-    <button class="nav-btn" data-nav="stake">Stake</button>
-  </nav>
-
-  <script src="static/scripts/api.js"></script>
-  <script src="static/scripts/ui.js"></script>
-  <script src="static/scripts/router.js"></script>
-  <script src="static/scripts/games/dice.js"></script>
-  <script src="static/scripts/games/roulette.js"></script>
-  <script src="static/scripts/games/crash.js"></script>
-  <script src="static/scripts/app.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <script type="module" src="static/src/app/main.js"></script>
 </body>
 </html>

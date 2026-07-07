@@ -6,6 +6,9 @@ load_dotenv('.env')
 bot_token = os.getenv('BOT_TOKEN')
 db_url = os.getenv('DB_URL')
 
+BLOCKBEE_API_KEY = os.getenv('API_BLOCKBEE')
+
+
 
 # -------------------------- Plinco Multipier Schemes ---------------------------
 plinko_tables = {

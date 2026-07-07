@@ -1,0 +1,63 @@
+/* Chip — selectable option (currency, filter tabs) */
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  min-height: var(--touch-target-min);
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--color-border-subtle);
+  background-color: var(--color-bg-surface);
+  color: var(--color-text-primary);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.chip:hover:not(:disabled):not(.chip--active) {
+  border-color: var(--color-border-default);
+  background-color: var(--color-bg-surface-hover);
+}
+
+.chip--active {
+  border-color: var(--color-accent);
+  background-color: var(--color-accent-muted);
+}
+
+.chip:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.chip__icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.chip__label {
+  line-height: 1;
+}
+
+.chip-group {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+}
+
+.chip-group--2col {
+  grid-template-columns: repeat(2, 1fr);
+}
+
+.chip-group--row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}

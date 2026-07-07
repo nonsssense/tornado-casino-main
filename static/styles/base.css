@@ -1,0 +1,136 @@
+/**
+ * Global reset and typography
+ */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+}
+
+html,
+body {
+  width: 100%;
+  min-height: 100%;
+  overflow-x: hidden;
+}
+
+body {
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-regular);
+  line-height: var(--line-height-base);
+  color: var(--color-text-primary);
+  background-color: #000000; /* Dark background outside mobile container */
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  font-feature-settings: "kern" 1, "liga" 1, "calt" 1;
+  text-rendering: optimizeLegibility;
+}
+
+img,
+svg {
+  display: block;
+  max-width: 100%;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+  color: inherit;
+}
+
+button {
+  cursor: pointer;
+  border: none;
+  background: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+}
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+ul,
+ol {
+  list-style: none;
+}
+
+/* Typography scale */
+
+.t-text-xs {
+  font-size: var(--font-size-xs);
+  line-height: var(--line-height-base);
+}
+
+.t-text-sm {
+  font-size: var(--font-size-sm);
+  line-height: var(--line-height-base);
+}
+
+.t-text-base {
+  font-size: var(--font-size-base);
+  line-height: var(--line-height-base);
+}
+
+.t-text-md {
+  font-size: var(--font-size-md);
+  line-height: var(--line-height-base);
+}
+
+.t-text-lg {
+  font-size: var(--font-size-lg);
+  line-height: var(--line-height-tight);
+}
+
+.t-text-xl {
+  font-size: var(--font-size-xl);
+  line-height: var(--line-height-tight);
+}
+
+.t-weight-regular { font-weight: var(--font-weight-regular); }
+.t-weight-medium { font-weight: var(--font-weight-medium); }
+.t-weight-semibold { font-weight: var(--font-weight-semibold); }
+.t-weight-bold { font-weight: var(--font-weight-bold); }
+
+.t-text-primary { color: var(--color-text-primary); }
+.t-text-secondary { color: var(--color-text-secondary); }
+.t-text-muted { color: var(--color-text-muted); }
+.t-text-accent { color: var(--color-accent); }
+.t-text-on-accent { color: var(--color-text-on-accent); }
+
+.t-text-mono {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-sm);
+}
+
+.t-truncate {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.t-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}

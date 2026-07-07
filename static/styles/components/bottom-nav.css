@@ -1,0 +1,85 @@
+/**
+ * Bottom navigation styles.
+ */
+
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 50%;
+  transform: translateX(-50%);
+  width: calc(100% - var(--space-5));
+  max-width: calc(var(--max-width-mobile) - var(--space-5));
+  display: flex;
+  align-items: stretch;
+  justify-content: space-around;
+  gap: var(--space-1);
+  min-height: var(--bottom-nav-height);
+  padding: var(--space-2) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  margin-bottom: var(--space-4);
+  background: rgba(21, 23, 26, 0.85);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: calc(var(--radius-base) + 2px);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: 
+    0 8px 32px rgba(0, 0, 0, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: var(--z-sticky);
+}
+
+.bottom-nav__item {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  min-width: 0;
+  padding: var(--space-2) var(--space-1);
+  border-radius: 10px;
+  color: var(--color-text-secondary);
+  background: transparent;
+  cursor: pointer;
+  transition: 
+    color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.bottom-nav__item:hover {
+  color: var(--color-text-primary);
+  background: rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.bottom-nav__item--active {
+  color: var(--color-accent);
+  background: rgba(252, 211, 18, 0.12);
+}
+
+.bottom-nav__icon {
+  width: 1.5rem;
+  height: 1.5rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.72;
+  transition: opacity var(--transition-fast);
+}
+
+.bottom-nav__item--active .bottom-nav__icon {
+  opacity: 1;
+  filter: brightness(0) saturate(100%) invert(84%) sepia(57%) saturate(784%) hue-rotate(359deg) brightness(103%) contrast(97%);
+}
+
+.bottom-nav__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  line-height: 1.2;
+  text-align: center;
+}
+
+.bottom-nav__icon--wallet { background-image: url('/assets/navigation_menu_wallet.svg'); }
+.bottom-nav__icon--referrals { background-image: url('/assets/navigation_menu_referalsa.svg'); }
+.bottom-nav__icon--casino { background-image: url('/assets/navigation_menu_casino.svg'); }
+.bottom-nav__icon--profile { background-image: url('/assets/navigation_menu_profile.svg'); }

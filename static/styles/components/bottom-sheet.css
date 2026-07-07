@@ -1,0 +1,139 @@
+/**
+ * Bottom sheet overlay — backdrop, slide-up panel, swipe-to-dismiss.
+ */
+
+html.bottom-sheet-open {
+  overflow: hidden;
+}
+
+html.bottom-sheet-open .t-app__page {
+  overflow: hidden;
+}
+
+.bottom-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal);
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  overflow: visible;
+  padding:
+    var(--space-6)
+    var(--space-3)
+    var(--bottom-sheet-nav-offset);
+  pointer-events: none;
+  visibility: hidden;
+}
+
+.bottom-sheet--visible {
+  pointer-events: auto;
+  visibility: visible;
+}
+
+.bottom-sheet--closing {
+  pointer-events: none;
+}
+
+/* Backdrop — pure black, home faintly visible underneath */
+.bottom-sheet__backdrop {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  bottom: var(--bottom-sheet-nav-offset);
+  border: none;
+  padding: 0;
+  background: var(--color-overlay-backdrop-solid);
+  opacity: 0;
+  cursor: default;
+  transition: opacity var(--duration-slow) var(--ease-out);
+}
+
+.bottom-sheet--visible .bottom-sheet__backdrop {
+  opacity: var(--color-overlay-backdrop-opacity);
+}
+
+.bottom-sheet--closing .bottom-sheet__backdrop {
+  opacity: 0;
+}
+
+/* Panel shell — original dimensions, glow renders outside without resizing */
+.bottom-sheet__panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: calc(var(--max-width-mobile) - var(--space-6));
+  max-height: calc(100dvh - var(--space-6) - var(--bottom-sheet-nav-offset));
+  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-base) var(--radius-base);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--color-bg-primary);
+  overflow: visible;
+  box-shadow:
+    0 0 0 1px rgba(252, 211, 18, 0.06) inset,
+    0 0 20px rgba(252, 211, 18, 0.12),
+    0 0 40px rgba(252, 211, 18, 0.08),
+    0 0 60px rgba(252, 211, 18, 0.05),
+    0 24px 64px rgba(0, 0, 0, 0.5);
+  transform: translateY(calc(100% + var(--space-6)));
+  transition: transform var(--duration-slow) cubic-bezier(0.32, 0.72, 0, 1);
+  will-change: transform;
+}
+
+.bottom-sheet--visible .bottom-sheet__panel {
+  transform: translateY(0);
+}
+
+.bottom-sheet--closing .bottom-sheet__panel {
+  transform: translateY(calc(100% + var(--space-6)));
+}
+
+.bottom-sheet__panel--dragging {
+  transition: none;
+}
+
+/* Drag handle */
+.bottom-sheet__handle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-4) var(--space-2);
+  cursor: grab;
+  touch-action: none;
+}
+
+.bottom-sheet__handle-bar {
+  display: block;
+  width: 2.5rem;
+  height: 0.25rem;
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.22);
+}
+
+.bottom-sheet__handle:active {
+  cursor: grabbing;
+}
+
+/* Scrollable content */
+.bottom-sheet__scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  padding: 0 var(--space-4) var(--space-4);
+  border-radius: 0 0 var(--radius-base) var(--radius-base);
+}
+
+.bottom-sheet__scroll::-webkit-scrollbar {
+  width: 0;
+  height: 0;
+}
+
+/* Keep bottom navigation visible and interactive above the sheet */
+html.bottom-sheet-open .bottom-nav {
+  z-index: calc(var(--z-modal) + 1);
+}

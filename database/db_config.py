@@ -1,6 +1,6 @@
 import sqlalchemy as sa
 from config import db_url
-from urllib import parse_qs
+from urllib.parse import parse_qs
 import json
 
 engine = sa.create_engine(db_url, echo=True)
@@ -19,8 +19,8 @@ users_table = sa.Table(
     autoload_with=engine
 )
 
-users_session_table = sa.Table(
-    'user_session',
+user_session_table = sa.Table(
+    'user_sessions',
     metadata,
     autoload_with=engine
 )
@@ -37,7 +37,7 @@ wallet_table = sa.Table(
     autoload_with=engine
 )
 
-bet_wallet = sa.Table(
+bet_table = sa.Table(
     'bets',
     metadata,
     autoload_with=engine
@@ -54,6 +54,12 @@ deposit_table = sa.Table(
     metadata,
     autoload_with=engine
 )
+
+def getTelegramUser(data): 
+    pars_init_data = parse_qs(data.initdata)
+    user = json.loads(pars_init_data["user"][0])
+
+    return user
 
 def getTelegramId(data): 
     pars_init_data = parse_qs(data.initdata)

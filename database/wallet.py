@@ -1,6 +1,7 @@
 from database.db_config import engine, wallet_table
 import sqlalchemy as sa
 from datetime import datetime
+from log_manager import log
 
 def getWalletId(user_id):
     with engine.begin() as conn:
@@ -9,8 +10,10 @@ def getWalletId(user_id):
         wallet_id = result.result.scalar_one_or_none()
 
         if wallet_id == None:
+            log.warning(f"Wallet not found | user_id={user_id}")
             return 'None'
 
+        log.info(f"Wallet found | user_id={user_id} | wallet_id={wallet_id}")
         return wallet_id
     
 
@@ -26,6 +29,7 @@ class WalletManager:
             wallet = result.fetchone()
 
             if wallet is None:
+                log.warning(f"Wallet record not found | user_id={self.user_id}")
                 return None
             
             return wallet.id
@@ -34,20 +38,28 @@ class WalletManager:
         with engine.begin() as conn:
             post_stmt = sa.insert(wallet_table).values(user_id=self.user_id, type='real', created_at=datetime.now())
             conn.execute(post_stmt)
+            log.info(f"Wallet INSERT completed | user_id={self.user_id}")
 
     # conn - required for atomar transactions
     def updateBalance(self, conn, balance_after): 
-        update_stmt = sa.update(wallet_table.c.balance).where(wallet_table.c.user_id==self.user_id).values(balance=balance_after)
+        update_stmt = sa.update(wallet_table).where(wallet_table.c.user_id==self.user_id).values(balance=balance_after)
         conn.execute(update_stmt)
+        log.info(
+            f"Wallet balance UPDATE completed | user_id={self.user_id} | balance_after={balance_after}"
+        )
 
     def updateCurrency(self, currency):
         with engine.begin() as conn:
             update_stmt = sa.update(wallet_table.c.currency).where(wallet_table.c.user_id==self.user_id).values(balance=currency)
             conn.execute(update_stmt)
+            log.info(f"Wallet currency UPDATE completed | user_id={self.user_id} | currency={currency}")
 
     def getBalance(self, wallet_id):
         with engine.begin() as conn:
             get_stmt = sa.select(wallet_table.c.balance).where(wallet_table.c.id==wallet_id)
             balance = conn.execute(get_stmt).scalar_one_or_none()
+
+            if balance is None:
+                log.warning(f"Balance not found | user_id={self.user_id} | wallet_id={wallet_id}")
 
             return balance

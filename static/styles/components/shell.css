@@ -1,0 +1,82 @@
+/**
+ * Application shell layout styles.
+ */
+
+.t-app {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  max-width: var(--max-width-mobile);
+  margin-inline: auto;
+  background-color: var(--color-bg-primary);
+  isolation: isolate;
+}
+
+.t-app__header {
+  flex-shrink: 0;
+  z-index: var(--z-sticky);
+}
+
+.t-app__main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
+}
+
+.t-app__page {
+  flex: 1;
+  overflow-y: auto;
+  overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 var(--space-4) 0;
+  transition:
+    opacity var(--transition-base),
+    transform var(--transition-base);
+}
+
+.t-app__page--transition-enter {
+  opacity: 0;
+  transform: translateY(0.375rem);
+}
+
+.t-app__page--transition-active {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.t-app__footer {
+  /* Footer is now empty as bottom nav is positioned fixed */
+}
+
+/* Global overlay mount point */
+
+.t-overlay-root {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  pointer-events: none;
+  overflow: visible;
+}
+
+.t-overlay-root > * {
+  pointer-events: auto;
+}
+
+/* Animation layer for game effects and transitions */
+
+.t-animation-root {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-loader) - 1);
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.t-animation-root > * {
+  pointer-events: none;
+}

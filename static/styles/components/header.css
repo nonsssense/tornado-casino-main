@@ -1,0 +1,170 @@
+/**
+ * Header — Premium mobile header with enhanced hierarchy
+ * Three-region layout: Logo | Balance widget | Profile icon
+ */
+
+.app-header {
+  display: flex;
+  align-items: center;
+  padding: 16px 20px;
+  padding-top: max(16px, calc(env(safe-area-inset-top, 0px) + 16px));
+  background: rgba(21, 23, 26, 0.8);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+  position: relative;
+  z-index: var(--z-sticky);
+}
+
+/* Left Region: Fixed width container */
+.app-header__left {
+  display: flex;
+  align-items: center;
+  width: 76px;
+  flex-shrink: 0;
+}
+
+/* Brand Logo: Clean and simple */
+.app-header__logo {
+  display: block;
+  width: auto;
+  height: 2.375rem;
+  cursor: pointer;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.app-header__logo:hover {
+  opacity: 0.8;
+}
+
+.app-header__logo:active {
+  opacity: 0.6;
+}
+
+/* Center Region: Flexible container for perfect centering */
+.app-header__center {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Right Region: Fixed width container matching left */
+.app-header__right {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  width: 76px;
+  flex-shrink: 0;
+}
+
+/* Profile Button: Lightweight interaction */
+.app-header__profile {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border-radius: 12px;
+  background: transparent;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.app-header__profile:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-header__profile:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.app-header__profile-icon {
+  display: block;
+  width: auto;
+  height: 2.0625rem;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+
+.app-header__profile:hover .app-header__profile-icon {
+  opacity: 0.9;
+}
+
+/* Balance widget — refined, lightweight */
+.app-header .balance {
+  display: block;
+}
+
+.app-header .balance__widget {
+  display: inline-flex;
+  align-items: center;
+  height: 36px;
+  border: 1px solid rgba(252, 211, 18, 0.32);
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.05);
+  overflow: hidden;
+  transition:
+    border-color var(--duration-fast) var(--ease-out),
+    background-color var(--duration-fast) var(--ease-out);
+}
+
+.app-header .balance__widget:hover {
+  border-color: rgba(252, 211, 18, 0.48);
+  background: rgba(255, 255, 255, 0.07);
+}
+
+.app-header .balance__pill {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  min-width: 56px;
+  padding: 0 14px;
+  border: none;
+  background: transparent;
+  color: var(--color-text-primary);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.app-header .balance__add {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  align-self: stretch;
+  flex-shrink: 0;
+  width: 36px;
+  min-width: 36px;
+  padding: 0;
+  margin: 0;
+  border: none;
+  border-left: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 0;
+  background: transparent;
+  color: var(--color-accent);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-medium);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--duration-fast) var(--ease-out),
+    color var(--duration-fast) var(--ease-out),
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.app-header .balance__add:hover {
+  background: rgba(252, 211, 18, 0.08);
+  color: var(--color-accent-hover);
+}
+
+.app-header .balance__add:active {
+  transform: scale(0.96);
+}

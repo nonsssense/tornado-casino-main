@@ -4,6 +4,7 @@ config = 97.5
 from secrets import randbelow
 from database.db_config import engine, user_events_table
 from sqlalchemy import insert
+from log_manager import log
 
 
 balance = 100
@@ -32,9 +33,11 @@ def roll(json):
     game_result = randbelow(100) # random value 0-100
 
     if json.over: # over true ?
-        return json.limit < game_result
+        result = json.limit < game_result
     else:
-        return json.limit > game_result
+        result = json.limit > game_result
+
+    return result
     
 insert_wo_values = insert(user_events_table)
 
@@ -55,3 +58,7 @@ def dice(json, result_of_game: bool, factor: float):
 
 def getDiceResult(json, user_id):
     data = dice(json, roll(json), getFactor(getChance(json.limit, json.over)))
+    log.info(
+        f"Dice result | bid={json.bid} | result={data.get('result')} | payout={data.get('payout')}"
+    )
+    return data

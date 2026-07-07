@@ -1,0 +1,18 @@
+/**
+ * Shared glowing panel surface for bottom-sheet modals.
+ */
+
+.modal-panel {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-4);
+  border-radius: var(--radius-lg);
+  border: 1px solid rgba(252, 211, 18, 0.14);
+  background:
+    linear-gradient(
+      180deg,
+      rgba(28, 30, 34, 0.98) 0%,
+      rgba(21, 23, 26, 0.98) 100%
+    );
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.03) inset;
+}

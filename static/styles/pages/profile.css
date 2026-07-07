@@ -1,0 +1,207 @@
+/**
+ * Profile modal — account UI inside bottom sheet.
+ */
+
+.bottom-sheet__panel--profile {
+  background-color: #0a0a0a;
+}
+
+.profile-modal {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-height: auto;
+  padding: var(--space-4);
+}
+
+/* Profile card */
+.profile-card {
+  display: flex;
+  gap: var(--space-4);
+  align-items: flex-start;
+}
+
+.profile-card__avatar {
+  flex-shrink: 0;
+}
+
+.profile-card__info {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+  padding-top: var(--space-1);
+}
+
+.profile-field {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-4);
+}
+
+.profile-field__label {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-muted);
+  letter-spacing: 0.01em;
+}
+
+.profile-field__value {
+  min-width: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+  text-align: right;
+  word-break: break-word;
+}
+
+.profile-field:first-child .profile-field__value {
+  color: var(--color-text-secondary);
+}
+
+/* Avatar placeholder */
+.avatar-placeholder {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 50%;
+  border: 1.5px dashed rgba(252, 211, 18, 0.28);
+  background:
+    radial-gradient(
+      circle at 50% 35%,
+      rgba(255, 255, 255, 0.06) 0%,
+      rgba(255, 255, 255, 0.02) 100%
+    );
+  transition:
+    border-color var(--transition-fast),
+    background-color var(--transition-fast);
+}
+
+.avatar-placeholder__icon {
+  display: inline-flex;
+  width: 2rem;
+  height: 2rem;
+  color: var(--color-text-muted);
+  opacity: 0.72;
+}
+
+.avatar-placeholder__icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* Profile menu — premium settings rows */
+.profile-menu {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.profile-menu__item {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  gap: var(--space-3);
+  width: 100%;
+  min-height: 2.75rem;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-base);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: rgba(255, 255, 255, 0.025);
+  color: var(--color-text-muted);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-regular);
+  line-height: 1;
+  text-align: left;
+  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.profile-menu__icon {
+  flex-shrink: 0;
+  width: 1.5rem;
+  height: 1.5rem;
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: contain;
+  opacity: 0.72;
+  transition: opacity var(--transition-fast);
+}
+
+.profile-menu__icon--personal-data {
+  background-image: url('/assets/profile_personaldata.svg');
+}
+
+.profile-menu__icon--bonuses {
+  background-image: url('/assets/profile_bonuses.svg');
+}
+
+.profile-menu__icon--referrals {
+  background-image: url('/assets/navigation_menu_referalsa.svg');
+}
+
+.profile-menu__label {
+  flex: 1;
+  min-width: 0;
+  line-height: var(--line-height-tight);
+}
+
+.profile-menu__chevron {
+  display: inline-flex;
+  flex-shrink: 0;
+  width: 0.875rem;
+  height: 0.875rem;
+  margin-left: var(--space-1);
+  color: var(--color-text-muted);
+  opacity: 0.35;
+  transition: opacity var(--transition-fast);
+}
+
+.profile-menu__chevron svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-menu__item:hover:not(:disabled) {
+  border-color: rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.05);
+  color: var(--color-text-secondary);
+}
+
+.profile-menu__item:hover:not(:disabled) .profile-menu__icon {
+  opacity: 0.88;
+}
+
+.profile-menu__item:hover:not(:disabled) .profile-menu__chevron {
+  opacity: 0.55;
+}
+
+.profile-menu__item:active:not(:disabled) {
+  transform: scale(0.99);
+  border-color: rgba(255, 255, 255, 0.07);
+  background: rgba(255, 255, 255, 0.035);
+}
+
+/* Creative banner slot */
+.profile-modal__banner {
+  width: 100%;
+  min-height: 5.5rem;
+  border-radius: var(--radius-base);
+  border: 1px dashed rgba(255, 255, 255, 0.1);
+  background: var(--color-bg-section-card);
+}

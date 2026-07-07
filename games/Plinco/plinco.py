@@ -3,9 +3,9 @@ from games.probably_fair import ProvablyFair
 from config import plinko_tables
 from fastapi import Request
 from database.user_db import getUserData
+from log_manager import log
 
-def getPlinkoResult(json, user_id):
-
+def getPlincoResult(json, user_id):
     user_data = getUserData(user_id)
 
     rows = json.rows
@@ -26,6 +26,11 @@ def getPlinkoResult(json, user_id):
         "server_seed_hash": user_data['server_seed_hash']
         }
     
+    log.info(
+        f"Plinco result | user_id={user_id} | basket={final_basket} | "
+        f"multiplier={multiplier} | payout={result_json['payout']}"
+    )
+    
     #with engine.begin() as conn:
         #pass
 
@@ -36,4 +41,3 @@ def getPlinkoResult(json, user_id):
 
 
     
-

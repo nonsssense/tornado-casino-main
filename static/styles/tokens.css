@@ -1,0 +1,119 @@
+/**
+ * Tornado design tokens
+ * Source: docs/ui.md + design/home_page, wallet_deposit, wallet_withdraw
+ */
+
+:root {
+  /* Colors — background */
+  --color-bg-primary: #15171A;
+  --color-bg-elevated: #1c1e22;
+  --color-bg-surface: #22252a;
+  --color-bg-surface-hover: #2a2d33;
+  --color-bg-input: #1a1c20;
+  --color-bg-section: #0c0d0f;
+  --color-bg-section-card: #1a1c20;
+  --color-bg-section-card-hover: #22252a;
+
+  /* Colors — accent */
+  --color-accent: #fcd312;
+  --color-accent-hover: #fdd84a;
+  --color-accent-active: #e6be10;
+  --color-accent-muted: rgba(252, 211, 18, 0.12);
+  --color-accent-border: rgba(252, 211, 18, 0.55);
+
+  /* Colors — text */
+  --color-text-primary: #ffffff;
+  --color-text-secondary: #9ca3af;
+  --color-text-muted: #6b7280;
+  --color-text-on-accent: #15171a;
+  --color-text-inverse: #000000;
+
+  /* Colors — border */
+  --color-border-subtle: rgba(255, 255, 255, 0.08);
+  --color-border-default: rgba(255, 255, 255, 0.12);
+  --color-border-focus: var(--color-accent);
+
+  /* Colors — semantic */
+  --color-success: #4ade80;
+  --color-warning: #fbbf24;
+  --color-error: #f87171;
+  --color-info: #60a5fa;
+
+  /* Colors — overlay */
+  --color-overlay-backdrop: rgba(0, 0, 0, 0.72);
+  --color-overlay-backdrop-solid: #000000;
+  --color-overlay-backdrop-opacity: 0.86;
+
+  /* Typography — family */
+  --font-family-base: 'Inter', system-ui, -apple-system, sans-serif;
+  --font-family-mono: 'SF Mono', 'Fira Code', 'Consolas', monospace;
+
+  /* Typography — size */
+  --font-size-xs: 0.6875rem;   /* 11px */
+  --font-size-sm: 0.75rem;     /* 12px */
+  --font-size-base: 0.875rem;  /* 14px */
+  --font-size-md: 1rem;        /* 16px */
+  --font-size-lg: 1.125rem;    /* 18px */
+  --font-size-xl: 1.25rem;     /* 20px */
+
+  /* Typography — weight */
+  --font-weight-regular: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+
+  /* Typography — line height */
+  --line-height-tight: 1.2;
+  --line-height-base: 1.5;
+  --line-height-relaxed: 1.65;
+
+  /* Spacing — 8px grid */
+  --space-1: 0.25rem;  /* 4px */
+  --space-2: 0.5rem;   /* 8px */
+  --space-3: 0.75rem;  /* 12px */
+  --space-4: 1rem;     /* 16px */
+  --space-5: 1.25rem;  /* 20px */
+  --space-6: 1.5rem;   /* 24px */
+  --space-8: 2rem;     /* 32px */
+  --space-12: 3rem;    /* 48px */
+
+  /* Border radius */
+  --radius-sm: 0.5rem;    /* 8px */
+  --radius-md: 0.75rem;   /* 12px */
+  --radius-base: 0.9375rem; /* 15px — primary per docs */
+  --radius-lg: 1.25rem;   /* 20px */
+  --radius-pill: 9999px;
+
+  /* Shadows */
+  --shadow-subtle: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-card: 0 4px 16px rgba(0, 0, 0, 0.2);
+  --shadow-glow-accent: 0 0 24px rgba(252, 211, 18, 0.18);
+  --shadow-glow-accent-strong: 0 -4px 32px rgba(252, 211, 18, 0.22);
+
+  /* Z-index */
+  --z-base: 0;
+  --z-dropdown: 100;
+  --z-sticky: 150;
+  --z-modal-backdrop: 200;
+  --z-modal: 210;
+  --z-toast: 300;
+  --z-loader: 400;
+
+  /* Motion */
+  --duration-fast: 100ms;
+  --duration-base: 200ms;
+  --duration-slow: 250ms;
+  --ease-out: ease-out;
+  --ease-in-out: ease-in-out;
+  --transition-base: var(--duration-base) var(--ease-out);
+  --transition-fast: var(--duration-fast) var(--ease-out);
+
+  /* Layout */
+  --max-width-mobile: 430px;
+  --header-height: 3.5rem;
+  --bottom-nav-height: 4rem;
+  --touch-target-min: 2.75rem;
+  --bottom-sheet-nav-offset: calc(
+    var(--bottom-nav-height) + var(--space-8) + env(safe-area-inset-bottom, 0px)
+  );
+}
