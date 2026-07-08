@@ -1,12 +1,11 @@
 /**
- * Home page — Premium scrollable design
- * Allows breathing room for premium presentation
+ * Home page — scrollable layout
+ * Hero: large bonus banners; Games peeks below the fold to invite scroll
  */
 
 .home-page {
   display: flex;
   flex-direction: column;
-  min-height: 100vh;
   padding-bottom: calc(var(--bottom-nav-height) + var(--space-6));
   background: var(--color-bg-primary);
 }
@@ -29,26 +28,34 @@
   margin-bottom: var(--space-4);
 }
 
+/* Bonus banners — hero focus: full width + taller cards */
+.home-page__promotions.home-page__surface {
+  margin-inline: calc(-1 * var(--space-4));
+  padding: var(--space-3);
+  border-radius: var(--radius-base);
+}
+
 .home-page__footer-section {
   padding: var(--space-5) 0 var(--space-6) 0;
 }
 
-/* Flexible spacer: Reduced whitespace */
 .home-page__spacer {
   min-height: var(--space-4);
 }
 
 .home-page__promos {
   display: grid;
-  grid-template-columns: repeat(2, 1fr);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
+  width: 100%;
 }
 
 .home-page__promo {
   display: flex;
   align-items: center;
   justify-content: center;
-  min-height: 7rem;
+  min-height: var(--home-promo-min-height);
+  height: var(--home-promo-min-height);
   padding: var(--space-5) var(--space-4);
   border-radius: var(--radius-base);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -59,6 +66,7 @@
   line-height: var(--line-height-tight);
   text-align: center;
   cursor: pointer;
+  overflow: hidden;
   transition:
     background-color var(--duration-fast) var(--ease-out),
     border-color var(--duration-fast) var(--ease-out),
@@ -78,11 +86,13 @@
 .home-page__promo--banner {
   display: block;
   width: 100%;
-  min-height: 7rem;
+  min-height: var(--home-promo-min-height);
+  height: var(--home-promo-min-height);
   padding: 0;
   border: none;
   background: none;
   object-fit: cover;
+  object-position: center;
   overflow: hidden;
 }
 

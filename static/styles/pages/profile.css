@@ -2,10 +2,6 @@
  * Profile modal — account UI inside bottom sheet.
  */
 
-.bottom-sheet__panel--profile {
-  background-color: #0a0a0a;
-}
-
 .profile-modal {
   display: flex;
   flex-direction: column;

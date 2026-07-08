@@ -20,23 +20,24 @@ class TransactionManager:
             # wallet_table select and transaction_table insert 'll be in one sql transaction 
             if conn is None:
                 with engine.begin() as new_conn:
-                    return self._postTransaction(new_conn)
+                    return self.postTransaction(new_conn)
                 
             wallet = WalletManager(self.user_id)
             wallet_id = wallet.checkWalletStatus()
 
             result = conn.execute(getBalanceStmt(self.user_id))
             balance = result.scalar_one_or_none()
-            balance_check_status = balanceCheck(wallet, wallet_id, self.amount)
-
             if balance is None:
                 log.warning(
                     f"Wallet balance not found for transaction | user_id={self.user_id} | "
                     f"wallet_id={self.wallet_id}"
                 )
                 raise notActualWallet()
-            if balance_check_status == 'not enough':
-                raise notEnoughBalance()
+
+            if self.type != "deposit":
+                balance_check_status = balanceCheck(wallet, wallet_id, self.amount)
+                if balance_check_status == 'not enough':
+                    raise notEnoughBalance()
 
             balance_after = balance + self.amount
 
@@ -66,5 +67,16 @@ def getBalanceStmt(user_id):
     get_balance_stmt = sa.select(wallet_table.c.balance).where(wallet_table.c.user_id==user_id)
 
     return get_balance_stmt
+
+
+def getUserTransactions(user_id, limit=50):
+    with engine.begin() as conn:
+        stmt = (
+            sa.select(transaction_table)
+            .where(transaction_table.c.user_id == user_id)
+            .order_by(transaction_table.c.id.desc())
+            .limit(limit)
+        )
+        return conn.execute(stmt).mappings().all()
 
 

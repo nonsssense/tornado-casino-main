@@ -1,5 +1,8 @@
 /**
- * BottomSheet — premium floating modal that slides up over the current screen.
+ * BottomSheet — premium native mobile bottom sheet.
+ *
+ * Shared layout for wallet / profile / future sheets.
+ * Size `balance` preserves the taller Balance overlay exception.
  */
 
 import { createElement } from '../utils/dom.js';
@@ -10,17 +13,23 @@ const SWIPE_CLOSE_THRESHOLD = 80;
 /**
  * @param {object} options
  * @param {HTMLElement} options.content
+ * @param {HTMLElement} [options.header] - optional fixed header above scroll
  * @param {function} [options.onClose]
+ * @param {function} [options.onBeforeRemove]
  * @param {string} [options.ariaLabel]
- * @param {string} [options.panelClass] - BEM modifier for .bottom-sheet__panel
- * @returns {{ element: HTMLElement, open: () => void, close: () => Promise<void> }}
+ * @param {string} [options.panelClass]
+ * @param {'standard'|'balance'} [options.size]
+ * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function BottomSheet(options = {}) {
   const {
     content,
+    header = null,
     onClose,
+    onBeforeRemove,
     ariaLabel = 'Dialog',
     panelClass = '',
+    size = 'standard',
   } = options;
 
   let isClosing = false;
@@ -44,22 +53,43 @@ export function BottomSheet(options = {}) {
     ],
   });
 
+  const headerSlot = header
+    ? createElement('div', {
+      className: 'bottom-sheet__header',
+      children: [header],
+    })
+    : null;
+
   const scroll = createElement('div', {
     className: 'bottom-sheet__scroll',
     children: [content],
   });
 
-  const sheetClasses = ['bottom-sheet__panel'];
+  const footer = createElement('div', {
+    className: 'bottom-sheet__footer',
+  });
+
+  const sheetClasses = [
+    'bottom-sheet__panel',
+    size === 'balance' ? 'bottom-sheet__panel--size-balance' : 'bottom-sheet__panel--size-standard',
+  ];
   if (panelClass) sheetClasses.push(panelClass);
+
+  const panelChildren = [handle];
+  if (headerSlot) panelChildren.push(headerSlot);
+  panelChildren.push(scroll, footer);
 
   const sheet = createElement('div', {
     className: sheetClasses.join(' '),
     attrs: { role: 'dialog', 'aria-modal': 'true', 'aria-label': ariaLabel },
-    children: [handle, scroll],
+    children: panelChildren,
   });
 
   const root = createElement('div', {
-    className: 'bottom-sheet',
+    className: [
+      'bottom-sheet',
+      size === 'balance' ? 'bottom-sheet--balance' : 'bottom-sheet--standard',
+    ].join(' '),
     attrs: { 'aria-hidden': 'true' },
     children: [backdrop, sheet],
   });
@@ -81,6 +111,8 @@ export function BottomSheet(options = {}) {
 
   function onTouchStart(event) {
     if (isClosing) return;
+    if (footer.contains(event.target)) return;
+    if (headerSlot && headerSlot.contains(event.target)) return;
 
     const touch = event.touches[0];
     dragStartY = touch.clientY;
@@ -94,7 +126,7 @@ export function BottomSheet(options = {}) {
 
     dragCurrentY = event.touches[0].clientY;
     const delta = Math.max(0, dragCurrentY - dragStartY);
-    sheet.style.transform = `translateY(${delta}px)`;
+    sheet.style.transform = `translate3d(0, ${delta}px, 0)`;
   }
 
   function onTouchEnd() {
@@ -116,6 +148,8 @@ export function BottomSheet(options = {}) {
   handle.addEventListener('touchstart', onTouchStart, { passive: true });
   sheet.addEventListener('touchstart', (event) => {
     if (event.target === handle || handle.contains(event.target)) return;
+    if (footer.contains(event.target)) return;
+    if (headerSlot && headerSlot.contains(event.target)) return;
     if (scroll.scrollTop > 0) return;
     onTouchStart(event);
   }, { passive: true });
@@ -128,8 +162,11 @@ export function BottomSheet(options = {}) {
     root.setAttribute('aria-hidden', 'false');
     lockScroll();
 
+    // Double rAF: paint closed state first, then animate in (no flash)
     requestAnimationFrame(() => {
-      root.classList.add('bottom-sheet--visible');
+      requestAnimationFrame(() => {
+        root.classList.add('bottom-sheet--visible');
+      });
     });
   }
 
@@ -146,15 +183,16 @@ export function BottomSheet(options = {}) {
     return new Promise((resolve) => {
       setTimeout(() => {
         unlockScroll();
+        if (onBeforeRemove) onBeforeRemove();
         root.remove();
         document.removeEventListener('touchmove', onTouchMove);
         document.removeEventListener('touchend', onTouchEnd);
         document.removeEventListener('touchcancel', onTouchEnd);
         if (onClose) onClose();
         resolve();
-      }, DURATION.slow);
+      }, DURATION.sheet);
     });
   }
 
-  return { element: root, open, close };
+  return { element: root, footer, open, close };
 }

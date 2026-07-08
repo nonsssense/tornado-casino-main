@@ -6,17 +6,36 @@ import { WALLET_COINS, WALLET_NETWORKS } from '../../utils/wallet.constants.js';
 
 /**
  * @param {string} coinId
- * @returns {{ coin: object, network: object } | null}
+ * @returns {Array<object>}
  */
-export function getCoinNetwork(coinId) {
-  const coin = WALLET_COINS.find((item) => item.id === coinId);
-  const networks = WALLET_NETWORKS[coinId];
+export function getNetworksForCoin(coinId) {
+  return WALLET_NETWORKS[coinId] ?? [];
+}
 
-  if (!coin || !networks?.length) {
+/**
+ * @param {string} coinId
+ * @param {string} [networkId]
+ * @returns {{ coin: object, network: object, networks: object[] } | null}
+ */
+export function getCoinNetwork(coinId, networkId) {
+  const coin = WALLET_COINS.find((item) => item.id === coinId);
+  const networks = getNetworksForCoin(coinId);
+
+  if (!coin || !networks.length) {
     return null;
   }
 
-  return { coin, network: networks[0] };
+  const network = networks.find((item) => item.id === networkId) || networks[0];
+
+  return { coin, network, networks };
+}
+
+/**
+ * @param {string} coinId
+ * @returns {string}
+ */
+export function getDefaultNetworkId(coinId) {
+  return getNetworksForCoin(coinId)[0]?.id ?? '';
 }
 
 /**

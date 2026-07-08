@@ -1,5 +1,8 @@
 /**
- * Bottom sheet overlay — backdrop, slide-up panel, swipe-to-dismiss.
+ * Bottom sheet overlay — unified native sheet system.
+ *
+ * standard: fixed height under home bonus banners (wallet / profile / future)
+ * balance: taller exception — leave Balance behavior unchanged
  */
 
 html.bottom-sheet-open {
@@ -10,6 +13,11 @@ html.bottom-sheet-open .t-app__page {
   overflow: hidden;
 }
 
+html.bottom-sheet-open .t-app__footer {
+  visibility: hidden;
+  pointer-events: none;
+}
+
 .bottom-sheet {
   position: fixed;
   inset: 0;
@@ -18,12 +26,17 @@ html.bottom-sheet-open .t-app__page {
   align-items: flex-end;
   justify-content: center;
   overflow: visible;
-  padding:
-    var(--space-6)
-    var(--space-3)
-    var(--bottom-sheet-nav-offset);
+  padding: 0 var(--space-3) 0;
   pointer-events: none;
   visibility: hidden;
+}
+
+.bottom-sheet--standard {
+  padding-top: var(--bottom-sheet-top-gap);
+}
+
+.bottom-sheet--balance {
+  padding-top: var(--space-6);
 }
 
 .bottom-sheet--visible {
@@ -35,19 +48,16 @@ html.bottom-sheet-open .t-app__page {
   pointer-events: none;
 }
 
-/* Backdrop — pure black, home faintly visible underneath */
 .bottom-sheet__backdrop {
   position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  bottom: var(--bottom-sheet-nav-offset);
+  inset: 0;
   border: none;
   padding: 0;
   background: var(--color-overlay-backdrop-solid);
   opacity: 0;
   cursor: default;
-  transition: opacity var(--duration-slow) var(--ease-out);
+  transition: opacity var(--duration-sheet) var(--ease-sheet);
+  will-change: opacity;
 }
 
 .bottom-sheet--visible .bottom-sheet__backdrop {
@@ -58,42 +68,57 @@ html.bottom-sheet-open .t-app__page {
   opacity: 0;
 }
 
-/* Panel shell — original dimensions, glow renders outside without resizing */
 .bottom-sheet__panel {
   position: relative;
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: calc(var(--max-width-mobile) - var(--space-6));
-  max-height: calc(100dvh - var(--space-6) - var(--bottom-sheet-nav-offset));
-  border-radius: var(--radius-lg) var(--radius-lg) var(--radius-base) var(--radius-base);
+  border-radius: var(--radius-lg) var(--radius-lg) 0 0;
   border: 1px solid rgba(255, 255, 255, 0.08);
+  border-bottom: none;
   background: var(--color-bg-primary);
-  overflow: visible;
+  overflow: hidden;
   box-shadow:
     0 0 0 1px rgba(252, 211, 18, 0.06) inset,
     0 0 20px rgba(252, 211, 18, 0.12),
     0 0 40px rgba(252, 211, 18, 0.08),
     0 0 60px rgba(252, 211, 18, 0.05),
     0 24px 64px rgba(0, 0, 0, 0.5);
-  transform: translateY(calc(100% + var(--space-6)));
-  transition: transform var(--duration-slow) cubic-bezier(0.32, 0.72, 0, 1);
-  will-change: transform;
+  transform: translate3d(0, 110%, 0);
+  opacity: 0.96;
+  transition:
+    transform var(--duration-sheet) var(--ease-sheet),
+    opacity calc(var(--duration-sheet) - 40ms) var(--ease-out);
+  will-change: transform, opacity;
+  backface-visibility: hidden;
+}
+
+.bottom-sheet__panel--size-standard {
+  height: var(--bottom-sheet-standard-height);
+  max-height: var(--bottom-sheet-standard-height);
+}
+
+.bottom-sheet__panel--size-balance {
+  height: auto;
+  max-height: calc(100dvh - var(--space-6));
 }
 
 .bottom-sheet--visible .bottom-sheet__panel {
-  transform: translateY(0);
+  transform: translate3d(0, 0, 0);
+  opacity: 1;
 }
 
 .bottom-sheet--closing .bottom-sheet__panel {
-  transform: translateY(calc(100% + var(--space-6)));
+  transform: translate3d(0, 110%, 0);
+  opacity: 0.96;
 }
 
 .bottom-sheet__panel--dragging {
   transition: none;
+  opacity: 1;
 }
 
-/* Drag handle */
 .bottom-sheet__handle {
   display: flex;
   align-items: center;
@@ -116,16 +141,20 @@ html.bottom-sheet-open .t-app__page {
   cursor: grabbing;
 }
 
-/* Scrollable content */
+.bottom-sheet__header {
+  flex-shrink: 0;
+  padding: 0 var(--space-4);
+}
+
 .bottom-sheet__scroll {
-  flex: 1;
+  flex: 1 1 auto;
   min-height: 0;
   overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
   overscroll-behavior: contain;
   padding: 0 var(--space-4) var(--space-4);
-  border-radius: 0 0 var(--radius-base) var(--radius-base);
+  touch-action: pan-y;
 }
 
 .bottom-sheet__scroll::-webkit-scrollbar {
@@ -133,7 +162,24 @@ html.bottom-sheet-open .t-app__page {
   height: 0;
 }
 
-/* Keep bottom navigation visible and interactive above the sheet */
-html.bottom-sheet-open .bottom-nav {
-  z-index: calc(var(--z-modal) + 1);
+.bottom-sheet__footer {
+  flex-shrink: 0;
+  display: flex;
+  justify-content: center;
+  padding:
+    var(--space-2)
+    var(--space-3)
+    calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+  background: transparent;
+}
+
+.bottom-sheet__footer .bottom-nav {
+  position: relative;
+  left: auto;
+  bottom: auto;
+  transform: none;
+  width: 100%;
+  max-width: none;
+  margin-bottom: 0;
+  z-index: auto;
 }

@@ -111,12 +111,25 @@ function wireHeaderActions() {
   if (depositButton && !depositButton.dataset.wired) {
     depositButton.dataset.wired = 'true';
     depositButton.addEventListener('click', () => {
-      if (overlayManager.isOpen()) {
+      if (overlayManager.isOpen('wallet')) {
         void overlayManager.close();
         return;
       }
 
       overlayManager.openDeposit({ previousNavId: activeNavId });
+    });
+  }
+
+  const balanceButton = shell.root.querySelector('.balance__pill');
+  if (balanceButton && !balanceButton.dataset.wired) {
+    balanceButton.dataset.wired = 'true';
+    balanceButton.addEventListener('click', () => {
+      if (overlayManager.isOpen('balance')) {
+        void overlayManager.close();
+        return;
+      }
+
+      overlayManager.openBalance({ previousNavId: activeNavId });
     });
   }
 }

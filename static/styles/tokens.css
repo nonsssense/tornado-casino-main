@@ -96,6 +96,7 @@
   --z-sticky: 150;
   --z-modal-backdrop: 200;
   --z-modal: 210;
+  --z-lightbox: 280;
   --z-toast: 300;
   --z-loader: 400;
 
@@ -103,8 +104,10 @@
   --duration-fast: 100ms;
   --duration-base: 200ms;
   --duration-slow: 250ms;
+  --duration-sheet: 340ms;
   --ease-out: ease-out;
   --ease-in-out: ease-in-out;
+  --ease-sheet: cubic-bezier(0.32, 0.72, 0, 1);
   --transition-base: var(--duration-base) var(--ease-out);
   --transition-fast: var(--duration-fast) var(--ease-out);
 
@@ -116,4 +119,15 @@
   --bottom-sheet-nav-offset: calc(
     var(--bottom-nav-height) + var(--space-8) + env(safe-area-inset-bottom, 0px)
   );
+  /* Home bonus banners — hero height (~1.8× previous 7rem) */
+  --home-promo-min-height: 12.5rem;
+
+  /* Sheet top stays under home bonus banners — home peeks through */
+  --bottom-sheet-top-gap: calc(
+    env(safe-area-inset-top, 0px)
+    + 5.25rem
+    + var(--home-promo-min-height)
+    + 2.75rem
+  );
+  --bottom-sheet-standard-height: calc(100dvh - var(--bottom-sheet-top-gap));
 }

@@ -7,6 +7,7 @@
  */
 
 export const OVERLAY_NAMES = {
+  BALANCE: 'balance',
   WALLET: 'wallet',
   DEPOSIT: 'deposit',
   WITHDRAW: 'withdraw',

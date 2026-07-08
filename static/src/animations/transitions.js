@@ -9,4 +9,5 @@ export const DURATION = {
   fast: 100,
   base: 200,
   slow: 250,
+  sheet: 340,
 };

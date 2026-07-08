@@ -8,6 +8,7 @@ import { WalletTabs } from '../../components/shared/WalletTabs.js';
 import { createDepositView } from './deposit.view.js';
 import { createWithdrawView } from './withdraw.view.js';
 import { createHistoryView } from './history.view.js';
+import { getDefaultNetworkId } from './wallet.utils.js';
 
 const VIEW_FACTORIES = {
   deposit: createDepositView,
@@ -23,7 +24,10 @@ const VIEW_FACTORIES = {
 export function createWalletModal(options = {}) {
   const { initialTab = 'deposit' } = options;
 
-  const shared = { coinId: 'usdt' };
+  const shared = {
+    coinId: 'usdt',
+    networkId: getDefaultNetworkId('usdt'),
+  };
   const controllers = new Map();
   let activeTab = initialTab;
 
@@ -38,10 +42,24 @@ export function createWalletModal(options = {}) {
     return shared.coinId;
   }
 
+  function getNetworkId() {
+    return shared.networkId;
+  }
+
   function onCoinSelect(coinId) {
+    if (shared.coinId === coinId) return;
     shared.coinId = coinId;
+    shared.networkId = getDefaultNetworkId(coinId);
     controllers.forEach((controller) => {
-      controller.setCoinId?.(coinId);
+      controller.setCoinId?.(shared.coinId);
+    });
+  }
+
+  function onNetworkSelect(networkId) {
+    if (shared.networkId === networkId) return;
+    shared.networkId = networkId;
+    controllers.forEach((controller) => {
+      controller.setNetworkId?.(shared.networkId);
     });
   }
 
@@ -52,7 +70,12 @@ export function createWalletModal(options = {}) {
 
       const controller = tabId === 'history'
         ? factory()
-        : factory({ getCoinId, onCoinSelect });
+        : factory({
+          getCoinId,
+          getNetworkId,
+          onCoinSelect,
+          onNetworkSelect,
+        });
 
       controllers.set(tabId, controller);
     }

@@ -1,0 +1,11 @@
+{
+  "name": "casinobot",
+  "private": true,
+  "scripts": {
+    "dev": "vite",
+    "backend": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload"
+  },
+  "devDependencies": {
+    "vite": "^6.3.5"
+  }
+}

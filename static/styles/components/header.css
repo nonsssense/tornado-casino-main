@@ -123,6 +123,7 @@
   min-width: 56px;
   padding: 0 14px;
   border: none;
+  border-radius: 0;
   background: transparent;
   color: var(--color-text-primary);
   font-family: var(--font-family-base);
@@ -132,6 +133,16 @@
   letter-spacing: -0.01em;
   line-height: 1;
   white-space: nowrap;
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.app-header .balance__pill:hover {
+  background: rgba(252, 211, 18, 0.06);
+}
+
+.app-header .balance__pill:active {
+  background: rgba(252, 211, 18, 0.1);
 }
 
 .app-header .balance__add {

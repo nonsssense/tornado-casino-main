@@ -1,6 +1,5 @@
 /**
- * Balance — balance display with optional deposit control.
- * Rebuilt for new header design with compact, refined appearance
+ * Balance — balance display with separate amount and deposit controls.
  */
 
 import { createElement } from '../../utils/dom.js';
@@ -13,6 +12,7 @@ const MOCK_BALANCE = '2314$';
  * @param {string} [options.currency]
  * @param {boolean} [options.showAddButton]
  * @param {function} [options.onAdd]
+ * @param {function} [options.onBalanceClick]
  * @param {string} [options.className]
  */
 export function Balance(options = {}) {
@@ -20,6 +20,7 @@ export function Balance(options = {}) {
     amount = MOCK_BALANCE,
     showAddButton = true,
     onAdd,
+    onBalanceClick,
     className = '',
   } = options;
 
@@ -28,9 +29,14 @@ export function Balance(options = {}) {
 
   const isHeader = className.includes('balance--header');
 
-  const value = createElement('span', {
+  const value = createElement('button', {
     className: 'balance__pill',
-    attrs: { 'aria-live': 'polite' },
+    attrs: {
+      type: 'button',
+      'aria-label': 'Open balance',
+      'aria-live': 'polite',
+      onClick: onBalanceClick || undefined,
+    },
     text: amount,
   });
 
@@ -48,7 +54,6 @@ export function Balance(options = {}) {
     }));
   }
 
-  // Header context: unified widget container
   if (isHeader) {
     return createElement('div', {
       className: classes.join(' '),
@@ -61,7 +66,6 @@ export function Balance(options = {}) {
     });
   }
 
-  // Default context: separate elements
   return createElement('div', {
     className: classes.join(' '),
     children: controls,

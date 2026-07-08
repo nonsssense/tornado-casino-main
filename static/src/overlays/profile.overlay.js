@@ -8,10 +8,11 @@ import { BottomSheet } from './bottom-sheet.js';
 /**
  * @param {object} options
  * @param {function} [options.onClose]
- * @returns {{ element: HTMLElement, open: () => void, close: () => Promise<void> }}
+ * @param {function} [options.onBeforeRemove]
+ * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function createProfileOverlay(options = {}) {
-  const { onClose } = options;
+  const { onClose, onBeforeRemove } = options;
 
   const content = createProfileModal();
 
@@ -20,5 +21,6 @@ export function createProfileOverlay(options = {}) {
     ariaLabel: 'Profile',
     panelClass: 'bottom-sheet__panel--profile',
     onClose,
+    onBeforeRemove,
   });
 }

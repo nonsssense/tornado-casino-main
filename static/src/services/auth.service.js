@@ -10,11 +10,11 @@
 import { getTelegramContext } from '../app/telegram.js';
 import { authenticate } from '../api/auth.js';
 
+/**
+ * Always call POST /api/auth.
+ * Backend decides allow/deny from Telegram ID + WEB_DEFENCE.
+ */
 export async function initAuth() {
   const context = getTelegramContext();
-  if (!context?.initData) {
-    throw new Error('Telegram initData is required for authentication');
-  }
-
-  await authenticate(context.initData);
+  await authenticate(context?.initData || '');
 }

@@ -32,8 +32,13 @@ export function getTelegramContext() {
     return null;
   }
 
-  tg.ready();
-  tg.expand();
+  try {
+    tg.ready();
+    tg.expand();
+  } catch (error) {
+    // Browser still loads telegram-web-app.js; allow /api/auth to run.
+    console.warn('[getTelegramContext] ready/expand failed:', error);
+  }
 
   const user = tg.initDataUnsafe?.user ?? null;
 

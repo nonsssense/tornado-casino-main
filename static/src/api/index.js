@@ -9,4 +9,4 @@
 export { request } from './request.js';
 export { authenticate } from './auth.js';
 export { rollDice, playPlinko } from './games.js';
-export { createDeposit } from './wallet.js';
+export { createDeposit, fetchBalance, fetchDepositStatus, fetchHistory } from './wallet.js';

@@ -1,13 +1,55 @@
 # payments/blockbee.py
 
 import httpx
-from urllib.parse import quote
-from config import BLOCKBEE_API_KEY #, DOMAIN
+from config import BLOCKBEE_API_KEY, DOMEN as DOMAIN
 from database.transactions import TransactionManager
 from database.db_config import deposit_table, engine
 import sqlalchemy as sa
 from datetime import datetime
 from log_manager import log
+
+# Official BlockBee path tickers for Custom Payment Flow:
+# GET https://api.blockbee.io/{ticker}/create/
+# Docs: https://docs.blockbee.io/get-started/tickers
+# Source of truth: BlockBee /info endpoint + create-payment-address docs.
+SUPPORTED_BLOCKBEE_TICKERS = frozenset({
+    "btc",
+    "eth",
+    "trx",
+    "sol/sol",
+    "trc20/usdt",
+    "erc20/usdt",
+    "bep20/usdt",
+    "sol/usdt",
+    "erc20/usdc",
+    "bep20/usdc",
+    "sol/usdc",
+})
+
+# Legacy frontend aliases → official BlockBee tickers.
+LEGACY_TICKER_ALIASES = {
+    "USDT_TRC20": "trc20/usdt",
+    "USDC": "erc20/usdc",
+    "BTC": "btc",
+    "ETH": "eth",
+    "TRX": "trx",
+    "SOL": "sol/sol",
+    "sol": "sol/sol",
+}
+
+
+def normalize_blockbee_ticker(ticker: str) -> str:
+    if not ticker:
+        raise ValueError("ticker is required")
+
+    raw = ticker.strip()
+    mapped = LEGACY_TICKER_ALIASES.get(raw, raw.lower())
+
+    if mapped not in SUPPORTED_BLOCKBEE_TICKERS:
+        raise ValueError(f"Unsupported deposit ticker: {ticker}")
+
+    return mapped
+
 
 class BlockBeeClient:
 
@@ -31,7 +73,8 @@ class BlockBeeClient:
             deposit_id=deposit_id
         )
 
-        url = f"{self.BASE_URL}/{ticker}/create/"
+        blockbee_ticker = normalize_blockbee_ticker(ticker)
+        url = f"{self.BASE_URL}/{blockbee_ticker}/create/"
 
         params = {
             "apikey": BLOCKBEE_API_KEY,
@@ -54,15 +97,19 @@ class BlockBeeClient:
 
             data = response.json()
 
+            if data.get("status") != "success":
+                raise ValueError(data.get("error") or "BlockBee returned non-success status")
+
             log.info(
                 f"BlockBee payment address created | user_id={user_id} | deposit_id={deposit_id} | "
-                f"ticker={ticker} | address={data.get('address_in')}"
+                f"ticker={ticker} | blockbee_ticker={blockbee_ticker} | address={data.get('address_in')}"
             )
 
             return {
                 "address": data["address_in"],
                 "minimum": data["minimum_transaction_coin"],
-                "callback": data["callback_url"]
+                "callback": data["callback_url"],
+                "ticker": blockbee_ticker,
             }
         except Exception:
             log.exception(
@@ -82,15 +129,27 @@ class BlockBeeClient:
             f"deposit_id={deposit_id}"
         )
 
-        callback = (
+        return (
             f"{DOMAIN}/api/payment/webhook"
             f"?user_id={user_id}"
             f"&wallet_id={wallet_id}"
             f"&deposit_id={deposit_id}"
         )
-
-        return quote(callback, safe="")
     
+
+def coins_match(stored_ticker: str, webhook_coin: str) -> bool:
+    """Match stored BlockBee path ticker to webhook coin field.
+
+    Path create ticker uses slash (trc20/usdt); webhook coin uses underscore (trc20_usdt).
+    """
+    if not stored_ticker or not webhook_coin:
+        return False
+
+    stored = stored_ticker.strip().lower()
+    received = webhook_coin.strip().lower()
+
+    return stored == received or stored.replace("/", "_") == received
+
 
 class DepositManager:
 
@@ -147,7 +206,14 @@ class DepositManager:
     def completeDeposit(self, deposit, webhook):
 
         with engine.begin() as conn:
-            transaction = TransactionManager(user_id = deposit["user_id"],wallet_id = deposit["wallet_id"],type = "deposit", amount = webhook["value_forwarded_coin"],status = "Completed", reference_id = webhook["uuid"])
+            transaction = TransactionManager(
+                user_id=deposit["user_id"],
+                wallet_id=deposit["wallet_id"],
+                type="deposit",
+                amount=float(webhook["value_forwarded_coin"]),
+                status="Completed",
+                reference_id=webhook["uuid"],
+            )
             transaction_id = transaction.postTransaction(conn)
             log.info(
                 f"Deposit transaction created | user_id={deposit['user_id']} | "
@@ -208,6 +274,8 @@ class DepositManager:
             f"Updating deposit address | user_id={self.user_id} | deposit_id={deposit_id} | "
             f"minimum={minimum}"
         )
+        if minimum is not None:
+            minimum = int(float(minimum))
         with engine.begin() as conn:
             update_stmt = sa.update(deposit_table).where(deposit_table.c.id==deposit_id).values(address_in=address, minimum=minimum)
             conn.execute(update_stmt)
@@ -273,7 +341,7 @@ class DepositManager:
             )
             return False
 
-        if deposit["coin"] != webhook["coin"]:
+        if not coins_match(deposit["coin"], webhook["coin"]):
             log.warning(
                 f"Deposit coin mismatch | user_id={self.user_id} | deposit_id={deposit.get('id')} | "
                 f"expected={deposit.get('coin')} | received={webhook.get('coin')}"

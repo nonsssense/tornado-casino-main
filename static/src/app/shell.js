@@ -76,6 +76,14 @@ export function mountAppShell(options = {}) {
   mountTarget.replaceChildren(shell);
 
   const footerEl = shell.querySelector('.t-app__footer');
+  /** @type {HTMLElement|null} */
+  let navHost = footerEl;
+  /** @type {HTMLElement|null} */
+  let bottomNav = shell.querySelector('.bottom-nav');
+
+  function syncBottomNavRef() {
+    bottomNav = navHost?.querySelector?.('.bottom-nav') || null;
+  }
 
   return {
     root: shell,
@@ -83,7 +91,10 @@ export function mountAppShell(options = {}) {
     overlayRoot,
     animationRoot,
     header: shell.querySelector('.app-header'),
-    bottomNav: shell.querySelector('.bottom-nav'),
+
+    get bottomNav() {
+      return bottomNav;
+    },
 
     setPageContent(content) {
       pageContainer.replaceChildren(content);
@@ -102,8 +113,49 @@ export function mountAppShell(options = {}) {
     },
 
     updateBottomNavigation(activeId, onNavigate) {
+      const host = navHost || footerEl;
+      if (!host) return;
+      host.replaceChildren(BottomNavigation({ activeId, onNavigate }));
+      syncBottomNavRef();
+    },
+
+    /**
+     * Move the existing bottom navigation into an overlay footer slot.
+     * @param {HTMLElement} container
+     * @returns {HTMLElement|null}
+     */
+    adoptBottomNav(container) {
+      if (!container) return null;
+
+      if (!bottomNav) {
+        syncBottomNavRef();
+      }
+
+      if (!bottomNav) {
+        bottomNav = BottomNavigation({ activeId: 'casino' });
+      }
+
+      container.replaceChildren(bottomNav);
+      navHost = container;
+      syncBottomNavRef();
+      return bottomNav;
+    },
+
+    /**
+     * Return bottom navigation to the shell footer.
+     */
+    restoreBottomNav() {
       if (!footerEl) return;
-      footerEl.replaceChildren(BottomNavigation({ activeId, onNavigate }));
+
+      if (!bottomNav || !bottomNav.isConnected || bottomNav.parentElement !== footerEl) {
+        const livingNav = navHost?.querySelector?.('.bottom-nav') || bottomNav;
+        if (livingNav) {
+          footerEl.replaceChildren(livingNav);
+        }
+      }
+
+      navHost = footerEl;
+      syncBottomNavRef();
     },
 
     getOverlayRoot() {
@@ -112,6 +164,13 @@ export function mountAppShell(options = {}) {
 
     getAnimationRoot() {
       return animationRoot;
+    },
+
+    updateBalanceAmount(amount) {
+      const pill = shell.querySelector('.balance__pill');
+      if (pill) {
+        pill.textContent = amount;
+      }
     },
   };
 }

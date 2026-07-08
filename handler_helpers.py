@@ -18,13 +18,14 @@ def getUserId(session_token):
             user_session_table.c.session_token == session_token,
             user_session_table.c.active_status == True,
         )
-        session = conn.scalar(get_stmt)
+        result = conn.execute(get_stmt)
+        session = result.mappings().first()
 
         if session is None:
             log.warning(f"Active session not found | session_token={session_token}")
             return None
 
-        return session.user_id
+        return session['user_id']
     
 
 def prepareRequest(request: Request, event_type_or_user_id, event_type=None):
@@ -36,7 +37,7 @@ def prepareRequest(request: Request, event_type_or_user_id, event_type=None):
         user_id = None
 
     session_token = request.cookies.get("session_token")
-
+    
     if user_id is None:
         if session_token is None:
             log.warning(f"Missing session_token cookie | event_type={resolved_event_type}")
@@ -45,20 +46,21 @@ def prepareRequest(request: Request, event_type_or_user_id, event_type=None):
             log.warning(f"Unauthorized request | event_type={resolved_event_type}")
             raise HTTPException(status_code=401, detail="Unauthorized")
 
+
     session = SessionManager(user_id, session_token)
     session_token = session.checkSessionStatus()
 
     Event(user_id, resolved_event_type).postEvent()
 
-    return session_token
+    return session_token, user_id
 
 
-def walletCheck(user_id):
-    wallet_id = getWalletId(user_id)
-
-    if wallet_id is None:
-        return 'mase deposit'
-    return wallet_id
+#def walletCheck(user_id):
+#    wallet_id = getWalletId(user_id)
+#
+#    if wallet_id is None:
+#        return 'make deposit'
+#    return wallet_id
 
 def balanceCheck(wallet, wallet_id, bid):
     balance = wallet.getBalance(wallet_id)

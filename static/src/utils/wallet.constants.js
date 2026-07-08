@@ -1,6 +1,10 @@
 /**
  * Wallet UI constants — coins, networks, and deposit status labels.
- * Ticker values align with POST /api/wallet/deposit { ticker }.
+ *
+ * Ticker values are official BlockBee path tickers used by:
+ * GET https://api.blockbee.io/{ticker}/create/
+ *
+ * Source: BlockBee /info + docs (e.g. btc, eth, trc20/usdt, sol/sol).
  */
 
 export const WALLET_ASSET_BASE = '/assets';
@@ -46,17 +50,42 @@ export const WALLET_COINS = [
 
 /**
  * Networks available per coin id.
+ * `ticker` MUST be the BlockBee path ticker.
  * @type {Record<string, Array<{ id: string, label: string, networkLabel: string, icon: string, ticker: string, addressLabel: string }>>}
  */
 export const WALLET_NETWORKS = {
   usdt: [
     {
       id: 'trc20',
-      label: 'Trc20',
+      label: 'TRC20',
       networkLabel: 'Tron network',
       icon: `${WALLET_ASSET_BASE}/tron%20icon.png`,
-      ticker: 'USDT_TRC20',
-      addressLabel: 'Постоянный адрес Tron (TRC 20)',
+      ticker: 'trc20/usdt',
+      addressLabel: 'Постоянный адрес Tron (TRC20)',
+    },
+    {
+      id: 'erc20',
+      label: 'ERC20',
+      networkLabel: 'Ethereum network',
+      icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
+      ticker: 'erc20/usdt',
+      addressLabel: 'Постоянный адрес Ethereum (ERC20)',
+    },
+    {
+      id: 'bep20',
+      label: 'BEP20',
+      networkLabel: 'BNB Smart Chain',
+      icon: `${WALLET_ASSET_BASE}/tether.png`,
+      ticker: 'bep20/usdt',
+      addressLabel: 'Постоянный адрес BNB Smart Chain (BEP20)',
+    },
+    {
+      id: 'solana',
+      label: 'Solana',
+      networkLabel: 'Solana network',
+      icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
+      ticker: 'sol/usdt',
+      addressLabel: 'Постоянный адрес Solana',
     },
   ],
   btc: [
@@ -65,27 +94,27 @@ export const WALLET_NETWORKS = {
       label: 'Bitcoin',
       networkLabel: 'Bitcoin network',
       icon: `${WALLET_ASSET_BASE}/btc%20icon.png`,
-      ticker: 'BTC',
+      ticker: 'btc',
       addressLabel: 'Постоянный адрес Bitcoin',
     },
   ],
   eth: [
     {
-      id: 'erc20',
+      id: 'ethereum',
       label: 'Ethereum',
       networkLabel: 'Ethereum network',
       icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
-      ticker: 'ETH',
+      ticker: 'eth',
       addressLabel: 'Постоянный адрес Ethereum',
     },
   ],
   tron: [
     {
-      id: 'trc20',
-      label: 'Trc20',
+      id: 'tron',
+      label: 'Tron',
       networkLabel: 'Tron network',
       icon: `${WALLET_ASSET_BASE}/tron%20icon.png`,
-      ticker: 'TRX',
+      ticker: 'trx',
       addressLabel: 'Постоянный адрес Tron',
     },
   ],
@@ -95,7 +124,7 @@ export const WALLET_NETWORKS = {
       label: 'Solana',
       networkLabel: 'Solana network',
       icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
-      ticker: 'SOL',
+      ticker: 'sol/sol',
       addressLabel: 'Постоянный адрес Solana',
     },
   ],
@@ -105,8 +134,24 @@ export const WALLET_NETWORKS = {
       label: 'ERC20',
       networkLabel: 'Ethereum network',
       icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
-      ticker: 'USDC',
+      ticker: 'erc20/usdc',
       addressLabel: 'Постоянный адрес Ethereum (ERC20)',
+    },
+    {
+      id: 'bep20',
+      label: 'BEP20',
+      networkLabel: 'BNB Smart Chain',
+      icon: `${WALLET_ASSET_BASE}/usdc%20icon.png`,
+      ticker: 'bep20/usdc',
+      addressLabel: 'Постоянный адрес BNB Smart Chain (BEP20)',
+    },
+    {
+      id: 'solana',
+      label: 'Solana',
+      networkLabel: 'Solana network',
+      icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
+      ticker: 'sol/usdc',
+      addressLabel: 'Постоянный адрес Solana',
     },
   ],
 };

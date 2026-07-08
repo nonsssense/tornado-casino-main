@@ -7,6 +7,17 @@ bot_token = os.getenv('BOT_TOKEN')
 db_url = os.getenv('DB_URL')
 
 BLOCKBEE_API_KEY = os.getenv('API_BLOCKBEE')
+DOMEN = os.getenv('DOMEN')
+
+# Production default: True. Set WEB_DEFENCE=False in .env for local browser UI work.
+# Prefer is_web_defence_enabled() at the auth gate so .env can be toggled without a full rewrite.
+
+
+def is_web_defence_enabled() -> bool:
+    """Reload WEB_DEFENCE from .env on each call (toggle without code changes)."""
+    load_dotenv('.env', override=True)
+    value = os.getenv('WEB_DEFENCE', 'True')
+    return value.strip().lower() in ('1', 'true', 'yes', 'on')
 
 
 

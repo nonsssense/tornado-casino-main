@@ -17,6 +17,21 @@ export async function createDeposit(ticker) {
   });
 }
 
+export async function fetchBalance() {
+  return request('/api/wallet/balance');
+}
+
+/**
+ * @param {number} depositId
+ */
+export async function fetchDepositStatus(depositId) {
+  return request(`/api/wallet/deposit/status?deposit_id=${encodeURIComponent(depositId)}`);
+}
+
+export async function fetchHistory() {
+  return request('/api/wallet/history');
+}
+
 /**
  * @param {{ ticker: string, address: string }} payload
  */

@@ -29,16 +29,19 @@ def load_public_key():
             "https://api.blockbee.io/pubkey/",
             timeout=10
         )
+        data = response.json()
+        pem = data['pubkey'].replace("\\n", "\n")
 
         response.raise_for_status()
 
-        PUBLIC_KEY_PATH.write_bytes(
-            response.content
+        PUBLIC_KEY_PATH.write_text(
+            pem,
+            encoding="utf-8"
         )
 
         log.info("BlockBee public key downloaded and saved")
         return load_pem_public_key(
-            response.content
+            pem.encode("utf-8")
         )
     except Exception:
         log.exception("Failed to load BlockBee public key")

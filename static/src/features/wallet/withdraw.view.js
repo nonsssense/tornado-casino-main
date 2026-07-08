@@ -4,8 +4,9 @@
 
 import { createElement } from '../../utils/dom.js';
 import { WITHDRAW_ADDRESS_PLACEHOLDER } from '../../utils/wallet.constants.js';
+import { formatCryptoAmount } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
-import { getCoinNetwork, getCoinSymbol } from './wallet.utils.js';
+import { getCoinNetwork, getCoinSymbol, getDefaultNetworkId } from './wallet.utils.js';
 import { Button } from '../../components/base/Button.js';
 import { Input } from '../../components/base/Input.js';
 import { Toast } from '../../components/base/Toast.js';
@@ -18,11 +19,18 @@ const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circ
 /**
  * @param {object} [options]
  * @param {function} [options.getCoinId]
+ * @param {function} [options.getNetworkId]
  * @param {function} [options.onCoinSelect]
- * @returns {{ element: HTMLElement, setCoinId: (coinId: string) => void }}
+ * @param {function} [options.onNetworkSelect]
+ * @returns {{ element: HTMLElement, setCoinId: (coinId: string) => void, setNetworkId: (networkId: string) => void }}
  */
 export function createWithdrawView(options = {}) {
-  const { getCoinId = () => 'usdt', onCoinSelect } = options;
+  const {
+    getCoinId = () => 'usdt',
+    getNetworkId = () => getDefaultNetworkId(getCoinId()),
+    onCoinSelect,
+    onNetworkSelect,
+  } = options;
 
   const state = {
     amount: '',
@@ -52,6 +60,10 @@ export function createWithdrawView(options = {}) {
     );
   }
 
+  function currentContext() {
+    return getCoinNetwork(getCoinId(), getNetworkId());
+  }
+
   function updateCoinGrid() {
     coinGridMount.replaceChildren(
       CoinSelector({
@@ -59,22 +71,20 @@ export function createWithdrawView(options = {}) {
         onSelect: (coinId) => {
           if (getCoinId() === coinId) return;
           if (onCoinSelect) onCoinSelect(coinId);
-          updateCoinGrid();
-          updateNetwork();
-          updateMinAmount();
-          updateAmountCurrency();
         },
       }),
     );
   }
 
   function updateNetwork() {
-    const ctx = getCoinNetwork(getCoinId());
+    const ctx = currentContext();
 
     if (!ctx) {
       networkMount.replaceChildren();
       return;
     }
+
+    const multiNetwork = ctx.networks.length > 1;
 
     networkMount.replaceChildren(
       NetworkSelector({
@@ -82,8 +92,15 @@ export function createWithdrawView(options = {}) {
         label: ctx.network.label,
         iconSrc: ctx.network.icon,
         className: 'wallet-view__network',
-        // TODO: open network picker when multiple networks per coin are supported
-        onClick: undefined,
+        options: ctx.networks,
+        activeId: ctx.network.id,
+        onSelect: multiNetwork
+          ? (networkId) => {
+            if (getNetworkId() === networkId) return;
+            if (onNetworkSelect) onNetworkSelect(networkId);
+          }
+          : undefined,
+        disabled: !multiNetwork,
       }),
     );
   }
@@ -138,8 +155,11 @@ export function createWithdrawView(options = {}) {
   }
 
   function updateMinAmount() {
-    const ctx = getCoinNetwork(getCoinId());
-    const coinLabel = ctx?.coin.label?.toLowerCase() || 'usdt';
+    const ctx = currentContext();
+    const coinLabel = ctx?.coin.symbol || getCoinSymbol(getCoinId()) || 'USDT';
+    const formattedMin = state.minimum != null
+      ? formatCryptoAmount(state.minimum, { symbol: coinLabel })
+      : null;
 
     infoMount.replaceChildren(
       createElement('div', {
@@ -147,8 +167,8 @@ export function createWithdrawView(options = {}) {
         children: [
           createElement('p', {
             className: 'wallet-view__min-amount',
-            html: state.minimum
-              ? `min amount: <strong>${state.minimum} ${coinLabel}</strong>`
+            html: formattedMin
+              ? `min amount: <strong>${formattedMin}</strong>`
               : 'min amount: <span class="wallet-view__min-sum-pending">—</span>',
           }),
           createElement('span', {
@@ -177,7 +197,7 @@ export function createWithdrawView(options = {}) {
   }
 
   async function loadWithdrawInfo() {
-    const ctx = getCoinNetwork(getCoinId());
+    const ctx = currentContext();
     if (!ctx) return;
 
     // TODO: fetch minimum withdraw amount from backend when endpoint is documented
@@ -186,7 +206,7 @@ export function createWithdrawView(options = {}) {
   }
 
   async function submitWithdraw() {
-    const ctx = getCoinNetwork(getCoinId());
+    const ctx = currentContext();
     const address = state.address.trim();
 
     if (!ctx || !address || state.submitting) return;
@@ -226,6 +246,12 @@ export function createWithdrawView(options = {}) {
     updateAmountCurrency();
   }
 
+  function setNetworkId(networkId) {
+    void networkId;
+    updateNetwork();
+    loadWithdrawInfo();
+  }
+
   updateCoinGrid();
   updateNetwork();
   renderAmountField();
@@ -246,5 +272,5 @@ export function createWithdrawView(options = {}) {
     ],
   });
 
-  return { element, setCoinId };
+  return { element, setCoinId, setNetworkId };
 }

@@ -55,6 +55,44 @@ deposit_table = sa.Table(
     autoload_with=engine
 )
 
+bonus_instances_table = sa.Table(
+    'bonus_instances',  
+    metadata,
+    autoload_with=engine
+)
+
+frebet_grants_table = sa.Table(
+    'frebet_grants',  
+    metadata,
+    autoload_with=engine
+)
+
+freebet_ticket_table = sa.Table(
+    'freebet_tickets',  
+    metadata,
+    autoload_with=engine
+)
+
+withdrawal_addresses_table = sa.Table(
+    'withdrawal_addresses',
+    metadata,
+    autoload_with=engine
+)
+
+fraud_signals_table = sa.Table(
+    'fraud_signals',
+    metadata,
+    autoload_with=engine
+)
+
+user_trust_score_table = sa.Table(
+    'user_trust_score',
+    metadata,
+    autoload_with=engine
+)
+
+
+
 def getTelegramUser(data): 
     pars_init_data = parse_qs(data.initdata)
     user = json.loads(pars_init_data["user"][0])

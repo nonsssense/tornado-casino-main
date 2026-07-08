@@ -9,10 +9,11 @@ import { BottomSheet } from './bottom-sheet.js';
  * @param {object} options
  * @param {string} [options.initialTab]
  * @param {function} [options.onClose]
- * @returns {{ element: HTMLElement, open: () => void, close: () => Promise<void> }}
+ * @param {function} [options.onBeforeRemove]
+ * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function createWalletOverlay(options = {}) {
-  const { initialTab = 'deposit', onClose } = options;
+  const { initialTab = 'deposit', onClose, onBeforeRemove } = options;
 
   const content = createWalletModal({ initialTab });
 
@@ -21,5 +22,6 @@ export function createWalletOverlay(options = {}) {
     ariaLabel: 'Wallet',
     panelClass: 'bottom-sheet__panel--wallet',
     onClose,
+    onBeforeRemove,
   });
 }

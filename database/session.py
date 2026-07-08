@@ -12,7 +12,13 @@ class SessionManager:
 
     def createSession(self):
         with engine.begin() as conn:
-            insert_stmt = (sa.insert(user_session_table).values(user_id=self.user_id, open_at=datetime.datetime.now(), session_token=self.session_token))
+            now = datetime.datetime.now()
+            insert_stmt = (sa.insert(user_session_table).values(
+                user_id=self.user_id,
+                open_at=now,
+                last_activity=now,
+                session_token=self.session_token,
+            ))
             conn.execute(insert_stmt)
             log.info(
                 f"Session INSERT completed | user_id={self.user_id} | session_token={self.session_token}"
@@ -23,7 +29,9 @@ class SessionManager:
             close_stmt = sa.select(user_session_table).where(
                 user_session_table.c.session_token == self.session_token
             )
-            session = conn.scalar(close_stmt)
+            
+            result = conn.execute(close_stmt)
+            session = result.mappings().first()
 
             if session is None:
                 log.warning(
@@ -31,9 +39,14 @@ class SessionManager:
                     f"session_token={self.session_token}"
                 )
                 return
-    
-            session.close_at = session.last_activity + datetime.timedelta(minutes=30)
-            session.active_status = False
+            
+            close_at = (session['last_activity'] or session['open_at'] or datetime.datetime.now()) + datetime.timedelta(minutes=30)
+            update_stmt = sa.update(user_session_table).where(user_session_table.c.session_token == self.session_token).values(
+                close_at=close_at,
+                active_status=False
+            )
+            conn.execute(update_stmt)
+
             log.info(
                 f"Session closed | user_id={self.user_id} | session_token={self.session_token}"
             )
@@ -43,7 +56,9 @@ class SessionManager:
             update_stmt = sa.select(user_session_table).where(
                 user_session_table.c.session_token == self.session_token
             )
-            session = conn.scalar(update_stmt)
+            
+            result = conn.execute(update_stmt)
+            session = result.mappings().first()
 
             if session is None:
                 log.warning(
@@ -52,13 +67,11 @@ class SessionManager:
                 )
                 return
 
-            if datetime.datetime.now() - session.last_activity > datetime.timedelta(minutes=30):
-                log.warning(
-                    f"Session expired | user_id={self.user_id} | session_token={self.session_token}"
-                )
-                self.closeSession()
-     
-            session.last_activity = datetime.datetime.now()
+            now = datetime.datetime.now()
+            update_stmt = sa.update(user_session_table).where(user_session_table.c.session_token == self.session_token).values(
+                last_activity=now
+            )
+            conn.execute(update_stmt)
 
     def checkSessionStatus (self):
         if self.session_token:
