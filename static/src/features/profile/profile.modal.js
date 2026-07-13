@@ -5,19 +5,23 @@
 import { createElement } from '../../utils/dom.js';
 import { AvatarPlaceholder } from '../../components/shared/AvatarPlaceholder.js';
 import { PROFILE_MENU_ITEMS, PROFILE_FIELDS } from './profile.constants.js';
+import { profileService } from '../../services/profile.service.js';
 
 /**
  * @param {string} actionId
+ * @param {function(string): void} [onMenuAction]
  */
-function handleMenuAction(actionId) {
-  // TODO: implement profile menu action
-  void actionId;
+function handleMenuAction(actionId, onMenuAction) {
+  if (onMenuAction) {
+    onMenuAction(actionId);
+  }
 }
 
 /**
+ * @param {Record<string, string>} values
  * @returns {HTMLElement}
  */
-function createProfileCard() {
+function createProfileCard(values) {
   return createElement('div', {
     className: 'profile-card',
     children: [
@@ -34,7 +38,7 @@ function createProfileCard() {
               }),
               createElement('span', {
                 className: 'profile-field__value',
-                text: field.placeholder,
+                text: values[field.id] || field.placeholder,
               }),
             ],
           }),
@@ -45,9 +49,10 @@ function createProfileCard() {
 }
 
 /**
+ * @param {function(string): void} [onMenuAction]
  * @returns {HTMLElement}
  */
-function createProfileMenu() {
+function createProfileMenu(onMenuAction) {
   return createElement('div', {
     className: 'profile-menu',
     attrs: { role: 'list' },
@@ -57,7 +62,7 @@ function createProfileMenu() {
         attrs: {
           type: 'button',
           role: 'listitem',
-          onClick: () => handleMenuAction(item.id),
+          onClick: () => handleMenuAction(item.id, onMenuAction),
         },
         children: [
           createElement('span', {
@@ -80,15 +85,20 @@ function createProfileMenu() {
 }
 
 /**
+ * @param {object} [options]
+ * @param {function(string): void} [options.onMenuAction]
  * @returns {HTMLElement}
  */
-export function createProfileModal() {
-  return createElement('div', {
+export function createProfileModal(options = {}) {
+  const { onMenuAction } = options;
+  const cardMount = createElement('div');
+
+  const modal = createElement('div', {
     className: 'profile-modal',
     attrs: { 'data-modal': 'profile' },
     children: [
-      createProfileCard(),
-      createProfileMenu(),
+      cardMount,
+      createProfileMenu(onMenuAction),
       createElement('div', {
         className: 'profile-modal__banner',
         attrs: {
@@ -98,4 +108,19 @@ export function createProfileModal() {
       }),
     ],
   });
+
+  profileService.getProfile()
+    .then((profile) => {
+      cardMount.replaceChildren(createProfileCard({
+        status: profile.status,
+        nickname: profile.nickname,
+        'user-id': profile.userId,
+        email: profile.email,
+      }));
+    })
+    .catch(() => {
+      cardMount.replaceChildren(createProfileCard({}));
+    });
+
+  return modal;
 }

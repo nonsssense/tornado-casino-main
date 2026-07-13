@@ -8,33 +8,38 @@ from fastapi.staticfiles import StaticFiles
 
 # --------extra imports--------
 import asyncio
+import os
+import threading
 import time
 import uuid
 from urllib.parse import quote
 from pydantic import BaseModel
+from aiogram.exceptions import TelegramConflictError
 
 # ------ individual imports------
-from games.Dice.dice import getDiceResult
-from games.Plinco.plinco import getPlincoResult
-from handler_helpers import prepareRequest, balanceCheck
-from bot import dp, bot
+from games.game_manager import GameManager
+from games.crash.router import router as crash_router
+from games.crash.crash_game import crash_loop
+from handler_helpers import prepareRequest
+from bot import casino_dp, casino_bot
+from admin_bot import admin_dp, admin_bot
 from log_manager import log
-from config import is_web_defence_enabled
+from config import is_web_defence_enabled, plinko_tables
 from telegram_auth import validate_init_data, has_telegram_id
 
 # -------database imports------
 from database.auth import userValidate, ensureDevBrowserUser
+from database.bonus import BonusManager
 from database.db_config import getTelegramId
-from database.transactions import TransactionManager, getUserTransactions
+from database.transactions import getUserTransactions
 from database.wallet import WalletManager
-from database.bet import Bet
-from database.plinco_db import postPlinco
-
-# -----------exceptions----------
-from exceptions import notEnoughBalance
 
 # ----------payments-------------
 from payments.deposit import BlockBeeClient, DepositManager, normalize_blockbee_ticker
+from payments.withdraw import WithdrawManager
+
+# -----------exceptions----------
+from exceptions import notEnoughBalance
 
 # ---------verifier-------------
 from payments.verifier import BlockBeeVerifier
@@ -46,14 +51,179 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/banners", StaticFiles(directory="banners"), name="banners")
 
+# Crash REST + WebSocket (implemented in games/crash/router.py)
+app.include_router(crash_router)
+
 INDEX_HTML = "index.html"
 
+# Exactly one Crash loop task for this process
+_crash_loop_task = None
 
+# Bot polling: one task per bot, stopped cleanly on shutdown
+_casino_bot_task = None
+_admin_bot_task = None
+_bots_enabled = False
+
+
+def _bot_debug_ctx(label: str) -> str:
+    task = asyncio.current_task()
+    return (
+        f"{label} | pid={os.getpid()} | thread={threading.get_ident()} | "
+        f"task_id={id(task) if task else None} | "
+        f"task_name={task.get_name() if task else None}"
+    )
+
+
+# функции для поддержки постоянной работы ботов. Если один падает - он перезапускается. В то время как другой продолжает работать.
+async def start_casino_bot():
+    log.info(_bot_debug_ctx("start_casino_bot() ENTERED"))
+    while _bots_enabled:
+        try:
+            log.info(_bot_debug_ctx("casino start_polling() BEFORE"))
+            await casino_dp.start_polling(casino_bot)
+            log.info(_bot_debug_ctx("casino start_polling() EXITED normally"))
+        except asyncio.CancelledError:
+            log.info(_bot_debug_ctx("casino polling CancelledError"))
+            raise
+        except TelegramConflictError:
+            log.error(
+                _bot_debug_ctx(
+                    "Casino TelegramConflictError: another getUpdates client is using "
+                    "this bot token (duplicate process, uvicorn --reload overlap, or "
+                    "run_bot.py still running)"
+                )
+            )
+            if not _bots_enabled:
+                break
+            await asyncio.sleep(10)
+        except Exception:
+            log.exception(
+                _bot_debug_ctx("Casino bot crashed. Restarting in 5 seconds...")
+            )
+            if not _bots_enabled:
+                break
+            await asyncio.sleep(5)
+    log.info(_bot_debug_ctx("start_casino_bot() LOOP EXIT"))
+
+
+async def start_admin_bot():
+    log.info(_bot_debug_ctx("start_admin_bot() ENTERED"))
+    while _bots_enabled:
+        try:
+            log.info(_bot_debug_ctx("admin start_polling() BEFORE"))
+            await admin_dp.start_polling(admin_bot)
+            log.info(_bot_debug_ctx("admin start_polling() EXITED normally"))
+        except asyncio.CancelledError:
+            log.info(_bot_debug_ctx("admin polling CancelledError"))
+            raise
+        except TelegramConflictError:
+            log.error(
+                _bot_debug_ctx(
+                    "Admin TelegramConflictError: another getUpdates client is using "
+                    "this bot token (duplicate process, uvicorn --reload overlap, or "
+                    "admin_bot.py __main__ still running)"
+                )
+            )
+            if not _bots_enabled:
+                break
+            await asyncio.sleep(10)
+        except Exception:
+            log.exception(
+                _bot_debug_ctx("Admin bot crashed. Restarting in 5 seconds...")
+            )
+            if not _bots_enabled:
+                break
+            await asyncio.sleep(5)
+    log.info(_bot_debug_ctx("start_admin_bot() LOOP EXIT"))
+
+
+async def _stop_bot_polling(task, dispatcher, bot, name: str):
+    log.info(_bot_debug_ctx(f"stopping {name} polling"))
+    try:
+        await dispatcher.stop_polling()
+    except Exception:
+        log.exception(_bot_debug_ctx(f"{name} stop_polling failed"))
+
+    if task is not None and not task.done():
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
+
+    try:
+        await bot.session.close()
+    except Exception:
+        log.exception(_bot_debug_ctx(f"{name} session.close failed"))
+
+    log.info(_bot_debug_ctx(f"{name} polling stopped"))
+
+
+# Запуск приложения FastAPI и ботов при старте            
 @app.on_event("startup")
 async def on_startup():
-    log.info("FastAPI application startup completed")
+    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _bots_enabled
+
+    log.info(_bot_debug_ctx("FastAPI on_startup BEGIN"))
+    _bots_enabled = True
+
+    if _casino_bot_task is None or _casino_bot_task.done():
+        _casino_bot_task = asyncio.create_task(
+            start_casino_bot(),
+            name="casino-bot-polling",
+        )
+        log.info(_bot_debug_ctx("Casino bot task CREATED"))
+    else:
+        log.warning(_bot_debug_ctx("Casino bot task already running; skip duplicate"))
+
+    if _admin_bot_task is None or _admin_bot_task.done():
+        _admin_bot_task = asyncio.create_task(
+            start_admin_bot(),
+            name="admin-bot-polling",
+        )
+        log.info(_bot_debug_ctx("Admin bot task CREATED"))
+    else:
+        log.warning(_bot_debug_ctx("Admin bot task already running; skip duplicate"))
+
+    # Start Crash game loop once — crashLoop() also no-ops if already running
+    if _crash_loop_task is None or _crash_loop_task.done():
+        _crash_loop_task = asyncio.create_task(
+            crash_loop.crashLoop(),
+            name="crash-game-loop",
+        )
+        log.info(_bot_debug_ctx("Crash game loop task created"))
+    else:
+        log.info(_bot_debug_ctx("Crash game loop already running; skip duplicate start"))
+
+    log.info(_bot_debug_ctx("FastAPI on_startup END"))
 
 
+@app.on_event("shutdown")
+async def on_shutdown():
+    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _bots_enabled
+
+    log.info(_bot_debug_ctx("FastAPI on_shutdown BEGIN"))
+    _bots_enabled = False
+
+    await _stop_bot_polling(_casino_bot_task, casino_dp, casino_bot, "casino")
+    _casino_bot_task = None
+
+    await _stop_bot_polling(_admin_bot_task, admin_dp, admin_bot, "admin")
+    _admin_bot_task = None
+
+    if _crash_loop_task is not None and not _crash_loop_task.done():
+        _crash_loop_task.cancel()
+        try:
+            await _crash_loop_task
+        except asyncio.CancelledError:
+            pass
+        log.info(_bot_debug_ctx("Crash game loop task cancelled"))
+
+    _crash_loop_task = None
+    log.info(_bot_debug_ctx("FastAPI on_shutdown END"))
+
+
+# Запуск эндпоинта для обслуживания фронтенда
 @app.get("/")
 async def serve_frontend():
     endpoint = "/"
@@ -68,6 +238,7 @@ async def serve_frontend():
         duration_ms = (time.perf_counter() - start) * 1000
         log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
 
+
 class DiceRequest(BaseModel):
     bid: float
     limit: int
@@ -78,9 +249,14 @@ class PlincoRequest(BaseModel):
     risk_mode: str
     rows: int
 
-class UserRequest(BaseModel):
-    initdata: str
+class CrashRequest(BaseModel):
+    bet_amount: int
+    
 
+class UserRequest(BaseModel):
+    initdata: str = ""
+
+# Роутер домашней страницы для аутентификации пользователя 
 @app.post("/api/auth")
 async def root(response: Response, request: Request, initdata: UserRequest):
 
@@ -96,9 +272,20 @@ async def root(response: Response, request: Request, initdata: UserRequest):
         response = FileResponse("index.html")
         event_type = 'Auth'
 
-        # Original TG-ID architecture + single WEB_DEFENCE exception when TG ID is missing.
-        if has_telegram_id(initdata.initdata):
-            if not validate_init_data(initdata.initdata):
+        init_data = initdata.initdata or ""
+
+        # Auth gate:
+        # - WEB_DEFENCE=True  → production: valid Telegram InitData required (unchanged)
+        # - WEB_DEFENCE=False → development: empty/stub/invalid InitData → ensureDevBrowserUser()
+        #                       real valid Telegram InitData still accepted
+        if is_web_defence_enabled():
+            # Production: require valid Telegram InitData (unchanged security rules).
+            if not has_telegram_id(init_data):
+                raise HTTPException(
+                    status_code=401,
+                    detail="Invalid Telegram InitData")
+
+            if not validate_init_data(init_data):
                 raise HTTPException(
                     status_code=401,
                     detail="Invalid Telegram InitData")
@@ -109,12 +296,15 @@ async def root(response: Response, request: Request, initdata: UserRequest):
                 f"Telegram validation succeeded | request_id={request_id} | "
                 f"telegram_id={telegram_id} | user_id={user_id}"
             )
+        elif has_telegram_id(init_data) and validate_init_data(init_data):
+            user_id = userValidate(initdata)
+            telegram_id = getTelegramId(initdata)
+            log.info(
+                f"Development Telegram auth succeeded | request_id={request_id} | "
+                f"telegram_id={telegram_id} | user_id={user_id}"
+            )
         else:
-            if is_web_defence_enabled():
-                raise HTTPException(
-                    status_code=401,
-                    detail="Invalid Telegram InitData")
-
+            # Missing, empty, or stub InitData in local browser → fixed browser_dev user.
             user_id = ensureDevBrowserUser()
             log.info(
                 f"Development auth succeeded (WEB_DEFENCE=False) | request_id={request_id} | "
@@ -170,35 +360,31 @@ async def roll_dice(json: DiceRequest, request: Request):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        session_token, user_id = prepareRequest(request, "dice")
+        _, user_id = prepareRequest(request, "dice")
+        return GameManager(user_id).playDice(json)
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception(f"Endpoint failed | endpoint={endpoint}")
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
 
-        wallet = WalletManager(user_id)
-        wallet_id = wallet.ensureWallet()
-        
-        balance = balanceCheck(wallet, wallet_id, json.bid)
-        if balance == 'not enough':
-            raise notEnoughBalance()
 
-        bet_transaction = TransactionManager(user_id, wallet_id, 'dice bet', json.bid)
-        bet_transaction_id = bet_transaction.postTransaction()
-
-        result = getDiceResult(json)
-
-        bet = Bet(user_id, bet_transaction_id)
-        win_transaction = None
-        
-        if result['result_of_game']:
-            bet_id = bet.createBet('dice', json.bid, 'Win', result['payout'])
-
-            win_transaction = TransactionManager(user_id, wallet_id, 'plinco ', (result['payout']))
-            win_transaction_id = win_transaction.postTransaction()
-        else:
-            bet_id = bet.createBet('dice', json.bid, 'Lose', result['payout'])
-
-        if win_transaction:
-            bet.updateWinTransaction(win_transaction_id, bet_id)
-
-        return result
+@app.get("/api/games/plinco/config")
+async def plinco_config(request: Request):
+    """Read-only Plinko payout tables from config.py for frontend bin labels."""
+    endpoint = "/api/games/plinco/config"
+    start = time.perf_counter()
+    log.info(f"Endpoint started | endpoint={endpoint}")
+    try:
+        prepareRequest(request, 'plinco_config')
+        return {
+            "tables": plinko_tables,
+            "rows": [8, 10, 12, 14, 16],
+            "risk_modes": ["low", "medium", "high"],
+        }
     except HTTPException:
         raise
     except Exception:
@@ -215,31 +401,8 @@ async def plinco(json: PlincoRequest, request: Request):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        session_token, user_id = prepareRequest(request, 'plinco')
-
-        wallet = WalletManager(user_id)
-        wallet_id = wallet.ensureWallet()
-
-        balance = balanceCheck(wallet, wallet_id, json.bid)
-        if balance == 'not enough':
-            raise notEnoughBalance()
-
-        bet_transaction = TransactionManager(user_id, wallet_id, 'plinco bet', json.bid)
-        bet_transaction_id = bet_transaction.postTransaction()
-
-        result = getPlincoResult(json, user_id)
-
-        bet = Bet(user_id, bet_transaction_id)
-        bet_id = bet.createBet('plinco', json.bid, 'Win', result['payout'])
-
-        win_transaction = TransactionManager(user_id, wallet_id, 'plinco ', (result['payout']))
-        win_transaction_id = win_transaction.postTransaction()
-
-        bet.updateWinTransaction(win_transaction_id, bet_id)
-
-        postPlinco(user_id, bet_id, json, result)
-
-        return result
+        _, user_id = prepareRequest(request, 'plinco')
+        return GameManager(user_id).playPlinco(json)
     except HTTPException:
         raise
     except Exception:
@@ -248,9 +411,75 @@ async def plinco(json: PlincoRequest, request: Request):
     finally:
         duration_ms = (time.perf_counter() - start) * 1000
         log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
-    
+
+
 class DepositRequest(BaseModel):
     ticker:str
+
+class WithdrawRequest(BaseModel):
+    ticker: str
+    address: str
+    amount: float
+
+class BonusSelectRequest(BaseModel):
+    offer_id: str
+
+
+@app.get("/api/bonus/offers")
+async def get_bonus_offers(request: Request):
+    endpoint = "/api/bonus/offers"
+    start = time.perf_counter()
+    log.info(f"Endpoint started | endpoint={endpoint}")
+    try:
+        _, user_id = prepareRequest(request, "bonus_offers")
+        return BonusManager(user_id).listDepositOffers()
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception(f"Endpoint failed | endpoint={endpoint}")
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
+
+
+@app.get("/api/bonus/active")
+async def get_active_bonuses(request: Request):
+    endpoint = "/api/bonus/active"
+    start = time.perf_counter()
+    log.info(f"Endpoint started | endpoint={endpoint}")
+    try:
+        _, user_id = prepareRequest(request, "bonus_active")
+        return {"bonuses": BonusManager(user_id).listActiveBonuses()}
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception(f"Endpoint failed | endpoint={endpoint}")
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
+
+
+@app.post("/api/bonus/select")
+async def select_bonus_offer(json: BonusSelectRequest, request: Request):
+    endpoint = "/api/bonus/select"
+    start = time.perf_counter()
+    log.info(f"Endpoint started | endpoint={endpoint}")
+    try:
+        _, user_id = prepareRequest(request, "bonus_select")
+        try:
+            return BonusManager(user_id).selectDepositOffer(json.offer_id)
+        except ValueError as exc:
+            raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception:
+        log.exception(f"Endpoint failed | endpoint={endpoint}")
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
 
 DEPOSIT_STATUS_MAP = {
     "Open deposit window": "pending",
@@ -271,9 +500,14 @@ async def get_wallet_balance(request: Request):
 
         wallet = WalletManager(user_id)
         wallet_id = wallet.ensureWallet()
-        balance = wallet.getBalance(wallet_id)
+        real_balance = wallet.getRealBalance(wallet_id)
+        bonus_balance = wallet.getBonusBalance(wallet_id)
 
-        return {"balance": balance or 0}
+        return {
+            "balance": real_balance,
+            "real_balance": real_balance,
+            "bonus_balance": bonus_balance,
+        }
     except HTTPException:
         raise
     except Exception:
@@ -289,7 +523,7 @@ async def get_deposit_status(request: Request, deposit_id: int):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        session_token, user_id = prepareRequest(request, "deposit_status")
+        session_token, user_id = prepareRequest(request, "update_deposit_status")
 
         deposit = DepositManager(user_id)
         deposit_data = deposit.getDeposit(deposit_id)
@@ -327,6 +561,7 @@ async def get_wallet_history(request: Request):
                 {
                     "id": row["id"],
                     "type": row["type"],
+                    "balance_type": row.get("balance_type"),
                     "amount": row["amount"],
                     "status": row["status"],
                     "balance_after": row["balance_after"],
@@ -396,6 +631,45 @@ async def create_deposit(json: DepositRequest, request: Request):
     }
 
 
+@app.post("/api/wallet/withdraw")
+async def create_withdraw(json: WithdrawRequest, request: Request):
+    session_token, user_id = prepareRequest(request, "withdraw")
+
+    try:
+        ticker = normalize_blockbee_ticker(json.ticker)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    address = json.address.strip()
+    if not address:
+        raise HTTPException(status_code=400, detail="Withdraw address is required")
+
+    if json.amount <= 0:
+        raise HTTPException(status_code=400, detail="Withdraw amount must be greater than zero")
+
+    wallet = WalletManager(user_id)
+    wallet_id = wallet.ensureWallet()
+
+    withdraw = WithdrawManager(user_id)
+
+    try:
+        withdraw_id = withdraw.createWithdrawRequest(
+            wallet_id=wallet_id,
+            amount=json.amount,
+            coin=ticker,
+            address=address,
+        )
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    return {
+        "withdraw_id": withdraw_id,
+        "status": "PENDING",
+    }
+
+
 @app.post("/api/payment/webhook")
 async def blockbee_webhook(request: Request):
 
@@ -434,7 +708,7 @@ async def spa_fallback(full_path: str):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        if full_path.startswith(("api", "static", "assets", "banners")):
+        if full_path.startswith(("api", "crash", "static", "assets", "banners")):
             log.warning(f"SPA fallback rejected reserved path | path={full_path}")
             raise HTTPException(status_code=404, detail="Not Found")
         return FileResponse(INDEX_HTML)
@@ -446,11 +720,3 @@ async def spa_fallback(full_path: str):
     finally:
         duration_ms = (time.perf_counter() - start) * 1000
         log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
-
-# tg bot start
-async def main(): 
-    log.info("Starting Telegram bot polling...")
-    await dp.start_polling(bot)
-
-if __name__ == '__main__':
-    asyncio.run(main())

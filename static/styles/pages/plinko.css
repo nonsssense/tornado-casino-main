@@ -1,0 +1,519 @@
+/**
+ * Plinko game — premium Tornado Original (matches Dice language)
+ */
+
+.game-page--plinko {
+  --plinko-surface: rgba(255, 255, 255, 0.04);
+  --plinko-surface-border: rgba(255, 255, 255, 0.07);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0;
+  overflow-x: hidden;
+  background: #000;
+  color: var(--color-text-primary);
+}
+
+.t-app:has(.game-page--plinko) {
+  background: #000;
+}
+
+.t-app__page:has(.game-page--plinko) {
+  padding-inline: 0;
+  background: #000;
+}
+
+.plinko-board-wrap {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  min-height: 100%;
+}
+
+/* ── Stage / board hero ─────────────────────────────────── */
+
+.plinko-stage {
+  display: flex;
+  justify-content: center;
+  padding-top: var(--space-2);
+}
+
+.plinko-board {
+  position: relative;
+  width: min(100%, 22rem);
+  isolation: isolate;
+}
+
+
+/* Clean risk-tinted surface — subtle vertical gradient only */
+.plinko-board__canvas {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  aspect-ratio: 0.82;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  background: linear-gradient(180deg, #2a261c 0%, #1c1912 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.5);
+  transition: background 0.35s ease;
+}
+
+.plinko-board[data-risk='low'] .plinko-board__canvas {
+  background: linear-gradient(180deg, #1a3228 0%, #12241c 100%);
+}
+
+.plinko-board[data-risk='medium'] .plinko-board__canvas {
+  background: linear-gradient(180deg, #2a261c 0%, #1c1912 100%);
+}
+
+.plinko-board[data-risk='high'] .plinko-board__canvas {
+  background: linear-gradient(180deg, #32181c 0%, #221014 100%);
+}
+
+.plinko-board--premium-win .plinko-board__canvas {
+  filter: brightness(1.04);
+}
+
+/* Pegs — matte white balls */
+.plinko-board__svg {
+  position: relative;
+  z-index: 2;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.plinko-board__atmosphere-svg {
+  pointer-events: none;
+}
+
+.plinko-board__peg-shadow {
+  fill: rgba(0, 0, 0, 0.28);
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.plinko-board__peg-sphere {
+  fill: url(#plinko-peg-gradient);
+  stroke: rgba(255, 255, 255, 0.2);
+  stroke-width: 0.4;
+  filter: url(#plinko-peg-float);
+  transition: fill 0.15s ease;
+}
+
+.plinko-board__peg-highlight {
+  fill: rgba(255, 255, 255, 0.45);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.plinko-board__peg-svg--hit .plinko-board__peg-sphere {
+  fill: url(#plinko-peg-hit-gradient);
+}
+
+.plinko-board__peg-svg--hit .plinko-board__peg-highlight {
+  fill: rgba(255, 255, 255, 0.65);
+}
+
+/* Buckets — premium satin UI buttons */
+.plinko-board__bin-glow {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.plinko-board__bin-shadow {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+.plinko-board__bin-body {
+  stroke: none;
+  filter: drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35));
+}
+
+.plinko-board__bin-highlight,
+.plinko-board__bin-inset,
+.plinko-board__bin-gloss {
+  pointer-events: none;
+}
+
+.plinko-board__bin-rise {
+  opacity: 0;
+  pointer-events: none;
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+.plinko-board__bin-impact {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.plinko-board__bin-label {
+  fill: #ffffff !important;
+  font-family: var(--font-family-base);
+  font-size: 7px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  line-height: 1 !important;
+  font-variant-numeric: tabular-nums;
+  pointer-events: none;
+}
+
+.plinko-board__bin-lift {
+  transform-box: fill-box;
+  transform-origin: center bottom;
+}
+
+/* Land: scale up, soft glow, upward highlight sweep */
+.plinko-board__bin-svg--active .plinko-board__bin-lift {
+  animation: plinko-bin-land-lift 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plinko-board__bin-svg--active .plinko-board__bin-glow {
+  animation: plinko-bin-glow-flash 0.5s ease-out;
+}
+
+.plinko-board__bin-svg--active .plinko-board__bin-rise {
+  animation: plinko-bin-rise-light 0.5s ease-out;
+}
+
+.plinko-board__bin-svg--active .plinko-board__bin-impact {
+  animation: plinko-bin-impact-soft 0.45s ease-out;
+}
+
+.plinko-board__bin-svg--premium .plinko-board__bin-body {
+  filter: drop-shadow(0 3px 7px rgba(0, 0, 0, 0.38)) drop-shadow(0 0 10px rgba(255, 210, 80, 0.2));
+}
+
+@keyframes plinko-bin-land-lift {
+  0% { transform: translateY(0) scale(1); }
+  30% { transform: translateY(-2px) scale(1.06); }
+  100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes plinko-bin-glow-flash {
+  0% { opacity: 0; }
+  25% { opacity: 0.85; }
+  100% { opacity: 0; }
+}
+
+@keyframes plinko-bin-rise-light {
+  0% { opacity: 0; transform: translateY(8px); }
+  30% { opacity: 0.55; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-14px); }
+}
+
+@keyframes plinko-bin-impact-soft {
+  0% { opacity: 0.35; }
+  100% { opacity: 0; }
+}
+
+.plinko-board__ball-svg {
+  fill: url(#plinko-ball-gradient);
+  stroke: rgba(255, 255, 255, 0.5);
+  stroke-width: 1;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.5));
+}
+
+.plinko-board__ball-svg--active {
+  filter: drop-shadow(0 2px 8px rgba(0, 0, 0, 0.55)) drop-shadow(0 0 8px rgba(252, 211, 18, 0.35));
+}
+
+.plinko-board__ball-svg--bounce {
+  transition: r 0.06s ease-out;
+}
+
+.plinko-board__ball-svg--landed {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: plinko-ball-settle 0.35s ease-out;
+}
+
+@keyframes plinko-ball-settle {
+  0% { transform: scale(0.88); }
+  60% { transform: scale(1.06); }
+  100% { transform: scale(1); }
+}
+
+/* Legacy div peg/ball rules removed — board uses SVG */
+.plinko-board__pegs,
+.plinko-board__bins,
+.plinko-board__ball {
+  display: none;
+}
+
+@keyframes plinko-bin-premium {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.14); }
+  100% { transform: scale(1.08); }
+}
+
+.plinko-board--premium-win::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 40%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 60%
+  );
+  animation: plinko-light-sweep 0.9s ease-out;
+}
+
+@keyframes plinko-light-sweep {
+  0% { transform: translateX(-100%); opacity: 0; }
+  30% { opacity: 1; }
+  100% { transform: translateX(100%); opacity: 0; }
+}
+
+/* ── Controls (Dice-aligned) ────────────────────────────── */
+
+.plinko-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 22rem;
+  margin-inline: auto;
+}
+
+.plinko-controls--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.plinko-controls__section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.plinko-controls__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.plinko-controls__segmented {
+  display: flex;
+  gap: 0.125rem;
+  padding: 0.1875rem;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--plinko-surface-border);
+}
+
+.plinko-controls__segmented--rows {
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+}
+
+.plinko-controls__risk-btn,
+.plinko-controls__row-btn {
+  flex: 1;
+  min-height: 2.25rem;
+  padding: 0 var(--space-2);
+  border: 1px solid transparent;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition:
+    background var(--transition-fast),
+    color var(--transition-fast),
+    border-color var(--transition-fast);
+}
+
+.plinko-controls__risk-btn:hover,
+.plinko-controls__row-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
+
+.plinko-controls__risk-btn--active {
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.plinko-controls__risk-btn--low.plinko-controls__risk-btn--active {
+  background: rgba(85, 255, 0, 0.12);
+  border-color: rgba(85, 255, 0, 0.25);
+}
+
+.plinko-controls__risk-btn--medium.plinko-controls__risk-btn--active {
+  background: rgba(204, 255, 0, 0.1);
+  border-color: rgba(204, 255, 0, 0.22);
+}
+
+.plinko-controls__risk-btn--high.plinko-controls__risk-btn--active {
+  background: rgba(255, 34, 0, 0.12);
+  border-color: rgba(255, 34, 0, 0.28);
+}
+
+.plinko-controls__row-btn--active {
+  color: #fff;
+  background: rgba(252, 211, 18, 0.12);
+  border-color: rgba(252, 211, 18, 0.28);
+}
+
+/* Bet panel — mirrors Dice */
+.plinko-controls__bet-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--plinko-surface-border);
+  border-radius: var(--radius-md);
+  background: var(--plinko-surface);
+}
+
+.plinko-controls__bet-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.plinko-controls__bet-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  transition: border-color var(--transition-fast);
+}
+
+.plinko-controls__bet-input-wrap:focus-within {
+  border-color: rgba(252, 211, 18, 0.4);
+}
+
+.plinko-controls__bet-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.plinko-controls__bet-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+}
+
+.plinko-controls__bet-input:focus {
+  outline: none;
+}
+
+.plinko-controls__bet-currency {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.plinko-controls__quick-bets {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.plinko-controls__quick-bet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 150ms ease-out,
+    border-color 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.plinko-controls__quick-bet:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.plinko-controls__quick-bet:active,
+.plinko-controls__quick-bet--pressed {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.plinko-controls--disabled .plinko-controls__quick-bet {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.plinko-controls__bet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.plinko-controls__bet-limit {
+  min-height: 2.25rem !important;
+  font-size: var(--font-size-sm) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.plinko-controls__bet-limit:hover {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+.plinko-controls__play-wrap {
+  padding-top: var(--space-1);
+}
+
+.plinko-controls__play {
+  min-height: 2.75rem !important;
+  font-size: var(--font-size-base) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0.5rem 1.25rem rgba(252, 211, 18, 0.12);
+}
+
+.plinko-controls__play:active:not(:disabled) {
+  transform: scale(0.98);
+}

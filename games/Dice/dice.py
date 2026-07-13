@@ -30,14 +30,14 @@ def get_payout(state, json, factor: float):
 
 
 def roll(json):
-    game_result = randbelow(100) # random value 0-100
+    game_result = randbelow(100)  # random value 0-99
 
-    if json.over: # over true ?
+    if json.over:
         result = json.limit < game_result
     else:
         result = json.limit > game_result
 
-    return result
+    return result, game_result
     
 insert_wo_values = insert(user_events_table)
 
@@ -57,8 +57,11 @@ def dice(json, result_of_game: bool, factor: float):
 
 
 def getDiceResult(json, user_id):
-    data = dice(json, roll(json), getFactor(getChance(json.limit, json.over)))
+    result, game_result = roll(json)
+    factor = getFactor(getChance(json.limit, json.over))
+    data = dice(json, result, factor)
+    data['roll'] = game_result
     log.info(
-        f"Dice result | bid={json.bid} | result={data.get('result')} | payout={data.get('payout')}"
+        f"Dice result | bid={json.bid} | roll={game_result} | result={data.get('result')} | payout={data.get('payout')}"
     )
     return data

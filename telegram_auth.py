@@ -8,7 +8,7 @@ from config import bot_token
 
 def validate_init_data(init_data: str) -> bool:
     """Original Telegram InitData HMAC verification."""
-    if not init_data:
+    if not init_data or not bot_token:
         return False
 
     parsed = parse_qs(init_data)

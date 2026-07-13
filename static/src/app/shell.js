@@ -51,6 +51,8 @@ export function mountAppShell(options = {}) {
     className: 't-animation-root',
   });
 
+  const bottomNav = BottomNavigation({ activeId: activeNavId });
+
   const shell = createElement('div', {
     attrs: { id: SHELL_IDS.ROOT },
     className: 't-app',
@@ -66,7 +68,7 @@ export function mountAppShell(options = {}) {
       }),
       createElement('div', {
         className: 't-app__footer',
-        children: [BottomNavigation({ activeId: activeNavId })],
+        children: [bottomNav],
       }),
       overlayRoot,
       animationRoot,
@@ -75,14 +77,19 @@ export function mountAppShell(options = {}) {
 
   mountTarget.replaceChildren(shell);
 
-  const footerEl = shell.querySelector('.t-app__footer');
-  /** @type {HTMLElement|null} */
-  let navHost = footerEl;
-  /** @type {HTMLElement|null} */
-  let bottomNav = shell.querySelector('.bottom-nav');
+  /** @type {((navId: string) => void)|null} */
+  let navNavigateHandler = null;
 
-  function syncBottomNavRef() {
-    bottomNav = navHost?.querySelector?.('.bottom-nav') || null;
+  function wireBottomNavItems(nav, onNavigate) {
+    if (!nav || !onNavigate) return;
+
+    nav.querySelectorAll('.bottom-nav__item').forEach((item) => {
+      const itemId = item.dataset.nav;
+      if (!itemId || item.dataset.wired) return;
+
+      item.dataset.wired = 'true';
+      item.addEventListener('click', () => onNavigate(itemId));
+    });
   }
 
   return {
@@ -104,58 +111,40 @@ export function mountAppShell(options = {}) {
       pageContainer.classList.remove(
         't-app__page--transition-enter',
         't-app__page--transition-active',
+        't-app__page--transition-exit',
       );
+
       if (state === 'enter') {
         pageContainer.classList.add('t-app__page--transition-enter');
+      } else if (state === 'exit') {
+        pageContainer.classList.add('t-app__page--transition-exit');
       } else {
         pageContainer.classList.add('t-app__page--transition-active');
       }
     },
 
     updateBottomNavigation(activeId, onNavigate) {
-      const host = navHost || footerEl;
-      if (!host) return;
-      host.replaceChildren(BottomNavigation({ activeId, onNavigate }));
-      syncBottomNavRef();
-    },
+      if (!bottomNav) return;
 
-    /**
-     * Move the existing bottom navigation into an overlay footer slot.
-     * @param {HTMLElement} container
-     * @returns {HTMLElement|null}
-     */
-    adoptBottomNav(container) {
-      if (!container) return null;
-
-      if (!bottomNav) {
-        syncBottomNavRef();
+      if (onNavigate) {
+        navNavigateHandler = onNavigate;
       }
 
-      if (!bottomNav) {
-        bottomNav = BottomNavigation({ activeId: 'casino' });
-      }
+      bottomNav.querySelectorAll('.bottom-nav__item').forEach((item) => {
+        const itemId = item.dataset.nav;
+        if (!itemId) return;
 
-      container.replaceChildren(bottomNav);
-      navHost = container;
-      syncBottomNavRef();
-      return bottomNav;
-    },
+        const isActive = itemId === activeId;
+        item.classList.toggle('bottom-nav__item--active', isActive);
 
-    /**
-     * Return bottom navigation to the shell footer.
-     */
-    restoreBottomNav() {
-      if (!footerEl) return;
-
-      if (!bottomNav || !bottomNav.isConnected || bottomNav.parentElement !== footerEl) {
-        const livingNav = navHost?.querySelector?.('.bottom-nav') || bottomNav;
-        if (livingNav) {
-          footerEl.replaceChildren(livingNav);
+        if (isActive) {
+          item.setAttribute('aria-current', 'page');
+        } else {
+          item.removeAttribute('aria-current');
         }
-      }
+      });
 
-      navHost = footerEl;
-      syncBottomNavRef();
+      wireBottomNavItems(bottomNav, navNavigateHandler);
     },
 
     getOverlayRoot() {

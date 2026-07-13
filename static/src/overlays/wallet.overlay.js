@@ -15,13 +15,18 @@ import { BottomSheet } from './bottom-sheet.js';
 export function createWalletOverlay(options = {}) {
   const { initialTab = 'deposit', onClose, onBeforeRemove } = options;
 
-  const content = createWalletModal({ initialTab });
+  const modal = createWalletModal({ initialTab });
 
   return BottomSheet({
-    content,
+    content: modal.element,
     ariaLabel: 'Wallet',
     panelClass: 'bottom-sheet__panel--wallet',
     onClose,
-    onBeforeRemove,
+    onBeforeRemove: () => {
+      modal.destroy?.();
+      if (typeof onBeforeRemove === 'function') {
+        onBeforeRemove();
+      }
+    },
   });
 }

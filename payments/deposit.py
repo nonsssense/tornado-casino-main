@@ -1,17 +1,14 @@
-# payments/blockbee.py
-
 import httpx
 from config import BLOCKBEE_API_KEY, DOMEN as DOMAIN
 from database.transactions import TransactionManager
-from database.db_config import deposit_table, engine
+from database.wallet import WalletManager, BALANCE_REAL
+from database.bonus import BonusManager
+from database.db_config import deposit_table, transaction_table, engine
 import sqlalchemy as sa
 from datetime import datetime
 from log_manager import log
+from database.event_treck import Event
 
-# Official BlockBee path tickers for Custom Payment Flow:
-# GET https://api.blockbee.io/{ticker}/create/
-# Docs: https://docs.blockbee.io/get-started/tickers
-# Source of truth: BlockBee /info endpoint + create-payment-address docs.
 SUPPORTED_BLOCKBEE_TICKERS = frozenset({
     "btc",
     "eth",
@@ -26,7 +23,6 @@ SUPPORTED_BLOCKBEE_TICKERS = frozenset({
     "sol/usdc",
 })
 
-# Legacy frontend aliases → official BlockBee tickers.
 LEGACY_TICKER_ALIASES = {
     "USDT_TRC20": "trc20/usdt",
     "USDC": "erc20/usdc",
@@ -135,7 +131,90 @@ class BlockBeeClient:
             f"&wallet_id={wallet_id}"
             f"&deposit_id={deposit_id}"
         )
-    
+
+    async def send_payout(self, ticker: str, address: str, amount: float):
+        blockbee_ticker = normalize_blockbee_ticker(ticker)
+        amount_value = format(amount, "f").rstrip("0").rstrip(".") or "0"
+
+        log.info(
+            f"Sending BlockBee payout | ticker={blockbee_ticker} | address={address} | "
+            f"amount={amount_value}"
+        )
+
+        try:
+            async with httpx.AsyncClient() as client:
+                create_url = f"{self.BASE_URL}/{blockbee_ticker}/payout/request/create/"
+                create_response = await client.get(
+                    create_url,
+                    params={
+                        "apikey": BLOCKBEE_API_KEY,
+                        "address": address,
+                        "value": amount_value,
+                    },
+                    timeout=30,
+                )
+                create_response.raise_for_status()
+                create_data = create_response.json()
+
+                if create_data.get("status") != "success":
+                    raise ValueError(create_data.get("error") or "Failed to create payout request")
+
+                request_id = create_data["request_id"]
+
+                payout_create_response = await client.post(
+                    f"{self.BASE_URL}/payout/create/",
+                    params={"apikey": BLOCKBEE_API_KEY},
+                    data={"payout_request_ids": request_id},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=30,
+                )
+                payout_create_response.raise_for_status()
+                payout_create_data = payout_create_response.json()
+
+                if payout_create_data.get("status") != "success":
+                    raise ValueError(payout_create_data.get("error") or "Failed to create payout")
+
+                payout_info = payout_create_data.get("payout_info") or {}
+                payout_id = payout_info.get("id")
+                if payout_id is None:
+                    raise ValueError("BlockBee did not return payout id")
+
+                process_response = await client.post(
+                    f"{self.BASE_URL}/payout/process/",
+                    params={"apikey": BLOCKBEE_API_KEY},
+                    data={"payout_id": payout_id},
+                    headers={"Content-Type": "application/x-www-form-urlencoded"},
+                    timeout=60,
+                )
+                process_response.raise_for_status()
+                process_data = process_response.json()
+
+                if process_data.get("status") != "success":
+                    raise ValueError(process_data.get("error") or "Failed to process payout")
+
+                process_info = process_data.get("payout_info") or {}
+                payout_status = (process_info.get("status") or "").lower()
+
+                if payout_status in ("error", "rejected"):
+                    raise ValueError(process_info.get("error") or f"Payout {payout_status}")
+
+                log.info(
+                    f"BlockBee payout sent | request_id={request_id} | payout_id={payout_id} | "
+                    f"status={payout_status}"
+                )
+
+                return {
+                    "request_id": request_id,
+                    "payout_id": payout_id,
+                    "txid": process_info.get("txid") or "",
+                    "status": payout_status,
+                }
+        except Exception:
+            log.exception(
+                f"BlockBee payout failed | ticker={blockbee_ticker} | address={address} | "
+                f"amount={amount_value}"
+            )
+            raise
 
 def coins_match(stored_ticker: str, webhook_coin: str) -> bool:
     """Match stored BlockBee path ticker to webhook coin field.
@@ -187,9 +266,25 @@ class DepositManager:
     def markPending(self, deposit, webhook):
         log.info(f"Updating deposit to pending | user_id={self.user_id} | deposit_id={deposit['id']}")
         with engine.begin() as conn:
+            locked = conn.execute(
+                sa.select(deposit_table)
+                .where(deposit_table.c.id == deposit["id"])
+                .with_for_update()
+            ).mappings().first()
+
+            if locked is None:
+                return
+
+            if locked["status"] not in ("Open deposit window", "Pending"):
+                log.info(
+                    f"Deposit not open for pending mark | user_id={self.user_id} | "
+                    f"deposit_id={locked['id']} | status={locked['status']}"
+                )
+                return
+
             stmt = (
                 sa.update(deposit_table)
-                .where(deposit_table.c.id == deposit["id"])
+                .where(deposit_table.c.id == locked["id"])
                 .values(
                     status="Pending",
                     uuid=webhook["uuid"],
@@ -200,27 +295,91 @@ class DepositManager:
             conn.execute(stmt)
             log.info(
                 f"Deposit UPDATE to pending completed | user_id={self.user_id} | "
-                f"deposit_id={deposit['id']} | uuid={webhook.get('uuid')}"
+                f"deposit_id={locked['id']} | uuid={webhook.get('uuid')}"
             )
 
     def completeDeposit(self, deposit, webhook):
+        amount = float(webhook["value_forwarded_coin"])
+        payment_uuid = webhook.get("uuid")
 
         with engine.begin() as conn:
+            locked = conn.execute(
+                sa.select(deposit_table)
+                .where(deposit_table.c.id == deposit["id"])
+                .with_for_update()
+            ).mappings().first()
+
+            if locked is None:
+                log.warning(
+                    f"Deposit not found for complete | user_id={self.user_id} | "
+                    f"deposit_id={deposit.get('id')}"
+                )
+                return
+
+            if locked["status"] not in ("Open deposit window", "Pending"):
+                log.info(
+                    f"Deposit already finalized, skip complete | user_id={self.user_id} | "
+                    f"deposit_id={locked['id']} | status={locked['status']}"
+                )
+                return
+
+            if locked.get("transaction_id") is not None:
+                log.info(
+                    f"Deposit already has transaction, skip complete | user_id={self.user_id} | "
+                    f"deposit_id={locked['id']} | transaction_id={locked['transaction_id']}"
+                )
+                return
+
+            if payment_uuid:
+                existing_tx = conn.execute(
+                    sa.select(transaction_table.c.id)
+                    .where(
+                        transaction_table.c.user_id == locked["user_id"],
+                        transaction_table.c.reference_id == payment_uuid,
+                        transaction_table.c.transaction_type == "deposit",
+                    )
+                    .limit(1)
+                ).scalar_one_or_none()
+                if existing_tx is not None:
+                    log.info(
+                        f"Deposit payment uuid already credited, skip | user_id={self.user_id} | "
+                        f"deposit_id={locked['id']} | transaction_id={existing_tx}"
+                    )
+                    self.finishDeposit(locked, webhook, existing_tx, conn)
+                    return
+
+            wallet = WalletManager(locked["user_id"])
+            real_balance = wallet.getRealBalance(locked["wallet_id"], conn=conn)
+            balance_after = real_balance + amount
+            wallet.updateRealBalance(conn, balance_after)
+
             transaction = TransactionManager(
-                user_id=deposit["user_id"],
-                wallet_id=deposit["wallet_id"],
-                type="deposit",
-                amount=float(webhook["value_forwarded_coin"]),
+                user_id=locked["user_id"],
+                wallet_id=locked["wallet_id"],
+                balance_type=BALANCE_REAL,
+                transaction_type="deposit",
+                amount=amount,
+                balance_after=balance_after,
                 status="Completed",
-                reference_id=webhook["uuid"],
+                reference_id=payment_uuid,
             )
             transaction_id = transaction.postTransaction(conn)
             log.info(
-                f"Deposit transaction created | user_id={deposit['user_id']} | "
-                f"deposit_id={deposit['id']} | transaction_id={transaction_id}"
+                f"Deposit transaction created | user_id={locked['user_id']} | "
+                f"deposit_id={locked['id']} | transaction_id={transaction_id}"
             )
 
-            self.finishDeposit(deposit, webhook, transaction_id, conn)
+            # Grant before marking Completed so deposit_index = completed_before + 1.
+            bonus_manager = BonusManager(locked["user_id"])
+            deposit_index = bonus_manager.countCompletedDeposits(conn=conn) + 1
+            bonus_manager.grantDepositBonus(
+                locked["wallet_id"],
+                amount,
+                deposit_index=deposit_index,
+                conn=conn,
+            )
+
+            self.finishDeposit(locked, webhook, transaction_id, conn)
 
     def finishDeposit(self, deposit, webhook, transaction_id, conn):
         log.info(
@@ -250,8 +409,10 @@ class DepositManager:
             f"Creating pre-deposit | user_id={self.user_id} | wallet_id={wallet_id} | "
             f"ticker={ticker} | status={status}"
         )
+
+        event = Event(user_id=self.user_id, event_type=status)
         with engine.begin() as conn:
-            
+            event.postEvent()
             deposit_id = self.findOpenDeposit(wallet_id, ticker)
             if deposit_id is not None:
                 log.info(

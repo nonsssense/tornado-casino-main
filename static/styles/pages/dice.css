@@ -1,0 +1,881 @@
+/**
+ * Dice game — immersive premium casino experience
+ * Palette from design/dice_game_scheme.svg
+ */
+
+.game-page--dice {
+  --dice-purple: #732ca6;
+  --dice-purple-deep: #2c1140;
+  --dice-magenta: #a62b97;
+  --dice-magenta-deep: #40103a;
+  --dice-glow-purple: rgba(115, 44, 166, 0.42);
+  --dice-glow-magenta: rgba(166, 43, 151, 0.32);
+  --dice-surface: rgba(255, 255, 255, 0.04);
+  --dice-surface-border: rgba(255, 255, 255, 0.07);
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0;
+  overflow-x: hidden;
+  background: #000;
+  color: var(--color-text-primary);
+}
+
+.t-app:has(.game-page--dice) {
+  background: #000;
+}
+
+.t-app--game-immersive .t-app__footer {
+  display: none;
+}
+
+.t-app__page:has(.game-page--dice) {
+  padding-inline: 0;
+  background: #000;
+}
+
+.game-page--dice .dice-board {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  position: relative;
+  min-height: 100%;
+}
+
+.dice-page__banner-slot {
+  display: none;
+  min-height: 0;
+}
+
+.dice-page__banner-slot:not(:empty) {
+  display: block;
+  min-height: 3rem;
+  margin-bottom: var(--space-2);
+}
+
+/* ── Stage (wheel + slider) ─────────────────────────────── */
+
+.dice-stage {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding-top: var(--space-4);
+  margin-bottom: var(--space-1);
+}
+
+.dice-stage__glow {
+  position: absolute;
+  left: 50%;
+  top: 58%;
+  width: min(92vw, 22rem);
+  height: 6rem;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  z-index: 0;
+  background:
+    radial-gradient(
+      ellipse 100% 100% at 50% 100%,
+      rgba(115, 44, 166, 0.38) 0%,
+      rgba(166, 43, 151, 0.18) 38%,
+      transparent 72%
+    );
+  filter: blur(18px);
+  opacity: 0.85;
+}
+
+.dice-stage__wheel-wrap {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  margin-bottom: var(--space-3);
+}
+
+/* ── Wheel ───────────────────────────────────────────────── */
+
+.dice-wheel {
+  --dice-wheel-size: min(88vw, 20rem);
+  --dice-hub-size: calc(var(--dice-wheel-size) * 0.34);
+  --dice-pointer-len: calc(var(--dice-wheel-size) * 0.1);
+
+  position: relative;
+  width: var(--dice-wheel-size);
+  height: var(--dice-wheel-size);
+  aspect-ratio: 1;
+  flex-shrink: 0;
+  isolation: isolate;
+}
+
+/* Studio floor spill — light falling beneath the disc */
+.dice-wheel__ground-spill {
+  position: absolute;
+  left: 50%;
+  bottom: -6%;
+  z-index: 0;
+  width: 72%;
+  height: 22%;
+  transform: translateX(-50%);
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse 100% 80% at 50% 0%,
+      rgba(220, 190, 230, 0.11) 0%,
+      rgba(166, 43, 151, 0.07) 32%,
+      rgba(115, 44, 166, 0.04) 52%,
+      transparent 78%
+    );
+  filter: blur(10px);
+  opacity: 0.9;
+}
+
+.dice-wheel__disc {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  border-radius: 50%;
+  overflow: hidden;
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.1),
+    0 1.5rem 3rem rgba(0, 0, 0, 0.55),
+    0 0.5rem 1.25rem rgba(90, 40, 120, 0.1);
+}
+
+/* Rich tonal sectors — smooth multi-stop blends */
+.dice-wheel__sectors {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    #12081a 0deg,
+    #18101f calc(var(--dice-lose-deg, 180deg) * 0.2),
+    #1e1226 calc(var(--dice-lose-deg, 180deg) * 0.45),
+    #241428 calc(var(--dice-lose-deg, 180deg) * 0.7),
+    #2a1630 calc(var(--dice-lose-deg, 180deg) - 5deg),
+    #301838 calc(var(--dice-lose-deg, 180deg) - 2.5deg),
+    #361a3e calc(var(--dice-lose-deg, 180deg) - 1deg),
+    #3c1c44 var(--dice-lose-deg, 180deg),
+    #422046 calc(var(--dice-lose-deg, 180deg) + 1deg),
+    #48244e calc(var(--dice-lose-deg, 180deg) + 2.5deg),
+    #4e2856 calc(var(--dice-lose-deg, 180deg) + 5deg),
+    #542c5c calc(var(--dice-lose-deg, 180deg) + 10deg),
+    #5a3064 calc(var(--dice-lose-deg, 180deg) + var(--dice-win-deg, 180deg) * 0.15),
+    #603468 calc(var(--dice-lose-deg, 180deg) + var(--dice-win-deg, 180deg) * 0.35),
+    #66386e calc(var(--dice-lose-deg, 180deg) + var(--dice-win-deg, 180deg) * 0.55),
+    #6c3c74 calc(var(--dice-lose-deg, 180deg) + var(--dice-win-deg, 180deg) * 0.75),
+    #724078 calc(var(--dice-lose-deg, 180deg) + var(--dice-win-deg, 180deg) * 0.9),
+    #78447c 360deg
+  );
+}
+
+.dice-wheel[data-over='false'] .dice-wheel__sectors {
+  background: conic-gradient(
+    from 0deg,
+    #542c5c 0deg,
+    #5a3064 calc(var(--dice-win-deg, 180deg) * 0.15),
+    #603468 calc(var(--dice-win-deg, 180deg) * 0.35),
+    #66386e calc(var(--dice-win-deg, 180deg) * 0.55),
+    #6c3c74 calc(var(--dice-win-deg, 180deg) * 0.75),
+    #724078 calc(var(--dice-win-deg, 180deg) * 0.9),
+    #78447c calc(var(--dice-win-deg, 180deg) - 5deg),
+    #6e3a72 calc(var(--dice-win-deg, 180deg) - 2.5deg),
+    #64366c calc(var(--dice-win-deg, 180deg) - 1deg),
+    #5a3264 var(--dice-win-deg, 180deg),
+    #502e5c calc(var(--dice-win-deg, 180deg) + 1deg),
+    #462a54 calc(var(--dice-win-deg, 180deg) + 2.5deg),
+    #3c264c calc(var(--dice-win-deg, 180deg) + 5deg),
+    #322242 calc(var(--dice-win-deg, 180deg) + 10deg),
+    #281e38 calc(var(--dice-win-deg, 180deg) + var(--dice-lose-deg, 180deg) * 0.2),
+    #1e1a2e calc(var(--dice-win-deg, 180deg) + var(--dice-lose-deg, 180deg) * 0.45),
+    #161422 calc(var(--dice-win-deg, 180deg) + var(--dice-lose-deg, 180deg) * 0.7),
+    #12081a 360deg
+  );
+}
+
+/* Softens the sector boundary — no hard cut */
+.dice-wheel__sectors-blend {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent calc(var(--dice-lose-deg, 180deg) - 8deg),
+    rgba(255, 255, 255, 0.035) calc(var(--dice-lose-deg, 180deg) - 3deg),
+    rgba(255, 220, 245, 0.05) var(--dice-lose-deg, 180deg),
+    rgba(255, 255, 255, 0.03) calc(var(--dice-lose-deg, 180deg) + 3deg),
+    transparent calc(var(--dice-lose-deg, 180deg) + 8deg),
+    transparent 360deg
+  );
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.dice-wheel[data-over='false'] .dice-wheel__sectors-blend {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent calc(var(--dice-win-deg, 180deg) - 8deg),
+    rgba(255, 255, 255, 0.035) calc(var(--dice-win-deg, 180deg) - 3deg),
+    rgba(255, 220, 245, 0.05) var(--dice-win-deg, 180deg),
+    rgba(255, 255, 255, 0.03) calc(var(--dice-win-deg, 180deg) + 3deg),
+    transparent calc(var(--dice-win-deg, 180deg) + 8deg),
+    transparent 360deg
+  );
+}
+
+/* Dome depth — polished glass curvature */
+.dice-wheel__depth {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      ellipse 88% 72% at 50% 32%,
+      rgba(255, 255, 255, 0.09) 0%,
+      rgba(255, 255, 255, 0.03) 28%,
+      transparent 52%
+    ),
+    radial-gradient(
+      circle at 50% 50%,
+      transparent 42%,
+      rgba(0, 0, 0, 0.08) 72%,
+      rgba(0, 0, 0, 0.22) 100%
+    );
+  pointer-events: none;
+}
+
+.dice-wheel__glass {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 24% 20%, rgba(255, 255, 255, 0.14) 0%, transparent 32%),
+    radial-gradient(circle at 76% 68%, rgba(200, 140, 210, 0.06) 0%, transparent 36%),
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      transparent 38%,
+      rgba(0, 0, 0, 0.06) 72%,
+      rgba(0, 0, 0, 0.14) 100%
+    );
+  opacity: 0.92;
+  mix-blend-mode: soft-light;
+  pointer-events: none;
+}
+
+.dice-wheel__caustic {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 30% 26%, rgba(255, 255, 255, 0.05) 0%, transparent 16%),
+    radial-gradient(circle at 62% 38%, rgba(255, 230, 248, 0.035) 0%, transparent 12%),
+    radial-gradient(circle at 44% 58%, rgba(180, 120, 200, 0.025) 0%, transparent 20%);
+  pointer-events: none;
+}
+
+.dice-wheel__inner-rim {
+  position: absolute;
+  inset: 9%;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.12),
+    inset 0 0 1.25rem rgba(255, 255, 255, 0.03),
+    inset 0 -0.5rem 1rem rgba(140, 80, 160, 0.08);
+  pointer-events: none;
+}
+
+.dice-wheel__edge-light {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, 0.14),
+    inset 0 -1px 2px rgba(180, 120, 200, 0.1),
+    inset 1px 0 1px rgba(255, 255, 255, 0.06),
+    inset -1px 0 1px rgba(255, 255, 255, 0.04);
+  pointer-events: none;
+}
+
+.dice-wheel__rim {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  box-shadow:
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.16),
+    inset 0 -0.75rem 1.5rem rgba(115, 44, 166, 0.18),
+    inset 0 0.75rem 1.25rem rgba(255, 255, 255, 0.05);
+  pointer-events: none;
+}
+
+/* Soft top illumination — studio key light */
+.dice-wheel__ambient-lit {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(
+      ellipse 95% 55% at 50% -8%,
+      rgba(255, 248, 252, 0.14) 0%,
+      rgba(255, 220, 245, 0.06) 35%,
+      transparent 68%
+    );
+  pointer-events: none;
+}
+
+/* Barely-there specular — no glossy streaks */
+.dice-wheel__specular {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: radial-gradient(
+    ellipse 42% 28% at 38% 24%,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.02) 45%,
+    transparent 70%
+  );
+  pointer-events: none;
+}
+
+.dice-wheel__shine {
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 10%, rgba(255, 255, 255, 0.07) 0%, transparent 38%),
+    radial-gradient(circle at 50% 92%, rgba(166, 43, 151, 0.06) 0%, transparent 48%);
+  pointer-events: none;
+}
+
+.dice-wheel--spinning .dice-wheel__ground-spill {
+  opacity: 1;
+  transition: opacity 0.5s ease;
+}
+
+.dice-wheel__pointer {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 0;
+  height: 0;
+  margin-left: 0;
+  margin-top: calc(var(--dice-wheel-size) * -0.5);
+  transform-origin: 50% calc(var(--dice-wheel-size) * 0.5);
+  z-index: 3;
+  filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.45));
+}
+
+.dice-wheel__pointer-cap {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 0.5rem;
+  height: var(--dice-pointer-len);
+  margin-left: -0.25rem;
+  border-radius: 0.25rem 0.25rem 0.125rem 0.125rem;
+  background: linear-gradient(180deg, #fff 0%, #e8dff0 55%, #c9b8d4 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.35),
+    0 0 0.5rem rgba(166, 43, 151, 0.35);
+}
+
+.dice-wheel__hub {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 2;
+  width: var(--dice-hub-size);
+  height: var(--dice-hub-size);
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 50% 24%, rgba(255, 255, 255, 0.14) 0%, transparent 44%),
+    radial-gradient(circle at 50% 80%, rgba(140, 80, 160, 0.1) 0%, transparent 50%),
+    linear-gradient(168deg, rgba(36, 22, 48, 0.88) 0%, rgba(10, 8, 14, 0.94) 100%);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow:
+    0 0 0 0.5px rgba(255, 255, 255, 0.14),
+    inset 0 -0.75rem 1.5rem rgba(115, 44, 166, 0.2),
+    inset 0 0.5rem 1rem rgba(255, 255, 255, 0.06),
+    0 0.85rem 1.75rem rgba(0, 0, 0, 0.5);
+}
+
+.dice-wheel__hub-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  gap: 0.125rem;
+}
+
+.dice-wheel__result-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.dice-wheel__result-value {
+  font-size: clamp(1.25rem, 5vw, 1.625rem);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 0 0.75rem rgba(200, 160, 210, 0.25);
+}
+
+.dice-wheel__hub--pulse {
+  animation: dice-hub-pulse 0.55s ease-out;
+}
+
+@keyframes dice-hub-pulse {
+  0% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 -0.5rem 1.25rem rgba(115, 44, 166, 0.2), 0 0.75rem 1.5rem rgba(0, 0, 0, 0.5); }
+  45% { box-shadow: 0 0 0 1px rgba(166, 43, 151, 0.35), inset 0 -0.5rem 1.5rem rgba(166, 43, 151, 0.35), 0 0 1.25rem rgba(115, 44, 166, 0.28); }
+  100% { box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), inset 0 -0.5rem 1.25rem rgba(115, 44, 166, 0.2), 0 0.75rem 1.5rem rgba(0, 0, 0, 0.5); }
+}
+
+.dice-wheel--spinning .dice-wheel__result-value {
+  opacity: 0.55;
+}
+
+.dice-stage:has(.dice-wheel--spinning) .dice-stage__glow {
+  opacity: 1;
+  filter: blur(20px);
+  transition: opacity 0.4s ease, filter 0.4s ease;
+}
+
+/* ── Slider (connected to wheel) ─────────────────────────── */
+
+.dice-controls__slider-panel {
+  --dice-slider-pct: 50%;
+  position: relative;
+  z-index: 2;
+  width: min(92vw, 22rem);
+  padding: 0 var(--space-1);
+}
+
+.dice-controls__slider-header {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: var(--space-1);
+  padding-inline: 0.125rem;
+}
+
+.dice-controls__slider-label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.dice-controls__limit-value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.88);
+}
+
+.dice-controls__slider-track {
+  position: relative;
+  height: 0.875rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.35);
+  overflow: visible;
+}
+
+.dice-controls__slider-track::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    var(--dice-purple-deep) 0%,
+    var(--dice-purple) var(--dice-slider-pct),
+    var(--dice-magenta) 100%
+  );
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.dice-controls__slider {
+  -webkit-appearance: none;
+  appearance: none;
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  height: 0.875rem;
+  margin: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.dice-controls__slider::-webkit-slider-runnable-track {
+  height: 0.875rem;
+  background: transparent;
+  border-radius: 999px;
+}
+
+.dice-controls__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin-top: -0.125rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, #fff 0%, #e5d8ef 100%);
+  box-shadow:
+    0 0 0 1px rgba(115, 44, 166, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.45),
+    0 0 0.75rem rgba(166, 43, 151, 0.25);
+  transition: transform var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.dice-controls__slider:active::-webkit-slider-thumb {
+  transform: scale(1.06);
+}
+
+.dice-controls__slider::-moz-range-track {
+  height: 0.875rem;
+  background: transparent;
+  border-radius: 999px;
+  border: none;
+}
+
+.dice-controls__slider::-moz-range-thumb {
+  width: 1.125rem;
+  height: 1.125rem;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.9);
+  background: linear-gradient(145deg, #fff 0%, #e5d8ef 100%);
+  box-shadow:
+    0 0 0 1px rgba(115, 44, 166, 0.4),
+    0 2px 8px rgba(0, 0, 0, 0.45);
+}
+
+.dice-controls__slider:focus-visible {
+  outline: none;
+}
+
+.dice-controls__slider:focus-visible::-webkit-slider-thumb {
+  box-shadow:
+    0 0 0 2px #000,
+    0 0 0 4px rgba(166, 43, 151, 0.55);
+}
+
+/* ── Controls panel ──────────────────────────────────────── */
+
+.dice-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+  max-width: 22rem;
+  margin-inline: auto;
+}
+
+.dice-controls--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+/* Direction cards */
+
+.dice-controls__directions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.dice-direction {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.125rem;
+  min-height: 3.75rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--dice-surface-border);
+  border-radius: var(--radius-md);
+  background: var(--dice-surface);
+  color: rgba(255, 255, 255, 0.55);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color var(--transition-fast),
+    background var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.dice-direction:hover:not(.dice-direction--active) {
+  border-color: rgba(255, 255, 255, 0.12);
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.dice-direction--over.dice-direction--active {
+  border-color: rgba(166, 43, 151, 0.45);
+  background: linear-gradient(165deg, rgba(166, 43, 151, 0.28) 0%, rgba(64, 16, 58, 0.55) 100%);
+  color: #fff;
+  box-shadow: 0 0.25rem 1rem rgba(166, 43, 151, 0.12);
+}
+
+.dice-direction--under.dice-direction--active {
+  border-color: rgba(115, 44, 166, 0.45);
+  background: linear-gradient(165deg, rgba(115, 44, 166, 0.28) 0%, rgba(44, 17, 64, 0.55) 100%);
+  color: #fff;
+  box-shadow: 0 0.25rem 1rem rgba(115, 44, 166, 0.12);
+}
+
+.dice-direction__title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  opacity: 0.72;
+}
+
+.dice-direction--active .dice-direction__title {
+  opacity: 0.9;
+}
+
+.dice-direction__multiplier-value {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.dice-direction__meta {
+  display: flex;
+  gap: var(--space-2);
+  width: 100%;
+  margin-top: 0.125rem;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.dice-direction--active .dice-direction__meta {
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.dice-direction__chance::before {
+  content: 'Chance ';
+}
+
+.dice-direction__profit::before {
+  content: 'Profit ';
+}
+
+/* Potential win preview */
+
+.dice-payout-preview {
+  padding: var(--space-3);
+  border: 1px solid var(--dice-surface-border);
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.dice-payout-preview__title {
+  display: block;
+  margin-bottom: var(--space-2);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.dice-payout-preview__grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-2);
+}
+
+.dice-payout-preview__row {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+}
+
+.dice-payout-preview__label {
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.dice-payout-preview__value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Bet panel */
+
+.dice-controls__bet-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--dice-surface-border);
+  border-radius: var(--radius-md);
+  background: var(--dice-surface);
+}
+
+.dice-controls__bet-title {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.dice-controls__bet-input-wrap {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: 2.75rem;
+  padding: 0 var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  transition: border-color var(--transition-fast);
+}
+
+.dice-controls__bet-input-wrap:focus-within {
+  border-color: rgba(166, 43, 151, 0.45);
+}
+
+.dice-controls__bet-icon {
+  width: 1.25rem;
+  height: 1.25rem;
+  flex-shrink: 0;
+  object-fit: contain;
+}
+
+.dice-controls__bet-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: left;
+}
+
+.dice-controls__bet-input:focus {
+  outline: none;
+}
+
+.dice-controls__bet-currency {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.dice-controls__quick-bets {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.dice-controls__quick-bet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 150ms ease-out,
+    border-color 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.dice-controls__quick-bet:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.dice-controls__quick-bet:active,
+.dice-controls__quick-bet--pressed {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.dice-controls--disabled .dice-controls__quick-bet {
+  pointer-events: none;
+  opacity: 0.55;
+}
+
+.dice-controls__bet-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.dice-controls__bet-limit {
+  min-height: 2.25rem !important;
+  font-size: var(--font-size-sm) !important;
+  border-color: rgba(255, 255, 255, 0.08) !important;
+  color: rgba(255, 255, 255, 0.72) !important;
+}
+
+.dice-controls__bet-limit:hover {
+  color: #fff !important;
+  border-color: rgba(255, 255, 255, 0.14) !important;
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+/* Play button */
+
+.dice-controls__play-wrap {
+  padding-top: var(--space-1);
+}
+
+.dice-controls__play {
+  min-height: 2.75rem !important;
+  font-size: var(--font-size-base) !important;
+  font-weight: var(--font-weight-semibold) !important;
+  letter-spacing: 0.02em;
+  border-radius: var(--radius-md) !important;
+  box-shadow: 0 0.5rem 1.25rem rgba(252, 211, 18, 0.12);
+}
+
+.dice-controls__play:active:not(:disabled) {
+  transform: scale(0.98);
+}

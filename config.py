@@ -1,9 +1,22 @@
+from pathlib import Path
+
 from dotenv import load_dotenv
 import os
 
-load_dotenv('.env')
+white_ids = {
+    5478327492: "owner",
+    1200219142: "owner",
+    #456123789: "investor",
+    #741852963: "support",
+}
+
+# Always resolve .env from the project root (this file's directory), not process cwd.
+# Otherwise WEB_DEFENCE defaults to True and browser/dev auth breaks after restart.
+_ENV_FILE = Path(__file__).resolve().parent / '.env'
+load_dotenv(_ENV_FILE)
 
 bot_token = os.getenv('BOT_TOKEN')
+admin_bot_token = os.getenv('ADMIN_BOT_TOKEN')
 db_url = os.getenv('DB_URL')
 
 BLOCKBEE_API_KEY = os.getenv('API_BLOCKBEE')
@@ -14,8 +27,8 @@ DOMEN = os.getenv('DOMEN')
 
 
 def is_web_defence_enabled() -> bool:
-    """Reload WEB_DEFENCE from .env on each call (toggle without code changes)."""
-    load_dotenv('.env', override=True)
+    """Reload WEB_DEFENCE from project .env on each call (toggle without code changes)."""
+    load_dotenv(_ENV_FILE, override=True)
     value = os.getenv('WEB_DEFENCE', 'True')
     return value.strip().lower() in ('1', 'true', 'yes', 'on')
 

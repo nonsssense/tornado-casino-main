@@ -7,15 +7,17 @@
 
 import { createElement } from '../utils/dom.js';
 import { ASSETS } from '../utils/assets.js';
+import { ROUTE_NAMES } from '../router/route-names.js';
 
-const PROMO_PLACEHOLDERS = [
-  'бонус на депозит',
-  'Фри ставки на игры',
-];
+const BONUS_BANNER_ALT = 'бонус на депозит';
 
 const DEPOSIT_BONUS_BANNER = '/banners/depost_bonus_banenr.png';
 
-const GAME_PLACEHOLDER_COUNT = 3;
+const GAMES = [
+  { id: 'dice', title: 'Dice', route: ROUTE_NAMES.DICE, banner: '/banners/dice-game.png' },
+  { id: 'plinko', title: 'Plinko', route: ROUTE_NAMES.PLINKO, banner: '/banners/plinko-game.png' },
+  { id: 'crash', title: 'Crash', route: ROUTE_NAMES.CRASH, banner: '/banners/crash-game.png' },
+];
 
 const SUPPORT_ASSET = '/assets/tornado%20support%20MAIN.svg';
 
@@ -50,39 +52,49 @@ export function renderHomePage() {
                 className: 'home-page__promo home-page__promo--banner',
                 attrs: {
                   src: DEPOSIT_BONUS_BANNER,
-                  alt: PROMO_PLACEHOLDERS[0],
+                  alt: BONUS_BANNER_ALT,
                   draggable: false,
-                  role: 'button',
-                  tabindex: '0',
-                  'aria-label': PROMO_PLACEHOLDERS[0],
-                  // TODO: wire deposit bonus banner action
                 },
-              }),
-              createElement('div', {
-                className: 'home-page__promo',
-                text: PROMO_PLACEHOLDERS[1],
               }),
             ],
           }),
         ],
       }),
-      // Games Section: Natural height
+      // Games Section
       createElement('section', {
-        className: 'home-page__section home-page__games-section home-page__surface',
+        className: 'home-page__section home-page__games-section',
         children: [
-          createElement('h2', {
-            className: 'home-page__section-title',
-            text: 'games',
-          }),
           createElement('div', {
-            className: 'home-page__games',
-            attrs: { 'aria-label': 'Games' },
-            children: Array.from({ length: GAME_PLACEHOLDER_COUNT }, () =>
+            className: 'home-page__surface home-page__games-panel',
+            children: [
               createElement('div', {
-                className: 'home-page__game',
-                attrs: { 'aria-hidden': 'true' },
+                className: 'home-page__games',
+                attrs: { 'aria-label': 'Games' },
+                children: GAMES.map((game) =>
+                  createElement('button', {
+                    className: 'home-page__game',
+                    attrs: {
+                      type: 'button',
+                      'aria-label': game.title,
+                      onClick: () => {
+                        void import('../router/index.js').then(({ router }) => router.navigate(game.route));
+                      },
+                    },
+                    children: [
+                      createElement('img', {
+                        className: 'home-page__game-banner',
+                        attrs: {
+                          src: game.banner,
+                          alt: '',
+                          'aria-hidden': 'true',
+                          draggable: false,
+                        },
+                      }),
+                    ],
+                  }),
+                ),
               }),
-            ),
+            ],
           }),
         ],
       }),

@@ -8,3 +8,4 @@
 
 export * from './dice/index.js';
 export * from './plinko/index.js';
+export * from './crash/index.js';

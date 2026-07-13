@@ -27,3 +27,7 @@
 @import url('./pages/wallet.css');
 @import url('./pages/profile.css');
 @import url('./pages/balance.css');
+@import url('./pages/game.css');
+@import url('./pages/dice.css');
+@import url('./pages/plinko.css');
+@import url('./pages/crash.css');

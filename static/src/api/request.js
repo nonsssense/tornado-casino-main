@@ -45,6 +45,10 @@ export async function request(url, options = {}) {
       error.data = null;
     }
 
+    if (response.status === 401) {
+      window.dispatchEvent(new CustomEvent('session:expired', { detail: error }));
+    }
+
     throw error;
   }
 

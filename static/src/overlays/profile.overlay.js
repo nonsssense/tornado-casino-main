@@ -12,9 +12,9 @@ import { BottomSheet } from './bottom-sheet.js';
  * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function createProfileOverlay(options = {}) {
-  const { onClose, onBeforeRemove } = options;
+  const { onClose, onBeforeRemove, onMenuAction } = options;
 
-  const content = createProfileModal();
+  const content = createProfileModal({ onMenuAction });
 
   return BottomSheet({
     content,

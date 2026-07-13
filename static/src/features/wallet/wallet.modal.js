@@ -4,7 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
-import { WalletTabs } from '../../components/shared/WalletTabs.js';
+import { WalletTabs, WALLET_TABS } from '../../components/shared/WalletTabs.js';
 import { createDepositView } from './deposit.view.js';
 import { createWithdrawView } from './withdraw.view.js';
 import { createHistoryView } from './history.view.js';
@@ -84,13 +84,27 @@ export function createWalletModal(options = {}) {
   }
 
   function renderTabs() {
-    tabsMount.replaceChildren(
-      WalletTabs({
-        activeId: activeTab,
-        onTabSelect: switchTab,
-        className: 'wallet-modal__tabs',
-      }),
-    );
+    const existingTabs = tabsMount.querySelector('.wallet-tabs');
+
+    if (!existingTabs) {
+      tabsMount.replaceChildren(
+        WalletTabs({
+          activeId: activeTab,
+          onTabSelect: switchTab,
+          className: 'wallet-modal__tabs',
+        }),
+      );
+      return;
+    }
+
+    existingTabs.querySelectorAll('.wallet-tabs__tab').forEach((button, index) => {
+      const tabId = WALLET_TABS[index]?.id;
+      if (!tabId) return;
+
+      const isActive = tabId === activeTab;
+      button.classList.toggle('wallet-tabs__tab--active', isActive);
+      button.setAttribute('aria-selected', isActive ? 'true' : 'false');
+    });
   }
 
   function showActiveView() {
@@ -141,5 +155,13 @@ export function createWalletModal(options = {}) {
   showActiveView();
   renderTabs();
 
-  return walletModal;
+  return {
+    element: walletModal,
+    destroy() {
+      controllers.forEach((controller) => {
+        controller.destroy?.();
+      });
+      controllers.clear();
+    },
+  };
 }

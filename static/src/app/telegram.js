@@ -32,6 +32,15 @@ export function getTelegramContext() {
     return null;
   }
 
+  // telegram-web-app.js still creates WebApp in a normal browser, usually with
+  // empty initData. That is NOT a Telegram session — return null so /api/auth
+  // can use the WEB_DEFENCE=False development user (ensureDevBrowserUser).
+  const resolvedInitData = typeof initData === 'string' ? initData : '';
+  if (!resolvedInitData) {
+    console.log('[getTelegramContext] returned: null (browser stub, no initData)');
+    return null;
+  }
+
   try {
     tg.ready();
     tg.expand();
@@ -43,7 +52,7 @@ export function getTelegramContext() {
   const user = tg.initDataUnsafe?.user ?? null;
 
   const context = {
-    initData: tg.initData || null,
+    initData: resolvedInitData,
     user,
     telegramId: user?.id ?? null,
   };

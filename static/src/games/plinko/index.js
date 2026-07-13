@@ -4,3 +4,5 @@
 
 export { PlinkoGame } from './plinko.game.js';
 export { animatePlinkoPath } from './plinko.animation.js';
+export { createPlinkoBoard } from './plinko.board.js';
+export { computePlinkoLayout } from './plinko.geometry.js';

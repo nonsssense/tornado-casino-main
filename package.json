@@ -2,10 +2,14 @@
   "name": "casinobot",
   "private": true,
   "scripts": {
-    "dev": "vite",
-    "backend": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload"
+    "dev": "concurrently -k -n backend,vite -c blue,green \"npm run backend\" \"wait-on -t 120000 http-get://127.0.0.1:8080/ && vite\"",
+    "dev:vite": "vite",
+    "backend": "python -m uvicorn main:app --host 127.0.0.1 --port 8080",
+    "backend:reload": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload"
   },
   "devDependencies": {
-    "vite": "^6.3.5"
+    "concurrently": "^10.0.3",
+    "vite": "^6.3.5",
+    "wait-on": "^9.0.10"
   }
 }

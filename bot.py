@@ -7,13 +7,13 @@ from log_manager import log
 if bot_token is None:
     log.error("Bot token is not configured")
 else:
-    bot = Bot(token=bot_token)
+    casino_bot = Bot(token=bot_token)
     log.info("Telegram bot instance created")
 
-dp = Dispatcher()
+casino_dp = Dispatcher()
 
 
-@dp.message(CommandStart())
+@casino_dp.message(CommandStart())
 async def start(message: Message):
     user_id = message.from_user.id if message.from_user else None
     log.info(f"Received /start command | telegram_id={user_id}")

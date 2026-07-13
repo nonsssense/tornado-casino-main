@@ -1,5 +1,5 @@
 # House edge in dice will be 2.5%
-from games.probably_fair import ProvablyFair
+from games.provably_fair import ProvablyFair
 from config import plinko_tables
 from fastapi import Request
 from database.user_db import getUserData

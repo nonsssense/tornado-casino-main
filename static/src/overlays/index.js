@@ -4,7 +4,7 @@
  * Responsibility:
  * - Open/close overlays without route navigation.
  * - Preserve underlying page context (continuous flow principle).
- * - Adopt the shell BottomNavigation into the active sheet footer.
+ * - Bottom navigation stays in the shell footer at all times.
  */
 
 import { OVERLAY_NAMES } from '../utils/constants.js';
@@ -29,6 +29,9 @@ let onNavRestore = null;
 
 /** @type {function|null} */
 let onNavNavigate = null;
+
+/** @type {string|null} */
+let closeRestoreNavId = null;
 
 /**
  * @param {object} appShell
@@ -56,15 +59,6 @@ function restoreNavHighlight() {
   navIdBeforeOverlay = null;
 }
 
-function releaseBottomNav() {
-  shell?.restoreBottomNav?.();
-}
-
-function attachBottomNav(overlay) {
-  if (!overlay?.footer || !shell?.adoptBottomNav) return;
-  shell.adoptBottomNav(overlay.footer);
-}
-
 function teardownOverlay() {
   const root = getOverlayRoot();
   activeOverlay = null;
@@ -75,7 +69,15 @@ function teardownOverlay() {
     root.setAttribute('aria-hidden', 'true');
   }
 
-  restoreNavHighlight();
+  if (closeRestoreNavId !== null) {
+    if (onNavRestore) {
+      onNavRestore(closeRestoreNavId);
+    }
+    closeRestoreNavId = null;
+    navIdBeforeOverlay = null;
+  } else {
+    restoreNavHighlight();
+  }
 }
 
 /**
@@ -98,11 +100,8 @@ function mountOverlay(kind, createOverlay, props = {}) {
 
     const overlay = createOverlay({
       onClose: teardownOverlay,
-      onBeforeRemove: releaseBottomNav,
       ...props,
     });
-
-    attachBottomNav(overlay);
 
     activeOverlay = overlay;
     activeOverlayKind = kind;
@@ -179,11 +178,17 @@ export const overlayManager = {
     mountOverlay('profile', (options) => createProfileOverlay({
       onClose: options.onClose,
       onBeforeRemove: options.onBeforeRemove,
+      // onMenuAction: wire profile menu items here when flows are ready.
     }), props);
   },
 
-  close() {
+  close(options = {}) {
     if (!activeOverlay) return Promise.resolve();
+
+    if (options.restoreNavId !== undefined) {
+      closeRestoreNavId = options.restoreNavId;
+    }
+
     return activeOverlay.close();
   },
 

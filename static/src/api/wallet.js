@@ -33,10 +33,9 @@ export async function fetchHistory() {
 }
 
 /**
- * @param {{ ticker: string, address: string }} payload
+ * @param {{ ticker: string, address: string, amount: number }} payload
  */
 export async function submitWithdraw(payload) {
-  // TODO: POST /api/wallet/withdraw when endpoint is documented
   return request('/api/wallet/withdraw', {
     method: 'POST',
     body: JSON.stringify(payload),

@@ -10,9 +10,9 @@
 
 import { request } from './request.js';
 
-export async function authenticate(initData) {
+export async function authenticate(initData = '') {
   return request('/api/auth', {
     method: 'POST',
-    body: JSON.stringify({ initdata: initData }),
+    body: JSON.stringify({ initdata: initData ?? '' }),
   });
 }

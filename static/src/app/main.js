@@ -7,19 +7,22 @@ import { balanceService } from '../services/balance.service.js';
 import { mountAppShell } from './shell.js';
 import { router } from '../router/index.js';
 import { showAuthError, clearAuthError } from './auth-error.js';
+import { formatCryptoAmount } from '../utils/format.js';
 
 let shellInstance = null;
 let unsubscribeBalance = null;
 
 export function initApp() {
-  shellInstance = mountAppShell();
+  shellInstance = mountAppShell({
+    balanceAmount: formatCryptoAmount(0),
+  });
   router.init(shellInstance);
 
   if (unsubscribeBalance) {
     unsubscribeBalance();
   }
 
-  unsubscribeBalance = balanceService.subscribe((formatted) => {
+  unsubscribeBalance = balanceService.subscribeReal((formatted) => {
     shellInstance?.updateBalanceAmount?.(formatted);
   });
 
@@ -42,9 +45,15 @@ async function bootstrap() {
     if (!shellInstance) {
       initApp();
     }
+
+    await balanceService.fetchBalances();
   } catch {
     showAuthError({ onRetry: bootstrap });
   }
 }
+
+window.addEventListener('session:expired', () => {
+  showAuthError({ onRetry: bootstrap });
+});
 
 bootstrap();

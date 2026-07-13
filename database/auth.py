@@ -1,6 +1,6 @@
 from database.db_config import users_table, engine, getTelegramUser
 import sqlalchemy as sa
-from games.probably_fair import ProvablyFair
+from games.provably_fair import ProvablyFair
 from log_manager import log
 
 # Fixed Telegram id for local browser sessions when WEB_DEFENCE=False.

@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { IconButton } from './IconButton.js';
+import { formatCryptoAmount } from '../../utils/format.js';
 
 const TYPES = new Set(['success', 'error', 'warning', 'info']);
 
@@ -22,34 +23,58 @@ function getToastContainer() {
 
 /**
  * @param {object} options
- * @param {string} options.message
+ * @param {string} [options.message]
+ * @param {string} [options.title]
+ * @param {string} [options.meta]
  * @param {string} [options.type] - success | error | warning | info
+ * @param {string} [options.variant] - default | game-win
  * @param {number} [options.duration] - ms, 0 = no auto dismiss
  * @param {boolean} [options.closable]
  * @param {function} [options.onClose]
  */
 export function Toast(options = {}) {
   const {
-    message,
+    message = '',
+    title,
+    meta,
     type = 'info',
+    variant = 'default',
     duration = 3000,
     closable = true,
     onClose,
   } = options;
 
   const toastType = TYPES.has(type) ? type : 'info';
+  const toastVariant = variant === 'game-win' ? 'game-win' : 'default';
 
   const dismiss = () => {
+    toast.classList.add('toast--dismissing');
     toast.classList.remove('toast--visible');
     setTimeout(() => {
       toast.remove();
       if (onClose) onClose();
-    }, 200);
+    }, 220);
   };
 
-  const children = [
-    createElement('span', { className: 'toast__message', text: message }),
-  ];
+  const children = [];
+
+  if (title || meta) {
+    const headerChildren = [];
+    if (meta) {
+      headerChildren.push(createElement('span', { className: 'toast__meta', text: meta }));
+    }
+    if (title) {
+      headerChildren.push(createElement('span', { className: 'toast__title', text: title }));
+    }
+    children.push(createElement('div', {
+      className: 'toast__header',
+      children: headerChildren,
+    }));
+  }
+
+  if (message) {
+    children.push(createElement('span', { className: 'toast__message', text: message }));
+  }
 
   if (closable) {
     children.push(IconButton({
@@ -62,8 +87,11 @@ export function Toast(options = {}) {
     }));
   }
 
+  const toastClasses = ['toast', `toast--${toastType}`];
+  if (toastVariant === 'game-win') toastClasses.push('toast--game-win');
+
   const toast = createElement('div', {
-    className: `toast toast--${toastType}`,
+    className: toastClasses.join(' '),
     attrs: { role: 'status' },
     children,
   });
@@ -79,4 +107,25 @@ export function Toast(options = {}) {
   }
 
   return { element: toast, dismiss };
+}
+
+/**
+ * Premium win notification for game rounds.
+ * @param {object} options
+ * @param {string} options.gameName
+ * @param {number|string} options.amount
+ * @param {number} [options.duration]
+ */
+export function showGameWinToast(options = {}) {
+  const { gameName, amount, duration = 4200 } = options;
+
+  return Toast({
+    type: 'success',
+    variant: 'game-win',
+    meta: gameName,
+    title: 'You won',
+    message: typeof amount === 'number' ? `+${formatCryptoAmount(amount)}` : String(amount),
+    duration,
+    closable: true,
+  });
 }

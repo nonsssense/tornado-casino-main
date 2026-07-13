@@ -4,11 +4,12 @@
 
 import {
   ROUTES,
-  ROUTE_NAMES,
   DEFAULT_ROUTE,
   NAV_ROUTE_MAP,
+  ROUTE_NAMES,
 } from './routes.js';
 import { initOverlayManager, overlayManager } from '../overlays/index.js';
+import { DURATION, wait, waitFrames } from '../animations/transitions.js';
 
 /** @type {object|null} */
 let shell = null;
@@ -18,6 +19,18 @@ let currentRoute = null;
 
 /** @type {string} */
 let activeNavId = 'casino';
+
+/** @type {boolean} */
+let hasNavigatedOnce = false;
+
+/** @type {boolean} */
+let isNavigating = false;
+
+/** @type {Map<string, HTMLElement>} */
+const pageCache = new Map();
+
+/** @type {Map<string, number>} */
+const scrollPositions = new Map();
 
 /**
  * @param {object} appShell
@@ -32,7 +45,9 @@ function updateBottomNav(navId) {
  * @param {string} navId
  */
 function restoreNavHighlight(navId) {
-  updateBottomNav(navId);
+  activeNavId = navId;
+  if (!shell?.updateBottomNavigation) return;
+  shell.updateBottomNavigation(navId, navigateByNavId);
 }
 
 /**
@@ -59,49 +74,91 @@ export function navigateByNavId(navId) {
     return;
   }
 
-  if (overlayManager.isOpen()) {
-    void overlayManager.close();
-  }
-
   const routeName = NAV_ROUTE_MAP[navId];
 
   if (!routeName) {
     return;
   }
 
-  navigate(routeName);
+  void navigate(routeName);
 }
 
 /**
  * @param {string} routeName
  */
-export function navigate(routeName) {
-  if (!shell) return;
+function updateRouteChrome(routeName) {
+  if (!shell?.root) return;
+
+  const immersive =
+    routeName === ROUTE_NAMES.DICE
+    || routeName === ROUTE_NAMES.PLINKO
+    || routeName === ROUTE_NAMES.CRASH;
+  shell.root.classList.toggle('t-app--game-immersive', immersive);
+
+  const header = shell.root.querySelector('.app-header');
+  header?.classList.toggle('app-header--game', immersive);
+}
+
+/**
+ * @param {string} routeName
+ */
+export async function navigate(routeName) {
+  if (!shell || isNavigating) return;
 
   const route = ROUTES[routeName];
   if (!route) return;
 
+  const hadOverlay = overlayManager.isOpen();
+
+  if (hadOverlay) {
+    await overlayManager.close({ restoreNavId: route.navId });
+  }
+
   if (currentRoute === routeName) {
     updateBottomNav(route.navId);
+    updateRouteChrome(routeName);
     return;
   }
 
-  if (overlayManager.isOpen()) {
-    void overlayManager.close();
-  }
+  isNavigating = true;
 
-  shell.setPageTransition('enter');
+  try {
+    if (currentRoute && shell.pageContainer) {
+      scrollPositions.set(currentRoute, shell.pageContainer.scrollTop);
+    }
 
-  requestAnimationFrame(() => {
-    const page = route.render();
+    const shouldAnimate = hasNavigatedOnce && currentRoute !== null && !hadOverlay;
+
+    if (shouldAnimate) {
+      shell.setPageTransition('exit');
+      await wait(DURATION.fast);
+    }
+
+    let page = pageCache.get(routeName);
+    if (!page) {
+      page = route.render();
+      pageCache.set(routeName, page);
+    }
+
     shell.setPageContent(page);
     currentRoute = routeName;
-    updateBottomNav(route.navId);
+    hasNavigatedOnce = true;
 
-    requestAnimationFrame(() => {
+    shell.pageContainer.scrollTop = scrollPositions.get(routeName) ?? 0;
+
+    updateBottomNav(route.navId);
+    updateRouteChrome(routeName);
+
+    if (shouldAnimate) {
+      shell.setPageTransition('enter');
+      await waitFrames(2);
       shell.setPageTransition('active');
-    });
-  });
+    } else {
+      shell.setPageTransition('active');
+    }
+  } finally {
+    isNavigating = false;
+  }
 }
 
 function wireHeaderActions() {
@@ -132,6 +189,36 @@ function wireHeaderActions() {
       overlayManager.openBalance({ previousNavId: activeNavId });
     });
   }
+
+  const profileButton = shell.root.querySelector('.app-header__profile');
+  if (profileButton && !profileButton.dataset.wired) {
+    profileButton.dataset.wired = 'true';
+    profileButton.addEventListener('click', () => {
+      navigateByNavId('profile');
+    });
+  }
+
+  const logoButton = shell.root.querySelector('.app-header__logo');
+  if (logoButton && !logoButton.dataset.wired) {
+    logoButton.dataset.wired = 'true';
+    logoButton.addEventListener('click', () => {
+      navigateByNavId('casino');
+    });
+    logoButton.addEventListener('keydown', (event) => {
+      if (event.key === 'Enter' || event.key === ' ') {
+        event.preventDefault();
+        navigateByNavId('casino');
+      }
+    });
+  }
+
+  const backButton = shell.root.querySelector('.app-header__back');
+  if (backButton && !backButton.dataset.wired) {
+    backButton.dataset.wired = 'true';
+    backButton.addEventListener('click', () => {
+      void navigate(ROUTE_NAMES.HOME);
+    });
+  }
 }
 
 /**
@@ -142,7 +229,7 @@ export function initRouter(appShell) {
   initOverlayManager(shell, restoreNavHighlight, navigateByNavId);
   wireHeaderActions();
   updateBottomNav(ROUTES[DEFAULT_ROUTE].navId);
-  navigate(DEFAULT_ROUTE);
+  void navigate(DEFAULT_ROUTE);
 }
 
 /**

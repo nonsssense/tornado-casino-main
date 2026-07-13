@@ -68,11 +68,13 @@ export function createBalanceModal(options = {}) {
 
   const bonusValue = createElement('span', {
     className: 'balance-modal__card-value',
+    attrs: { 'aria-live': 'polite' },
     text: formatCryptoAmount(Number(cashback) || 0),
   });
 
-  const unsubscribe = balanceService.subscribe((formatted) => {
-    amountValue.textContent = formatted;
+  const unsubscribe = balanceService.subscribe(({ formattedReal, formattedBonus }) => {
+    amountValue.textContent = formattedReal;
+    bonusValue.textContent = formattedBonus;
   });
 
   const element = createElement('div', {

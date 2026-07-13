@@ -1,0 +1,636 @@
+/**
+ * Crash (Aviator) — Phase 1 layout
+ * Language aligned with Dice / Plinko immersive game pages.
+ * Palette: Tornado tokens + Aviator multiplier accents.
+ */
+
+.game-page--crash {
+  --crash-surface: rgba(255, 255, 255, 0.04);
+  --crash-surface-elevated: rgba(255, 255, 255, 0.06);
+  --crash-surface-border: rgba(255, 255, 255, 0.07);
+  --crash-navy: #0a0e17;
+  --crash-panel: #1a1d24;
+  --crash-panel-input: #12151c;
+  --crash-orange: #ff8a3d;
+  --crash-yellow: #fcd312;
+  --crash-green: #2ecc71;
+  --crash-cyan: #2ec4ff;
+  --crash-purple: #a855f7;
+  --crash-red: #ff4d6d;
+
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  padding: 0;
+  overflow-x: hidden;
+  background: #000;
+  color: var(--color-text-primary);
+}
+
+.t-app:has(.game-page--crash) {
+  background: #000;
+}
+
+.t-app__page:has(.game-page--crash) {
+  padding-inline: 0;
+  background: #000;
+}
+
+.crash-board {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  min-height: 100%;
+}
+
+/* ── History row ─────────────────────────────────────────── */
+
+.crash-history {
+  position: relative;
+  margin: 0 calc(var(--space-4) * -1);
+  padding-inline: var(--space-4);
+}
+
+.crash-history::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  right: 0;
+  width: 2.5rem;
+  height: 100%;
+  pointer-events: none;
+  background: linear-gradient(90deg, transparent, #000 85%);
+}
+
+.crash-history__list {
+  display: flex;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+  overflow-x: auto;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.crash-history__list::-webkit-scrollbar {
+  display: none;
+}
+
+.crash-history__item {
+  flex-shrink: 0;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.2;
+  white-space: nowrap;
+}
+
+.crash-history__item--orange {
+  color: var(--crash-orange);
+}
+
+.crash-history__item--yellow {
+  color: var(--crash-yellow);
+}
+
+.crash-history__item--green {
+  color: var(--crash-green);
+}
+
+.crash-history__item--cyan {
+  color: var(--crash-cyan);
+}
+
+.crash-history__item--purple {
+  color: var(--crash-purple);
+}
+
+.crash-history__item--red {
+  color: var(--crash-red);
+}
+
+/* ── Animation container ─────────────────────────────────── */
+
+.crash-animation {
+  flex: 1 1 auto;
+  display: flex;
+  min-height: 14rem;
+}
+
+.crash-animation__frame {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: clamp(14rem, 42vh, 22rem);
+  aspect-ratio: 16 / 10;
+  max-height: min(48vh, 24rem);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  isolation: isolate;
+  background: linear-gradient(180deg, #2a3344 0%, #161c28 55%, #0a0e16 100%);
+  box-shadow:
+    0 0 0 1px rgba(255, 255, 255, 0.06),
+    0 1.25rem 2.5rem rgba(0, 0, 0, 0.5);
+}
+
+.crash-animation__mount {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.crash-flight__clouds,
+.crash-flight__canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.crash-flight__clouds {
+  z-index: 0;
+}
+
+.crash-flight__canvas {
+  z-index: 1;
+}
+
+.crash-animation__placeholder {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: var(--space-4);
+  text-align: center;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+  pointer-events: none;
+}
+
+/* Fixed centered slot — multiplier never leaves the viewport */
+.crash-animation__multiplier-slot {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 3;
+  width: min(92%, 20rem);
+  height: 4.75rem;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.crash-animation__multiplier {
+  width: 100%;
+  height: 100%;
+  margin: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  font-size: 4.5rem;
+  font-weight: 800;
+  letter-spacing: 0.01em;
+  line-height: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  pointer-events: none;
+  opacity: 1;
+  transition:
+    color 180ms ease,
+    opacity 700ms ease;
+  text-shadow: 0 0.35rem 1.25rem rgba(0, 0, 0, 0.45);
+}
+
+.crash-animation__multiplier--fading {
+  opacity: 0;
+}
+
+.crash-animation__multiplier-slot--fading {
+  pointer-events: none;
+}
+
+.crash-animation__multiplier--orange { color: var(--crash-orange); }
+.crash-animation__multiplier--yellow { color: var(--crash-yellow); }
+.crash-animation__multiplier--green { color: var(--crash-green); }
+.crash-animation__multiplier--cyan { color: var(--crash-cyan); }
+.crash-animation__multiplier--purple { color: var(--crash-purple); }
+.crash-animation__multiplier--red { color: var(--crash-red); }
+
+.crash-animation__placeholder--enter {
+  animation: crash-placeholder-enter 420ms ease both;
+}
+
+@keyframes crash-placeholder-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .crash-animation__multiplier {
+    transition: color 180ms ease;
+  }
+
+  .crash-animation__placeholder--enter {
+    animation: none;
+  }
+}
+
+/* ── Betting section ─────────────────────────────────────── */
+
+.crash-bets {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+  margin-top: auto;
+}
+
+.crash-bet-panel {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(6.5rem, 36%);
+  gap: var(--space-2);
+  align-items: stretch;
+  padding: var(--space-3);
+  border: 1px solid var(--crash-surface-border);
+  border-radius: var(--radius-md);
+  background: var(--crash-surface);
+}
+
+.crash-bet-panel--disabled {
+  opacity: 0.72;
+  pointer-events: none;
+}
+
+.crash-bet-panel__left {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  gap: var(--space-2);
+}
+
+.crash-bet-panel__right {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+/* Bet amount */
+
+.crash-bet-amount {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  width: 100%;
+}
+
+.crash-bet-amount__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.crash-bet-amount__row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  width: 100%;
+  height: 2.5rem;
+  padding: 0 var(--space-1);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  transition: border-color var(--transition-fast);
+}
+
+.crash-bet-amount__row:focus-within {
+  border-color: rgba(252, 211, 18, 0.4);
+}
+
+.crash-bet-amount__input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  color: #fff;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+}
+
+.crash-bet-amount__input:focus {
+  outline: none;
+}
+
+.crash-bet-amount__stepper {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast);
+}
+
+.crash-bet-amount__stepper:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
+}
+
+.crash-bet-amount__stepper:active:not(:disabled) {
+  transform: scale(0.96);
+}
+
+.crash-bet-amount--disabled {
+  opacity: 0.7;
+  pointer-events: none;
+}
+
+/* Primary action — BET / CASH OUT */
+
+.crash-bet-button {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-3);
+  border: none;
+  border-radius: var(--radius-md);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    color var(--transition-fast),
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.crash-bet-button:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.crash-bet-button:disabled {
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.crash-bet-button--bet {
+  background: var(--color-accent);
+  color: var(--color-text-on-accent);
+  box-shadow: 0 0.5rem 1.25rem rgba(252, 211, 18, 0.12);
+}
+
+.crash-bet-button--bet:hover:not(:disabled) {
+  background: var(--color-accent-hover);
+}
+
+.crash-bet-button--cashout {
+  background: var(--crash-green);
+  color: #062012;
+  box-shadow: 0 0.5rem 1.25rem rgba(46, 204, 113, 0.18);
+}
+
+.crash-bet-button--cashout:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+.crash-bet-button__label {
+  line-height: 1.1;
+}
+
+.crash-bet-button__payout {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-bold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.01em;
+  line-height: 1.1;
+}
+
+.crash-bet-button__payout--orange { color: #5c2a00; }
+.crash-bet-button__payout--yellow { color: #3d3200; }
+.crash-bet-button__payout--green { color: #03301a; }
+.crash-bet-button__payout--cyan { color: #003548; }
+.crash-bet-button__payout--purple { color: #2a0a45; }
+.crash-bet-button__payout--red { color: #4a0014; }
+
+/* On green cash-out button, use brighter payout accents for readability */
+.crash-bet-button--cashout .crash-bet-button__payout--orange { color: #ffe0c2; }
+.crash-bet-button--cashout .crash-bet-button__payout--yellow { color: #fff3b0; }
+.crash-bet-button--cashout .crash-bet-button__payout--green { color: #e8fff2; }
+.crash-bet-button--cashout .crash-bet-button__payout--cyan { color: #d6f6ff; }
+.crash-bet-button--cashout .crash-bet-button__payout--purple { color: #f0e0ff; }
+.crash-bet-button--cashout .crash-bet-button__payout--red { color: #ffd6e0; }
+
+/* Auto Cash Out placeholder — same width as BET */
+
+.crash-auto-cashout {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.125rem;
+  width: 100%;
+  min-height: 3rem;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.45);
+  color: rgba(255, 255, 255, 0.55);
+  text-align: center;
+  pointer-events: none;
+  user-select: none;
+}
+
+.crash-auto-cashout__label {
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.38);
+}
+
+.crash-auto-cashout__value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: rgba(255, 255, 255, 0.62);
+}
+
+@media (max-width: 360px) {
+  .crash-bets {
+    gap: var(--space-1);
+  }
+
+  .crash-bet-panel {
+    grid-template-columns: minmax(0, 1fr) minmax(5.75rem, 38%);
+    gap: var(--space-1);
+    padding: var(--space-2);
+  }
+
+  .crash-bet-amount__input {
+    font-size: var(--font-size-sm);
+  }
+
+  .crash-bet-button,
+  .crash-auto-cashout {
+    min-height: 2.75rem;
+    padding-inline: var(--space-2);
+  }
+}
+
+/* ── Live Bets ───────────────────────────────────────────── */
+
+.crash-live-bets {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 26rem;
+  margin-inline: auto;
+  margin-top: var(--space-1);
+  border: 1px solid var(--crash-surface-border);
+  border-radius: var(--radius-md);
+  background: var(--crash-surface);
+  overflow: hidden;
+}
+
+.crash-live-bets__header {
+  flex-shrink: 0;
+  padding: var(--space-3) var(--space-3) var(--space-2);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.crash-live-bets__title {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.42);
+}
+
+.crash-live-bets__scroll {
+  max-height: 11rem;
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+
+.crash-live-bets__scroll::-webkit-scrollbar {
+  width: 0.35rem;
+}
+
+.crash-live-bets__scroll::-webkit-scrollbar-thumb {
+  border-radius: var(--radius-pill);
+  background: rgba(255, 255, 255, 0.16);
+}
+
+.crash-live-bets__list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: var(--space-1) 0;
+  list-style: none;
+}
+
+.crash-live-bets__empty {
+  margin: 0;
+  padding: var(--space-4) var(--space-3);
+  text-align: center;
+  font-size: var(--font-size-sm);
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.crash-live-bets__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  min-height: 2.25rem;
+  padding: var(--space-2) var(--space-3);
+  color: var(--color-text-primary);
+  transition:
+    background-color 0.35s var(--ease-out),
+    color 0.35s var(--ease-out);
+}
+
+.crash-live-bets__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+}
+
+.crash-live-bets__amount {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: rgba(255, 255, 255, 0.72);
+  transition: color 0.35s var(--ease-out);
+}
+
+.crash-live-bets__row--cashed-out {
+  background: rgba(46, 204, 113, 0.12);
+  color: var(--crash-green);
+}
+
+.crash-live-bets__row--cashed-out .crash-live-bets__amount {
+  color: var(--crash-green);
+}

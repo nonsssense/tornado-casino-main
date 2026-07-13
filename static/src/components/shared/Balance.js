@@ -4,7 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 
-const MOCK_BALANCE = '2314$';
+const MOCK_BALANCE = '0';
 
 /**
  * @param {object} [options]

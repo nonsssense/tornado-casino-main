@@ -6,6 +6,7 @@ import { createElement } from '../../utils/dom.js';
 import { WITHDRAW_ADDRESS_PLACEHOLDER } from '../../utils/wallet.constants.js';
 import { formatCryptoAmount } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
+import { balanceService } from '../../services/balance.service.js';
 import { getCoinNetwork, getCoinSymbol, getDefaultNetworkId } from './wallet.utils.js';
 import { Button } from '../../components/base/Button.js';
 import { Input } from '../../components/base/Input.js';
@@ -116,14 +117,17 @@ export function createWithdrawView(options = {}) {
       onInput: (event) => {
         state.amount = event.target.value;
         amountFieldRoot?.classList.toggle('amount-input--has-value', Boolean(state.amount));
-        // TODO: clear validation error when user edits amount
         if (state.amountError) {
           state.amountError = '';
           renderAmountField();
         }
       },
-      // TODO: set amount to wallet balance when MAX is wired to backend
-      onMaxClick: undefined,
+      onMaxClick: async () => {
+        const balances = await balanceService.fetchBalances();
+        state.amount = String(balances.real);
+        state.amountError = '';
+        renderAmountField();
+      },
     });
 
     amountFieldRoot = field;
@@ -189,7 +193,7 @@ export function createWithdrawView(options = {}) {
         pill: true,
         block: true,
         loading: state.submitting,
-        disabled: state.submitting || !state.address.trim(),
+        disabled: state.submitting || !state.address.trim() || !state.amount.trim(),
         className: 'wallet-view__withdraw-btn',
         onClick: submitWithdraw,
       }),
@@ -208,8 +212,15 @@ export function createWithdrawView(options = {}) {
   async function submitWithdraw() {
     const ctx = currentContext();
     const address = state.address.trim();
+    const amount = Number(state.amount);
 
     if (!ctx || !address || state.submitting) return;
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      state.amountError = 'Enter a valid amount';
+      renderAmountField();
+      return;
+    }
 
     state.submitting = true;
     updateSubmitButton();
@@ -218,7 +229,7 @@ export function createWithdrawView(options = {}) {
       await walletService.submitWithdraw({
         ticker: ctx.network.ticker,
         address,
-        // TODO: pass amount: state.amount when backend validation is implemented
+        amount,
       });
 
       Toast({ message: 'Withdrawal submitted', type: 'success', duration: 2500 });
@@ -227,10 +238,19 @@ export function createWithdrawView(options = {}) {
       if (addressInput) addressInput.value = '';
       if (amountInput) amountInput.value = '';
       renderAmountField();
+      await balanceService.fetchBalances();
     } catch (error) {
-      const message = error?.status === 404 || error?.status === 501
-        ? 'Withdrawal service is not available yet.'
-        : 'Unable to submit withdrawal. Please try again.';
+      const detail = error?.data?.detail;
+      let message = 'Unable to submit withdrawal. Please try again.';
+
+      if (typeof detail === 'string') {
+        message = detail;
+      } else if (error?.status === 404 || error?.status === 501) {
+        message = 'Withdrawal service is not available yet.';
+      } else if (error?.status === 409) {
+        message = 'Insufficient balance for this withdrawal.';
+      }
+
       Toast({ message, type: 'error', duration: 3000 });
     } finally {
       state.submitting = false;

@@ -24,7 +24,7 @@
   box-shadow: 
     0 8px 32px rgba(0, 0, 0, 0.4),
     0 2px 8px rgba(0, 0, 0, 0.2);
-  z-index: var(--z-sticky);
+  z-index: calc(var(--z-modal) + 10);
 }
 
 .bottom-nav__item {
@@ -55,6 +55,15 @@
 .bottom-nav__item--active {
   color: var(--color-accent);
   background: rgba(252, 211, 18, 0.12);
+}
+
+.bottom-nav__item:active {
+  transform: translateY(0);
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bottom-nav__item--active:active {
+  background: rgba(252, 211, 18, 0.18);
 }
 
 .bottom-nav__icon {

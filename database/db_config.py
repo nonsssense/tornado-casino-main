@@ -91,6 +91,18 @@ user_trust_score_table = sa.Table(
     autoload_with=engine
 )
 
+withdraw_table = sa.Table(
+    'withdraws',
+    metadata,
+    autoload_with=engine
+)
+
+crash_table = sa.Table(
+    'crash',
+    metadata,
+    autoload_with=engine
+)
+
 
 
 def getTelegramUser(data): 

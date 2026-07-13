@@ -39,6 +39,11 @@
     transform var(--transition-base);
 }
 
+.t-app__page--transition-exit {
+  opacity: 0;
+  transform: translateY(-0.25rem);
+}
+
 .t-app__page--transition-enter {
   opacity: 0;
   transform: translateY(0.375rem);
@@ -50,7 +55,14 @@
 }
 
 .t-app__footer {
-  /* Footer is now empty as bottom nav is positioned fixed */
+  position: relative;
+  flex-shrink: 0;
+  z-index: calc(var(--z-modal) + 10);
+  pointer-events: none;
+}
+
+.t-app__footer .bottom-nav {
+  pointer-events: auto;
 }
 
 /* Global overlay mount point */

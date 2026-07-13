@@ -37,7 +37,7 @@ export const walletService = {
 
   /**
    * Submit a withdrawal request.
-   * @param {{ ticker: string, address: string }} payload
+   * @param {{ ticker: string, address: string, amount: number }} payload
    */
   async submitWithdraw(payload) {
     return submitWithdraw(payload);
@@ -60,17 +60,22 @@ export const walletService = {
   pollDepositStatus(depositId, callbacks = {}) {
     const { onStatus, onComplete } = callbacks;
     let stopped = false;
+    let completed = false;
 
     const poll = async () => {
-      if (stopped) return;
+      if (stopped || completed) return;
 
       try {
         const data = await fetchDepositStatus(depositId);
+        if (stopped || completed) return;
+
         const status = data?.status || 'pending';
 
         if (onStatus) onStatus(status);
 
         if (status === 'completed') {
+          completed = true;
+          stopped = true;
           if (onComplete) onComplete();
           return;
         }
@@ -78,7 +83,7 @@ export const walletService = {
         // keep polling on transient errors
       }
 
-      if (!stopped) {
+      if (!stopped && !completed) {
         setTimeout(poll, POLL_INTERVAL_MS);
       }
     };

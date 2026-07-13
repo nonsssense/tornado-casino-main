@@ -8,3 +8,6 @@
 
 export { renderHomePage } from './home.page.js';
 export { renderProfilePage } from './profile.page.js';
+export { renderDicePage } from './dice.page.js';
+export { renderPlinkoPage } from './plinko.page.js';
+export { renderCrashPage } from './crash.page.js';

@@ -10,7 +10,9 @@ import {
 import { formatCryptoAmount } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
+import { bonusService } from '../../services/bonus.service.js';
 import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
+import { createDepositBonusSelector } from './deposit.bonus-selector.js';
 import { Button } from '../../components/base/Button.js';
 import { Card } from '../../components/base/Card.js';
 import { Loader } from '../../components/base/Loader.js';
@@ -22,8 +24,6 @@ import { NetworkSelector } from '../../components/shared/NetworkSelector.js';
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
 const ICON_QR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3z"/></svg>';
-
-const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
 /**
  * @param {object} [options]
@@ -46,6 +46,7 @@ export function createDepositView(options = {}) {
     loading: true,
     error: null,
     status: 'pending',
+    completionHandled: false,
   };
 
   let stopPolling = null;
@@ -228,6 +229,7 @@ export function createDepositView(options = {}) {
 
   function startStatusPolling(depositId) {
     stopStatusPolling();
+    state.completionHandled = false;
 
     stopPolling = walletService.pollDepositStatus(depositId, {
       onStatus: (status) => {
@@ -235,10 +237,23 @@ export function createDepositView(options = {}) {
         updateStatus();
       },
       onComplete: async () => {
+        if (state.completionHandled) return;
+        state.completionHandled = true;
+
         state.status = 'completed';
         updateStatus();
         stopStatusPolling();
-        await balanceService.fetchBalance();
+
+        try {
+          await Promise.all([
+            balanceService.fetchBalances(),
+            bonusService.fetchOffers(),
+            bonusService.fetchActiveBonuses().catch(() => []),
+          ]);
+        } catch {
+          // Balance/bonus refresh failures should not block completion UX.
+        }
+
         Toast({ message: 'Deposit completed', type: 'success', duration: 3000 });
       },
     });
@@ -358,6 +373,12 @@ export function createDepositView(options = {}) {
   updateStatus();
   loadDeposit();
 
+  const bonusSelector = createDepositBonusSelector();
+  const bonusMount = createElement('div', {
+    className: 'wallet-view__bonus-slot',
+    children: [bonusSelector.element],
+  });
+
   const element = createElement('div', {
     className: 'wallet-view wallet-view--deposit',
     attrs: { 'data-view': 'deposit' },
@@ -367,26 +388,19 @@ export function createDepositView(options = {}) {
       addressMount,
       infoMount,
       statusMount,
-      createElement('button', {
-        className: 'wallet-view__bonus',
-        attrs: {
-          type: 'button',
-          'aria-label': 'Select bonus',
-          // TODO: wire bonus selection when backend API is available
-        },
-        children: [
-          createElement('span', {
-            className: 'wallet-view__bonus-label',
-            text: 'Bonuses selects',
-          }),
-          createElement('span', {
-            className: 'wallet-view__bonus-chevron',
-            html: ICON_CHEVRON,
-          }),
-        ],
-      }),
+      bonusMount,
     ],
   });
 
-  return { element, setCoinId, setNetworkId };
+  return {
+    element,
+    setCoinId,
+    setNetworkId,
+    destroy() {
+      state.completionHandled = true;
+      stopStatusPolling();
+      void closeQrLightbox();
+      bonusSelector.destroy?.();
+    },
+  };
 }

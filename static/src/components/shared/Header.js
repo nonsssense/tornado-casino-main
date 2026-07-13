@@ -26,7 +26,7 @@ export function Header(options = {}) {
   return createElement('header', {
     className: classes.join(' '),
     children: [
-      // Left Region: Fixed width for brand logo
+      // Left Region: brand logo (default) or back control (game mode)
       createElement('div', {
         className: 'app-header__left',
         children: [
@@ -38,8 +38,16 @@ export function Header(options = {}) {
               draggable: false,
               role: 'button',
               tabindex: '0',
-              'aria-label': 'Profile',
+              'aria-label': 'Home',
             },
+          }),
+          createElement('button', {
+            className: 'app-header__back',
+            attrs: {
+              type: 'button',
+              'aria-label': 'Back to games',
+            },
+            html: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
           }),
         ],
       }),

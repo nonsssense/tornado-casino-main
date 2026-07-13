@@ -13,11 +13,6 @@ html.bottom-sheet-open .t-app__page {
   overflow: hidden;
 }
 
-html.bottom-sheet-open .t-app__footer {
-  visibility: hidden;
-  pointer-events: none;
-}
-
 .bottom-sheet {
   position: fixed;
   inset: 0;
@@ -32,11 +27,14 @@ html.bottom-sheet-open .t-app__footer {
 }
 
 .bottom-sheet--standard {
-  padding-top: var(--bottom-sheet-top-gap);
+  /* ~30% viewport left visible above the sheet; nav reserved below */
+  padding-top: calc(100dvh - var(--bottom-sheet-standard-height) - var(--bottom-sheet-nav-offset));
+  padding-bottom: var(--bottom-sheet-nav-offset);
 }
 
 .bottom-sheet--balance {
   padding-top: var(--space-6);
+  padding-bottom: var(--bottom-sheet-nav-offset);
 }
 
 .bottom-sheet--visible {
@@ -101,7 +99,7 @@ html.bottom-sheet-open .t-app__footer {
 
 .bottom-sheet__panel--size-balance {
   height: auto;
-  max-height: calc(100dvh - var(--space-6));
+  max-height: calc(100dvh - var(--space-6) - var(--bottom-sheet-nav-offset));
 }
 
 .bottom-sheet--visible .bottom-sheet__panel {
@@ -117,6 +115,7 @@ html.bottom-sheet-open .t-app__footer {
 .bottom-sheet__panel--dragging {
   transition: none;
   opacity: 1;
+  touch-action: none;
 }
 
 .bottom-sheet__handle {
@@ -173,13 +172,7 @@ html.bottom-sheet-open .t-app__footer {
   background: transparent;
 }
 
-.bottom-sheet__footer .bottom-nav {
-  position: relative;
-  left: auto;
-  bottom: auto;
-  transform: none;
-  width: 100%;
-  max-width: none;
-  margin-bottom: 0;
-  z-index: auto;
+.bottom-sheet__footer:empty {
+  display: none;
+  padding: 0;
 }

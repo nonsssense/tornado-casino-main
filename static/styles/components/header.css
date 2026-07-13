@@ -41,6 +41,42 @@
   opacity: 0.6;
 }
 
+.app-header__back {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: none;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-text-primary);
+  cursor: pointer;
+  transition: background-color var(--duration-fast) var(--ease-out);
+}
+
+.app-header__back:hover {
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.app-header__back:active {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.app-header--game .app-header__logo {
+  display: none;
+}
+
+.app-header--game .app-header__back {
+  display: flex;
+}
+
+.t-app--game-immersive .app-header {
+  background: rgba(0, 0, 0, 0.88);
+  border-bottom-color: rgba(255, 255, 255, 0.05);
+}
+
 /* Center Region: Flexible container for perfect centering */
 .app-header__center {
   display: flex;
