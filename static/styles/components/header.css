@@ -24,11 +24,14 @@
   flex-shrink: 0;
 }
 
-/* Brand Logo: Clean and simple */
+/* Brand Logo: Figma SVG source-of-truth — integer height, preserve aspect ratio */
 .app-header__logo {
   display: block;
   width: auto;
-  height: 2.375rem;
+  height: 38px;
+  max-width: 100%;
+  object-fit: contain;
+  object-position: left center;
   cursor: pointer;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
@@ -68,7 +71,8 @@
   display: none;
 }
 
-.app-header--game .app-header__back {
+/* Fallback in-app Back — only when native Telegram BackButton is unavailable */
+.app-header--game:not(.app-header--native-back) .app-header__back {
   display: flex;
 }
 
@@ -120,7 +124,8 @@
 .app-header__profile-icon {
   display: block;
   width: auto;
-  height: 2.0625rem;
+  height: 33px;
+  object-fit: contain;
   transition: opacity var(--duration-fast) var(--ease-out);
 }
 

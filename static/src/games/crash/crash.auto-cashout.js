@@ -3,6 +3,7 @@
  */
 
 import { createElement } from '../../utils/dom.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @returns {HTMLElement}
@@ -11,17 +12,17 @@ export function createAutoCashOut() {
   return createElement('div', {
     className: 'crash-auto-cashout',
     attrs: {
-      'aria-label': 'Auto cash out',
+      'aria-label': t('crash.autoCashout.aria'),
       role: 'group',
     },
     children: [
       createElement('span', {
         className: 'crash-auto-cashout__label',
-        text: 'Auto',
+        text: t('crash.autoCashout.auto'),
       }),
       createElement('span', {
         className: 'crash-auto-cashout__value',
-        text: 'Cash Out',
+        text: t('crash.autoCashout.cashOut'),
       }),
     ],
   });

@@ -4,10 +4,12 @@
  */
 
 import { createCloudsLayer } from './crash.clouds.js';
+import planeSrc from '../../../../assets/crash-plane.webp';
 
 const DPR_CAP = 2;
-const PLANE_SRC = '/assets/crash-plane.png';
-const PLANE_BASE_W = 128; // ~18% smaller than prior 156px render size
+/** Static airplane body (propeller is drawn separately in code). */
+const PLANE_SRC = planeSrc;
+const PLANE_BASE_W = 144; // ~12.5% larger than prior 128px for small-screen readability
 const TRAIL_WIDTH = 7.2; // ~2.8× prior trail weight
 /** Solid dark red — single color, no along-path gradient */
 const TRAIL_FILL = 'rgb(158, 24, 34)';
@@ -15,13 +17,35 @@ const TRAIL_OUTLINE = 'rgba(28, 4, 8, 0.72)';
 /** Keep full sprite inside the field (end / cruise) */
 const EDGE_MARGIN = 26;
 /**
- * Trail / transform origin = bottom-center of the fuselage rear (under the fin).
- * Normalized against the crash-plane.png bitmap (opaque content calibrated).
+ * Trail / transform origin = lower-back of the tail (underside rear of fuselage).
+ * Normalized against crash-plane.webp (opaque content calibrated).
  */
-const TAIL_NX = 0.104;
-const TAIL_NY = 0.886;
-/** Scale path tangent pitch (~40% less nose-up than raw curve) */
-const PITCH_SCALE = 0.6;
+const TAIL_NX = 0.16633;
+const TAIL_NY = 0.76546;
+/**
+ * Near-horizontal body asset — baked axis ≈ 0. Then hold a gentle 5–10° climb.
+ * (Negative = nose-up in canvas coords.)
+ */
+const SPRITE_AXIS = 0.0064;
+const SPRITE_LEVEL = -SPRITE_AXIS;
+/** ~7.5° above horizontal — within the 5–10° window */
+const CLIMB_PITCH = -Math.PI * (7.5 / 180);
+/** Tiny residual path influence so attitude eases slightly with the curve */
+const PITCH_SCALE = 0.04;
+/**
+ * Prop hub = dark nose-cone center in body bitmap space (normalized).
+ * Seated into the cone (not past the tip) so the disc sits flush on the engine.
+ * Vector propeller rotates about this point only.
+ */
+const PROP_NX = 0.928;
+const PROP_NY = 0.5401;
+/** Prop styling — flat vector, matches body */
+const PROP_COLOR = 'rgb(52, 55, 60)';
+const PROP_BLADE_LEN = 0.088; // fraction of plane draw width
+const PROP_BLADE_HALF_W = 0.0155;
+const PROP_HUB_R = 0.012;
+/** Quiet continuous spin (rad/s) */
+const PROP_SPIN = 4.4;
 /** Rotation inertia — calm Piper glide (lower = more lag / mass) */
 const ANGLE_FOLLOW = 2.6;
 const ANGLE_VEL_DAMP = 5.5;
@@ -203,8 +227,10 @@ export function createFlightEngine(mount) {
     onExitComplete: null,
     progress: 0,
     displayProgress: 0,
-    displayAngle: -0.22,
+    displayAngle: 0,
     angleVel: 0,
+    /** Continuous propeller phase (radians) */
+    propPhase: 0,
     /** Smoothed plane / trail-tail position */
     planeX: 0,
     planeY: 0,
@@ -352,7 +378,9 @@ export function createFlightEngine(mount) {
     const { p0, p1, p2, p3 } = getControls();
     const u = Math.max(0.001, Math.min(1, t));
     const tan = cubicTangent(p0, p1, p2, p3, u);
-    return Math.atan2(tan.y, tan.x) * PITCH_SCALE;
+    const pathPitch = Math.atan2(tan.y, tan.x);
+    // Level the baked nose-up sprite, hold a soft climb, whisper-follow the path.
+    return SPRITE_LEVEL + CLIMB_PITCH + pathPitch * PITCH_SCALE;
   }
 
   function resize() {
@@ -478,8 +506,77 @@ export function createFlightEngine(mount) {
   }
 
   /**
+   * Side-view propeller only (90° profile, same as the airframe).
+   * Blades stay vertical — length/opacity pulse simulates spin about the nose axis.
+   * Never draws a front-facing / camera-facing rotor disc.
+   * @param {number} drawW
+   * @param {number} drawH
+   */
+  function drawPropeller(drawW, drawH) {
+    const hubX = drawW * (PROP_NX - TAIL_NX);
+    const hubY = drawH * (PROP_NY - TAIL_NY);
+    const bladeLen = drawW * PROP_BLADE_LEN;
+    const halfW = Math.max(1.1, drawW * PROP_BLADE_HALF_W);
+    const hubR = Math.max(1.2, drawW * PROP_HUB_R);
+    const parentAlpha = ctx.globalAlpha;
+    const t = state.propPhase;
+
+    // Side-view projection of blades spinning about the longitudinal axis:
+    // on-screen they stay a vertical pair; foreshortening = |sin|.
+    const foreshort = Math.abs(Math.sin(t));
+    const visibleLen = bladeLen * (0.22 + 0.78 * foreshort);
+    const bladeAlpha = 0.42 + 0.58 * foreshort;
+
+    /**
+     * Vertical capsule through the hub (profile silhouette).
+     * @param {number} len
+     */
+    function fillVerticalBlade(len) {
+      const x0 = -halfW;
+      const y0 = -len;
+      const bw = halfW * 2;
+      const bh = len * 2;
+      const r = halfW;
+      ctx.beginPath();
+      ctx.moveTo(x0 + r, y0);
+      ctx.lineTo(x0 + bw - r, y0);
+      ctx.arcTo(x0 + bw, y0, x0 + bw, y0 + r, r);
+      ctx.lineTo(x0 + bw, y0 + bh - r);
+      ctx.arcTo(x0 + bw, y0 + bh, x0 + bw - r, y0 + bh, r);
+      ctx.lineTo(x0 + r, y0 + bh);
+      ctx.arcTo(x0, y0 + bh, x0, y0 + bh - r, r);
+      ctx.lineTo(x0, y0 + r);
+      ctx.arcTo(x0, y0, x0 + r, y0, r);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    ctx.save();
+    ctx.translate(hubX, hubY);
+    ctx.fillStyle = PROP_COLOR;
+
+    // No rotate() on blade geometry — side view stays vertical
+    ctx.globalAlpha = parentAlpha * bladeAlpha;
+    fillVerticalBlade(visibleLen);
+
+    // Soft secondary flash (out-of-phase foreshortening) for spin readability
+    const foreshort2 = Math.abs(Math.cos(t));
+    if (foreshort2 > 0.12) {
+      ctx.globalAlpha = parentAlpha * (0.18 + 0.32 * foreshort2);
+      fillVerticalBlade(bladeLen * (0.18 + 0.55 * foreshort2));
+    }
+
+    ctx.globalAlpha = parentAlpha;
+    ctx.beginPath();
+    ctx.arc(0, 0, hubR, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.restore();
+  }
+
+  /**
    * Draw plane with transform origin locked to the trail attach point
-   * (bottom-center of the fuselage rear). Rotation keeps the trail glued to the tail.
+   * (lower-back of the tail). Body is static in local space; only the
+   * independent propeller rotates about the nose hub.
    * @param {number} x Tail world X
    * @param {number} y Tail world Y
    * @param {number} angle
@@ -497,6 +594,8 @@ export function createFlightEngine(mount) {
     ctx.imageSmoothingQuality = 'high';
     ctx.translate(x, y);
     ctx.rotate(angle);
+    // Prop behind body so the nose cone occludes the hub center
+    drawPropeller(drawW, drawH);
     ctx.drawImage(
       planeImg,
       -drawW * TAIL_NX,
@@ -518,7 +617,7 @@ export function createFlightEngine(mount) {
     return {
       nx: tan.x / len,
       ny: tan.y / len,
-      angle: Math.atan2(tan.y, tan.x) * PITCH_SCALE,
+      angle: angleAt(u),
     };
   }
 
@@ -613,7 +712,7 @@ export function createFlightEngine(mount) {
       state.trailAlpha = 1 - smoothstep(t);
       state.planeVisible = false;
       state.planeAlpha = 0;
-      // Keep trail rooted at the last on-path crash point while fading
+      // exitDist already frozen at off-screen tip — trail shape stays put while alpha fades
       const crashPt = getCrashPoint();
       const heading = getCrashExitHeading();
       state.planeX = crashPt.x + heading.nx * state.exitDist;
@@ -755,6 +854,7 @@ export function createFlightEngine(mount) {
     if (state.phase === 'crashed') {
       updateCrashExit(dt);
       state.energyPhase += dt * 0.22;
+      state.propPhase += dt * PROP_SPIN;
       cloudsLayer.update(dt);
 
       const depth = 1;
@@ -777,6 +877,8 @@ export function createFlightEngine(mount) {
         drawPlane(state.planeX, state.planeY, state.displayAngle, depth, 1);
       } else if (exiting) {
         cloudsLayer.draw();
+        // Climb path frozen at crash; trail stays attached and extends to the plane tip.
+        // After flyout, planeX/Y hold the last exit tip so the trail freezes once off-screen.
         drawTrail(
           progress,
           depth,
@@ -817,6 +919,7 @@ export function createFlightEngine(mount) {
     const cruising = state.progress >= 0.995;
     updateDepth(dt);
     updateAirMotion(dt, cruising);
+    state.propPhase += dt * PROP_SPIN;
     cloudsLayer.update(dt);
 
     const guide = pathAt(Math.min(1, state.progress));
@@ -868,6 +971,7 @@ export function createFlightEngine(mount) {
     state.displayProgress = 0;
     state.displayAngle = angleAt(0.02);
     state.angleVel = 0;
+    state.propPhase = 0;
     state.planeX = 0;
     state.planeY = 0;
     state.planeReadyPos = false;

@@ -4,6 +4,7 @@
 
 import { Chip, ChipGroup } from '../base/Chip.js';
 import { WALLET_COINS } from '../../utils/wallet.constants.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
@@ -26,7 +27,7 @@ export function CoinSelector(options = {}) {
     className: classes.join(' '),
     chips: WALLET_COINS.map((coin) =>
       Chip({
-        label: coin.label,
+        label: t(coin.labelKey),
         iconSrc: coin.icon,
         active: coin.id === activeId,
         className: 'wallet-coin-grid__chip',

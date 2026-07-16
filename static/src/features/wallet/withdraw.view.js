@@ -7,6 +7,7 @@ import { WITHDRAW_ADDRESS_PLACEHOLDER } from '../../utils/wallet.constants.js';
 import { formatCryptoAmount } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
+import { t } from '../../i18n/index.js';
 import { getCoinNetwork, getCoinSymbol, getDefaultNetworkId } from './wallet.utils.js';
 import { Button } from '../../components/base/Button.js';
 import { Input } from '../../components/base/Input.js';
@@ -16,6 +17,18 @@ import { NetworkSelector } from '../../components/shared/NetworkSelector.js';
 import { AmountInput, updateAmountInputCurrency } from '../../components/shared/AmountInput.js';
 
 const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
+/**
+ * @param {Array<object>} networks
+ * @returns {Array<object>}
+ */
+function resolveNetworkOptions(networks) {
+  return networks.map((option) => ({
+    ...option,
+    label: t(option.labelKey),
+    networkLabel: t(option.networkKey),
+  }));
+}
 
 /**
  * @param {object} [options]
@@ -56,7 +69,7 @@ export function createWithdrawView(options = {}) {
     if (!amountFieldRoot) return;
     updateAmountInputCurrency(
       amountFieldRoot,
-      getCoinSymbol(getCoinId()),
+      t('common.usd'),
       Boolean(state.amount),
     );
   }
@@ -89,11 +102,11 @@ export function createWithdrawView(options = {}) {
 
     networkMount.replaceChildren(
       NetworkSelector({
-        networkLabel: ctx.network.networkLabel,
-        label: ctx.network.label,
+        networkLabel: t(ctx.network.networkKey),
+        label: t(ctx.network.labelKey),
         iconSrc: ctx.network.icon,
         className: 'wallet-view__network',
-        options: ctx.networks,
+        options: resolveNetworkOptions(ctx.networks),
         activeId: ctx.network.id,
         onSelect: multiNetwork
           ? (networkId) => {
@@ -110,9 +123,9 @@ export function createWithdrawView(options = {}) {
     const field = AmountInput({
       name: 'withdraw-amount',
       value: state.amount,
-      currency: getCoinSymbol(getCoinId()),
+      currency: t('common.usd'),
       error: state.amountError,
-      placeholder: 'Enter amount',
+      placeholder: t('wallet.amount.placeholder'),
       className: 'wallet-view__amount',
       onInput: (event) => {
         state.amount = event.target.value;
@@ -141,7 +154,7 @@ export function createWithdrawView(options = {}) {
       multiline: true,
       rows: 4,
       mono: true,
-      placeholder: WITHDRAW_ADDRESS_PLACEHOLDER,
+      placeholder: WITHDRAW_ADDRESS_PLACEHOLDER(),
       value: state.address,
       className: 'wallet-view__address-field',
       inputClassName: 'wallet-view__address-input',
@@ -172,8 +185,10 @@ export function createWithdrawView(options = {}) {
           createElement('p', {
             className: 'wallet-view__min-amount',
             html: formattedMin
-              ? `min amount: <strong>${formattedMin}</strong>`
-              : 'min amount: <span class="wallet-view__min-sum-pending">—</span>',
+              ? t('wallet.withdraw.minAmount', { amount: `<strong>${formattedMin}</strong>` })
+              : t('wallet.withdraw.minAmount', {
+                amount: `<span class="wallet-view__min-sum-pending">${t('common.emDash')}</span>`,
+              }),
           }),
           createElement('span', {
             className: 'wallet-view__info-icon',
@@ -188,7 +203,7 @@ export function createWithdrawView(options = {}) {
   function updateSubmitButton() {
     actionMount.replaceChildren(
       Button({
-        label: 'Вывод',
+        label: t('wallet.withdraw.submit'),
         variant: 'primary',
         pill: true,
         block: true,
@@ -217,7 +232,7 @@ export function createWithdrawView(options = {}) {
     if (!ctx || !address || state.submitting) return;
 
     if (!Number.isFinite(amount) || amount <= 0) {
-      state.amountError = 'Enter a valid amount';
+      state.amountError = t('wallet.withdraw.validation.amount');
       renderAmountField();
       return;
     }
@@ -232,7 +247,7 @@ export function createWithdrawView(options = {}) {
         amount,
       });
 
-      Toast({ message: 'Withdrawal submitted', type: 'success', duration: 2500 });
+      Toast({ message: t('wallet.withdraw.toast.success'), type: 'success', duration: 2500 });
       state.address = '';
       state.amount = '';
       if (addressInput) addressInput.value = '';
@@ -241,14 +256,14 @@ export function createWithdrawView(options = {}) {
       await balanceService.fetchBalances();
     } catch (error) {
       const detail = error?.data?.detail;
-      let message = 'Unable to submit withdrawal. Please try again.';
+      let message = t('wallet.withdraw.error.generic');
 
       if (typeof detail === 'string') {
         message = detail;
       } else if (error?.status === 404 || error?.status === 501) {
-        message = 'Withdrawal service is not available yet.';
+        message = t('wallet.withdraw.error.unavailable');
       } else if (error?.status === 409) {
-        message = 'Insufficient balance for this withdrawal.';
+        message = t('wallet.withdraw.error.insufficient');
       }
 
       Toast({ message, type: 'error', duration: 3000 });

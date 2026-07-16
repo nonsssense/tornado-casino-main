@@ -51,10 +51,20 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/banners", StaticFiles(directory="banners"), name="banners")
 
+# Vite production bundles (hashed JS/CSS/images). Directory may be empty until `npm run build`.
+os.makedirs("dist/app", exist_ok=True)
+app.mount("/app", StaticFiles(directory="dist/app"), name="app_build")
+
 # Crash REST + WebSocket (implemented in games/crash/router.py)
 app.include_router(crash_router)
 
-INDEX_HTML = "index.html"
+
+def _index_html_path() -> str:
+    """Prefer Vite build output; fall back to source index for local pre-build use."""
+    dist_index = os.path.join("dist", "index.html")
+    if os.path.isfile(dist_index):
+        return dist_index
+    return "index.html"
 
 # Exactly one Crash loop task for this process
 _crash_loop_task = None
@@ -230,7 +240,7 @@ async def serve_frontend():
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        return FileResponse(INDEX_HTML)
+        return FileResponse(_index_html_path())
     except Exception:
         log.exception(f"Endpoint failed | endpoint={endpoint}")
         raise
@@ -269,7 +279,7 @@ async def root(response: Response, request: Request, initdata: UserRequest):
     log.info(f"Authentication request received | request_id={request_id}")
 
     try:
-        response = FileResponse("index.html")
+        response = FileResponse(_index_html_path())
         event_type = 'Auth'
 
         init_data = initdata.initdata or ""
@@ -708,10 +718,10 @@ async def spa_fallback(full_path: str):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        if full_path.startswith(("api", "crash", "static", "assets", "banners")):
+        if full_path.startswith(("api", "crash", "static", "assets", "banners", "app")):
             log.warning(f"SPA fallback rejected reserved path | path={full_path}")
             raise HTTPException(status_code=404, detail="Not Found")
-        return FileResponse(INDEX_HTML)
+        return FileResponse(_index_html_path())
     except HTTPException:
         raise
     except Exception:

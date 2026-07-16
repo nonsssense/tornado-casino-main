@@ -5,29 +5,40 @@
 
 import { createElement } from '../../utils/dom.js';
 import { bonusService } from '../../services/bonus.service.js';
+import { t } from '../../i18n/index.js';
+import briefcaseIcon from '../../../../assets/bonus-briefcase.webp';
 
 const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
 const ICON_HELP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>';
 
-const BRIEFCASE_ICON = '/assets/bonus-briefcase.png';
+const BRIEFCASE_ICON = briefcaseIcon;
 
-/** Backend offer.state → short status label (display only). */
-const STATE_LABEL = {
-  available: 'Available',
-  active: 'Active',
-  completed: 'Done',
-  expired: 'Expired',
-  forfeited: 'Forfeited',
-  upcoming: 'Upcoming',
+const STATE_KEY = {
+  available: 'available',
+  active: 'active',
+  completed: 'done',
+  expired: 'expired',
+  forfeited: 'forfeited',
+  upcoming: 'upcoming',
 };
+
+/**
+ * @param {string} offerState
+ * @returns {string}
+ */
+function formatStateLabel(offerState) {
+  const key = STATE_KEY[offerState] || offerState;
+  if (!key) return '';
+  return t(`wallet.bonus.state.${key}`);
+}
 
 /**
  * @param {object|null} offer
  * @returns {string}
  */
 function formatPercent(offer) {
-  if (offer?.percent == null) return '—';
+  if (offer?.percent == null) return t('common.emDash');
   return `${offer.percent}%`;
 }
 
@@ -36,8 +47,8 @@ function formatPercent(offer) {
  * @returns {string}
  */
 function formatWager(offer) {
-  if (offer?.wager_multiplier == null) return '—';
-  return `${offer.wager_multiplier}× bonus`;
+  if (offer?.wager_multiplier == null) return t('common.emDash');
+  return t('wallet.bonus.wager', { n: offer.wager_multiplier });
 }
 
 /**
@@ -45,8 +56,8 @@ function formatWager(offer) {
  * @returns {string}
  */
 function formatExpiry(offer) {
-  if (offer?.expires_days == null) return 'No expiry';
-  return `${offer.expires_days} days`;
+  if (offer?.expires_days == null) return t('wallet.bonus.expires.none');
+  return t('wallet.bonus.expires.days', { n: offer.expires_days });
 }
 
 /**
@@ -54,8 +65,8 @@ function formatExpiry(offer) {
  * @returns {string}
  */
 function formatTierLabel(offer) {
-  if (!offer?.deposit_index) return offer?.name || 'Deposit Bonus';
-  return `Deposit #${offer.deposit_index}`;
+  if (!offer?.deposit_index) return offer?.name || t('wallet.bonus.tier.generic');
+  return t('wallet.bonus.tier.nth', { n: offer.deposit_index });
 }
 
 /**
@@ -64,8 +75,8 @@ function formatTierLabel(offer) {
  * @returns {string}
  */
 function formatStatusLabel(offer, isSelected) {
-  if (isSelected && offer.state === 'available') return 'Selected';
-  return STATE_LABEL[offer.state] || offer.state || '';
+  if (isSelected && offer.state === 'available') return t('wallet.bonus.state.selected');
+  return formatStateLabel(offer.state) || offer.state || '';
 }
 
 /**
@@ -74,20 +85,22 @@ function formatStatusLabel(offer, isSelected) {
  */
 function formatEligibleGames(offer) {
   const eligible = offer?.eligible_games;
-  if (!eligible || typeof eligible !== 'object') return 'Dice, Crash, Plinko LOW';
+  if (!eligible || typeof eligible !== 'object') return t('wallet.bonus.games.allLow');
 
   const parts = [];
-  if (eligible.dice) parts.push('Dice');
-  if (eligible.crash) parts.push('Crash');
+  if (eligible.dice) parts.push(t('wallet.bonus.games.dice'));
+  if (eligible.crash) parts.push(t('wallet.bonus.games.crash'));
   if (eligible.plinco) {
     const modes = eligible.plinco?.risk_modes;
     if (Array.isArray(modes) && modes.length) {
-      parts.push(`Plinko (${modes.map((m) => String(m).toUpperCase()).join('/')})`);
+      parts.push(t('wallet.bonus.games.plinkoRisk', {
+        risk: modes.map((m) => String(m).toUpperCase()).join('/'),
+      }));
     } else {
-      parts.push('Plinko');
+      parts.push(t('wallet.bonus.games.plinko'));
     }
   }
-  return parts.length ? parts.join(', ') : '—';
+  return parts.length ? parts.join(', ') : t('common.emDash');
 }
 
 /**
@@ -98,10 +111,26 @@ function formatMaxBet(offer) {
   const abs = offer?.max_bet_absolute;
   const pct = offer?.max_bet_percent_of_bonus;
   if (abs != null && pct != null) {
-    return `${Math.round(Number(pct) * 100)}% of bonus, up to $${Number(abs)}`;
+    return t('wallet.bonus.maxBet.pctCap', {
+      pct: Math.round(Number(pct) * 100),
+      amount: `$${Number(abs)}`,
+    });
   }
-  if (abs != null) return `Up to $${Number(abs)}`;
-  return 'See bonus terms';
+  if (abs != null) return t('wallet.bonus.maxBet.upTo', { amount: `$${Number(abs)}` });
+  return t('wallet.bonus.maxBet.terms');
+}
+
+/**
+ * @param {number|null|undefined} n
+ * @returns {string}
+ */
+function ordinal(n) {
+  const value = Number(n);
+  if (!Number.isFinite(value)) return t('wallet.bonus.ordinal.next');
+  const key = `wallet.bonus.ordinal.${value}`;
+  const label = t(key);
+  if (label !== key) return label;
+  return t('wallet.bonus.ordinal.nth', { n: value });
 }
 
 /**
@@ -173,7 +202,7 @@ export function createDepositBonusSelector(options = {}) {
       button.setAttribute('aria-pressed', nextFlipped ? 'true' : 'false');
       button.setAttribute(
         'aria-label',
-        nextFlipped ? 'Hide bonus details' : 'Show bonus details',
+        nextFlipped ? t('wallet.bonus.aria.hide') : t('wallet.bonus.aria.show'),
       );
     });
   }
@@ -196,19 +225,19 @@ export function createDepositBonusSelector(options = {}) {
     const isSelected = Boolean(display?.selected);
     const status = display
       ? formatStatusLabel(display, isSelected)
-      : (state.loading ? '' : 'None');
+      : (state.loading ? '' : t('wallet.bonus.state.none'));
 
-    let title = 'Deposit bonus';
-    let subtitle = 'Tap to choose';
+    let title = t('wallet.bonus.collapsed.title');
+    let subtitle = t('wallet.bonus.collapsed.tap');
     if (state.loading) {
-      title = 'Loading bonuses…';
+      title = t('wallet.bonus.collapsed.loading');
       subtitle = '';
     } else if (display) {
       title = `${formatPercent(display)} · ${formatTierLabel(display)}`;
       subtitle = display.description || formatStatusLabel(display, isSelected);
     } else if (!hasSelectableOffer() && state.offers.length) {
-      title = 'No deposit bonus available';
-      subtitle = 'All tiers used or locked';
+      title = t('wallet.bonus.collapsed.unavailable');
+      subtitle = t('wallet.bonus.collapsed.locked');
     }
 
     const children = [
@@ -295,13 +324,13 @@ export function createDepositBonusSelector(options = {}) {
     if (!state.loading && state.offers.length && !hasSelectableOffer() && !display) {
       children.push(createElement('p', {
         className: 'deposit-bonus__error',
-        text: 'No deposit bonus is available for your next deposit.',
+        text: t('wallet.bonus.empty'),
       }));
     }
 
     children.push(createElement('div', {
       className: 'deposit-bonus__list',
-      attrs: { role: 'listbox', 'aria-label': 'Deposit bonus tiers' },
+      attrs: { role: 'listbox', 'aria-label': t('wallet.bonus.listAria') },
       children: state.offers.map((offer) => createFlipCard(offer)),
     }));
 
@@ -317,7 +346,6 @@ export function createDepositBonusSelector(options = {}) {
 
   /**
    * @param {object} offer
-   * @param {number} index
    */
   function createFlipCard(offer) {
     const offerState = offer.state || 'upcoming';
@@ -440,13 +468,19 @@ export function createDepositBonusSelector(options = {}) {
    */
   function createCardBack(offer) {
     const rows = [
-      { label: 'Bonus', value: `${formatPercent(offer)} match on ${formatTierLabel(offer).toLowerCase()}` },
-      { label: 'Who', value: `Players making their ${ordinal(offer.deposit_index)} deposit` },
-      { label: 'Wager', value: formatWager(offer) },
-      { label: 'Expires', value: formatExpiry(offer) },
-      { label: 'Max bet', value: formatMaxBet(offer) },
-      { label: 'Games', value: formatEligibleGames(offer) },
-      { label: 'Note', value: 'Plinko LOW only. Unused bonus burns on expiry.' },
+      {
+        label: t('wallet.bonus.detail.bonus'),
+        value: `${formatPercent(offer)} · ${formatTierLabel(offer)}`,
+      },
+      {
+        label: t('wallet.bonus.detail.who'),
+        value: t('wallet.bonus.detail.whoPlayers', { ordinal: ordinal(offer.deposit_index) }),
+      },
+      { label: t('wallet.bonus.detail.wager'), value: formatWager(offer) },
+      { label: t('wallet.bonus.detail.expires'), value: formatExpiry(offer) },
+      { label: t('wallet.bonus.detail.maxBet'), value: formatMaxBet(offer) },
+      { label: t('wallet.bonus.detail.games'), value: formatEligibleGames(offer) },
+      { label: t('wallet.bonus.detail.note'), value: t('wallet.bonus.detail.noteValue') },
     ];
 
     return createElement('div', {
@@ -454,7 +488,7 @@ export function createDepositBonusSelector(options = {}) {
       attrs: {
         role: 'button',
         tabindex: '0',
-        'aria-label': 'Flip card back',
+        'aria-label': t('wallet.bonus.aria.flipBack'),
         onClick: (event) => toggleFlip(offer.id, event),
         onKeydown: (event) => {
           if (event.key === 'Enter' || event.key === ' ') {
@@ -469,7 +503,9 @@ export function createDepositBonusSelector(options = {}) {
           children: [
             createElement('span', {
               className: 'deposit-bonus__back-title',
-              text: `${formatPercent(offer)} Deposit Bonus`,
+              text: t('wallet.bonus.detail.title', {
+                pct: offer.percent ?? t('common.emDash'),
+              }),
             }),
             createElement('ul', {
               className: 'deposit-bonus__back-list',
@@ -502,28 +538,12 @@ export function createDepositBonusSelector(options = {}) {
       className: 'deposit-bonus__help',
       attrs: {
         type: 'button',
-        'aria-label': isBack ? 'Hide bonus details' : 'Show bonus details',
+        'aria-label': isBack ? t('wallet.bonus.aria.hide') : t('wallet.bonus.aria.show'),
         'aria-pressed': flippedIds.has(offerId) ? 'true' : 'false',
         onClick: (event) => toggleFlip(offerId, event),
       },
       html: ICON_HELP,
     });
-  }
-
-  /**
-   * @param {number|null|undefined} n
-   * @returns {string}
-   */
-  function ordinal(n) {
-    const value = Number(n);
-    if (!Number.isFinite(value)) return 'next';
-    const mod100 = value % 100;
-    if (mod100 >= 11 && mod100 <= 13) return `${value}th`;
-    const mod10 = value % 10;
-    if (mod10 === 1) return `${value}st`;
-    if (mod10 === 2) return `${value}nd`;
-    if (mod10 === 3) return `${value}rd`;
-    return `${value}th`;
   }
 
   async function onSelect(offerId) {
@@ -537,7 +557,7 @@ export function createDepositBonusSelector(options = {}) {
       applySnapshot(next, state);
       state.error = null;
     } catch {
-      state.error = 'This deposit bonus tier is not available.';
+      state.error = t('wallet.bonus.error.tierUnavailable');
     } finally {
       state.selecting = false;
       render();
@@ -556,7 +576,7 @@ export function createDepositBonusSelector(options = {}) {
       ]);
       applySnapshot(offersState, state);
     } catch {
-      state.error = 'Unable to load bonuses.';
+      state.error = t('wallet.bonus.error.loadFailed');
       state.offers = [];
       state.selectedOfferId = null;
     } finally {

@@ -46,7 +46,8 @@ class ProvablyFair:
         amount: int
     ) -> list[int]:
 
-        digest = ProvablyFair.get_hmac(
+        # Wire to existing getHmac (algorithm unchanged — call name was a typo).
+        digest = ProvablyFair.getHmac(
             server_seed,
             client_seed,
             nonce

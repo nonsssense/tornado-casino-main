@@ -3,6 +3,7 @@
  */
 
 import { CRASH_HISTORY_TIERS, CRASH_PAYOUT_TIERS } from './crash.constants.js';
+import { formatUsd } from '../../utils/format.js';
 
 /**
  * @param {number} multiplier
@@ -54,9 +55,7 @@ export function formatMultiplier(multiplier) {
  * @returns {string}
  */
 export function formatPayout(amount) {
-  const value = Number(amount);
-  if (!Number.isFinite(value)) return '$0.00';
-  return `$${value.toFixed(2)}`;
+  return formatUsd(amount);
 }
 
 /**

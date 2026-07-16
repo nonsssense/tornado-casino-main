@@ -3,6 +3,8 @@
  * Shown when silent login fails; not part of the main application shell.
  */
 
+import { t } from '../i18n/index.js';
+
 const SCREEN_ID = 'auth-error-screen';
 
 /**
@@ -36,17 +38,16 @@ export function showAuthError({ onRetry }) {
   content.style.cssText = 'max-width:320px;text-align:center;';
 
   const title = document.createElement('h1');
-  title.textContent = 'Unable to authenticate';
+  title.textContent = t('auth.error.title');
   title.style.cssText = 'margin:0 0 12px;font-size:22px;font-weight:600;line-height:1.3;';
 
   const subtitle = document.createElement('p');
-  subtitle.textContent =
-    "Sorry, we couldn't authenticate your account. Please close the application and try again.";
+  subtitle.textContent = t('auth.error.subtitle');
   subtitle.style.cssText = 'margin:0 0 24px;font-size:15px;line-height:1.5;color:#b3b3b3;';
 
   const retryButton = document.createElement('button');
   retryButton.type = 'button';
-  retryButton.textContent = 'Retry';
+  retryButton.textContent = t('common.retry');
   retryButton.style.cssText = [
     'appearance:none',
     'border:1px solid #fff',

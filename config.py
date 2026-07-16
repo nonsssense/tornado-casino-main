@@ -21,6 +21,8 @@ db_url = os.getenv('DB_URL')
 
 BLOCKBEE_API_KEY = os.getenv('API_BLOCKBEE')
 DOMEN = os.getenv('DOMEN')
+BLOCKBEE_PUBLIC_KEY_PATH = Path(os.getenv("BLOCKBEE_PUBLIC_KEY_PATH"))
+binance_api_url = os.getenv('BINANCE_API')
 
 # Production default: True. Set WEB_DEFENCE=False in .env for local browser UI work.
 # Prefer is_web_defence_enabled() at the auth gate so .env can be toggled without a full rewrite.
@@ -31,6 +33,7 @@ def is_web_defence_enabled() -> bool:
     load_dotenv(_ENV_FILE, override=True)
     value = os.getenv('WEB_DEFENCE', 'True')
     return value.strip().lower() in ('1', 'true', 'yes', 'on')
+
 
 
 

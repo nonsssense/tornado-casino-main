@@ -3,12 +3,12 @@
  */
 
 import { createElement } from '../../utils/dom.js';
-
-const MOCK_BALANCE = '0';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
  * @param {string} [options.amount]
+ * @param {boolean} [options.loading]
  * @param {string} [options.currency]
  * @param {boolean} [options.showAddButton]
  * @param {function} [options.onAdd]
@@ -17,7 +17,8 @@ const MOCK_BALANCE = '0';
  */
 export function Balance(options = {}) {
   const {
-    amount = MOCK_BALANCE,
+    amount = t('common.emDash'),
+    loading = false,
     showAddButton = true,
     onAdd,
     onBalanceClick,
@@ -29,12 +30,16 @@ export function Balance(options = {}) {
 
   const isHeader = className.includes('balance--header');
 
+  const pillClasses = ['balance__pill'];
+  if (loading) pillClasses.push('balance__pill--loading');
+
   const value = createElement('button', {
-    className: 'balance__pill',
+    className: pillClasses.join(' '),
     attrs: {
       type: 'button',
-      'aria-label': 'Open balance',
+      'aria-label': loading ? t('balance.aria.loading') : t('balance.aria.open'),
       'aria-live': 'polite',
+      'aria-busy': loading ? 'true' : 'false',
       onClick: onBalanceClick || undefined,
     },
     text: amount,
@@ -47,7 +52,7 @@ export function Balance(options = {}) {
       className: 'balance__add',
       attrs: {
         type: 'button',
-        'aria-label': 'Deposit',
+        'aria-label': t('balance.aria.deposit'),
         onClick: onAdd || undefined,
       },
       text: '+',

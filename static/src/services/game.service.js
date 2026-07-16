@@ -9,6 +9,7 @@
 
 import { rollDice, playPlinko } from '../api/games.js';
 import { balanceService } from './balance.service.js';
+import { t } from '../i18n/index.js';
 
 /**
  * @param {unknown} error
@@ -26,10 +27,10 @@ function getGameErrorMessage(error) {
   }
 
   if (error?.status === 409) {
-    return 'Insufficient balance. Please top up your wallet.';
+    return t('games.error.insufficient');
   }
 
-  return 'Unable to complete the game round. Please try again.';
+  return t('games.error.generic');
 }
 
 export const gameService = {

@@ -13,6 +13,7 @@
 @import url('./components/modal.css');
 @import url('./components/qr-lightbox.css');
 @import url('./components/loader.css');
+@import url('./components/skeleton.css');
 @import url('./components/badge.css');
 @import url('./components/chip.css');
 @import url('./components/toast.css');
@@ -24,10 +25,4 @@
 @import url('./components/bottom-sheet.css');
 @import url('./components/modal-panel.css');
 @import url('./pages/home.css');
-@import url('./pages/wallet.css');
-@import url('./pages/profile.css');
-@import url('./pages/balance.css');
 @import url('./pages/game.css');
-@import url('./pages/dice.css');
-@import url('./pages/plinko.css');
-@import url('./pages/crash.css');

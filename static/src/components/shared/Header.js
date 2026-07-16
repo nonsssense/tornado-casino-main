@@ -5,17 +5,20 @@
 
 import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
+import { t } from '../../i18n/index.js';
 import { Balance } from './Balance.js';
 
 /**
  * @param {object} [options]
  * @param {string} [options.balanceAmount]
+ * @param {boolean} [options.balanceLoading]
  * @param {function} [options.onDepositClick]
  * @param {string} [options.className]
  */
 export function Header(options = {}) {
   const {
     balanceAmount,
+    balanceLoading = false,
     onDepositClick,
     className = '',
   } = options;
@@ -34,18 +37,18 @@ export function Header(options = {}) {
             className: 'app-header__logo',
             attrs: {
               src: ASSETS.logo,
-              alt: 'Tornado',
+              alt: t('brand.name'),
               draggable: false,
               role: 'button',
               tabindex: '0',
-              'aria-label': 'Home',
+              'aria-label': t('header.home'),
             },
           }),
           createElement('button', {
             className: 'app-header__back',
             attrs: {
               type: 'button',
-              'aria-label': 'Back to games',
+              'aria-label': t('header.back'),
             },
             html: '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>',
           }),
@@ -57,6 +60,7 @@ export function Header(options = {}) {
         children: [
           Balance({
             amount: balanceAmount,
+            loading: balanceLoading,
             onAdd: onDepositClick,
             className: 'balance--header',
           }),
@@ -70,7 +74,7 @@ export function Header(options = {}) {
             className: 'app-header__profile',
             attrs: {
               type: 'button',
-              'aria-label': 'Profile',
+              'aria-label': t('header.profile'),
             },
             children: [
               createElement('img', {

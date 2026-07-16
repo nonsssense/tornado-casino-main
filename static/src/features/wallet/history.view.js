@@ -4,35 +4,30 @@
 
 import { createElement } from '../../utils/dom.js';
 import { walletService } from '../../services/wallet.service.js';
-import { formatCryptoAmount } from '../../utils/format.js';
-import { Loader } from '../../components/base/Loader.js';
+import { formatUsd } from '../../utils/format.js';
+import { t } from '../../i18n/index.js';
+import { SkeletonHistoryRows } from '../../components/base/Skeleton.js';
 import { Button } from '../../components/base/Button.js';
+import { hydrateFadeIn } from '../../utils/hydrate.js';
 
 /**
- * @returns {{ element: HTMLElement, refresh: () => void }}
+ * @param {object} [options]
+ * @param {boolean} [options.deferLoad] - wait until tab is first shown
+ * @returns {{ element: HTMLElement, refresh: () => void, onTabVisible: () => void }}
  */
-export function createHistoryView() {
+export function createHistoryView(options = {}) {
+  const { deferLoad = true } = options;
   const contentMount = createElement('div');
+  let hasLoadedOnce = false;
 
   const state = {
-    loading: true,
+    loading: false,
     error: null,
     transactions: [],
   };
 
   function renderLoading() {
-    contentMount.replaceChildren(
-      createElement('div', {
-        className: 'wallet-view__address-loading',
-        children: [
-          Loader({ size: 'md' }),
-          createElement('span', {
-            className: 'wallet-view__address-loading-text',
-            text: 'Loading history…',
-          }),
-        ],
-      }),
-    );
+    contentMount.replaceChildren(SkeletonHistoryRows(4));
   }
 
   function renderError() {
@@ -42,10 +37,10 @@ export function createHistoryView() {
         children: [
           createElement('p', {
             className: 'wallet-view__address-error-text',
-            text: state.error || 'Unable to load history.',
+            text: state.error || t('wallet.history.error.load'),
           }),
           Button({
-            label: 'Retry',
+            label: t('common.retry'),
             variant: 'secondary',
             size: 'sm',
             onClick: loadHistory,
@@ -56,62 +51,62 @@ export function createHistoryView() {
   }
 
   function renderEmpty() {
-    contentMount.replaceChildren(
-      createElement('div', {
-        className: 'wallet-view__empty',
-        children: [
-          createElement('p', {
-            className: 'wallet-view__empty-title',
-            text: 'Transaction history',
-          }),
-          createElement('p', {
-            className: 'wallet-view__empty-text',
-            text: 'No transactions yet',
-          }),
-        ],
-      }),
-    );
+    const empty = createElement('div', {
+      className: 'wallet-view__empty',
+      children: [
+        createElement('p', {
+          className: 'wallet-view__empty-title',
+          text: t('wallet.history.emptyTitle'),
+        }),
+        createElement('p', {
+          className: 'wallet-view__empty-text',
+          text: t('wallet.history.emptyText'),
+        }),
+      ],
+    });
+    contentMount.replaceChildren(empty);
+    hydrateFadeIn(empty, 150);
   }
 
   function renderList() {
-    contentMount.replaceChildren(
-      createElement('div', {
-        className: 'wallet-view__history-list',
-        children: state.transactions.map((tx) => (
-          createElement('div', {
-            className: 'wallet-view__history-item',
-            children: [
-              createElement('div', {
-                className: 'wallet-view__history-row',
-                children: [
-                  createElement('span', {
-                    className: 'wallet-view__history-type',
-                    text: tx.type,
-                  }),
-                  createElement('span', {
-                    className: 'wallet-view__history-amount',
-                    text: formatCryptoAmount(tx.amount),
-                  }),
-                ],
-              }),
-              createElement('div', {
-                className: 'wallet-view__history-row',
-                children: [
-                  createElement('span', {
-                    className: 'wallet-view__history-status',
-                    text: tx.status,
-                  }),
-                  createElement('span', {
-                    className: 'wallet-view__history-balance',
-                    text: formatCryptoAmount(tx.balance_after),
-                  }),
-                ],
-              }),
-            ],
-          })
-        )),
-      }),
-    );
+    const list = createElement('div', {
+      className: 'wallet-view__history-list',
+      children: state.transactions.map((tx) =>
+        createElement('div', {
+          className: 'wallet-view__history-item',
+          children: [
+            createElement('div', {
+              className: 'wallet-view__history-row',
+              children: [
+                createElement('span', {
+                  className: 'wallet-view__history-type',
+                  text: tx.type,
+                }),
+                createElement('span', {
+                  className: 'wallet-view__history-amount',
+                  text: formatUsd(tx.amount),
+                }),
+              ],
+            }),
+            createElement('div', {
+              className: 'wallet-view__history-row',
+              children: [
+                createElement('span', {
+                  className: 'wallet-view__history-status',
+                  text: tx.status,
+                }),
+                createElement('span', {
+                  className: 'wallet-view__history-balance',
+                  text: formatUsd(tx.balance_after),
+                }),
+              ],
+            }),
+          ],
+        }),
+      ),
+    });
+    contentMount.replaceChildren(list);
+    hydrateFadeIn(list, 150);
   }
 
   function renderContent() {
@@ -141,10 +136,17 @@ export function createHistoryView() {
     try {
       state.transactions = await walletService.fetchHistory();
     } catch {
-      state.error = 'Unable to load history. Please try again.';
+      state.error = t('wallet.history.error.retry');
     } finally {
       state.loading = false;
+      hasLoadedOnce = true;
       renderContent();
+    }
+  }
+
+  function onTabVisible() {
+    if (!hasLoadedOnce) {
+      void loadHistory();
     }
   }
 
@@ -154,15 +156,11 @@ export function createHistoryView() {
     children: [contentMount],
   });
 
-  const observer = new MutationObserver(() => {
-    if (element.getAttribute('aria-hidden') === 'false') {
-      loadHistory();
-    }
-  });
+  if (!deferLoad) {
+    void loadHistory();
+  } else {
+    renderLoading();
+  }
 
-  observer.observe(element, { attributes: true, attributeFilter: ['aria-hidden'] });
-
-  loadHistory();
-
-  return { element, refresh: loadHistory };
+  return { element, refresh: loadHistory, onTabVisible };
 }

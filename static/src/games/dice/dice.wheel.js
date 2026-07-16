@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { getWheelSectors, rollToDegrees } from './dice.utils.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
@@ -46,13 +47,13 @@ export function createDiceWheel(options = {}) {
 
   const resultValue = createElement('span', {
     className: 'dice-wheel__result-value',
-    text: '—',
+    text: t('common.emDash'),
     attrs: { 'aria-live': 'polite' },
   });
 
   const resultLabel = createElement('span', {
     className: 'dice-wheel__result-label',
-    text: 'Roll',
+    text: t('dice.wheel.rollLabel'),
   });
 
   const hub = createElement('div', {
@@ -95,7 +96,7 @@ export function createDiceWheel(options = {}) {
   }
 
   function setResultDisplay(value, { pulse = false } = {}) {
-    resultValue.textContent = value === null || value === undefined ? '—' : String(value);
+    resultValue.textContent = value === null || value === undefined ? t('common.emDash') : String(value);
     hub.classList.toggle('dice-wheel__hub--pulse', pulse);
     if (pulse) {
       window.setTimeout(() => hub.classList.remove('dice-wheel__hub--pulse'), 600);

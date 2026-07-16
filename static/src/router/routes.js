@@ -1,11 +1,11 @@
 /**
  * Route definitions.
+ *
+ * Games are lazy-loaded so Crash / Dice / Plinko bundles download only when opened.
+ * Home stays static for faster first paint after shell boot.
  */
 
 import { renderHomePage } from '../pages/home.page.js';
-import { renderDicePage } from '../pages/dice.page.js';
-import { renderPlinkoPage } from '../pages/plinko.page.js';
-import { renderCrashPage } from '../pages/crash.page.js';
 import {
   ROUTE_NAMES,
   DEFAULT_ROUTE,
@@ -17,7 +17,7 @@ export { ROUTE_NAMES, DEFAULT_ROUTE, NAV_ROUTE_MAP, NAV_ROUTES };
 
 /**
  * Registered application routes.
- * @type {Record<string, { navId: string, render: () => HTMLElement }>}
+ * @type {Record<string, { navId: string, render: () => HTMLElement | Promise<HTMLElement> }>}
  */
 export const ROUTES = {
   [ROUTE_NAMES.HOME]: {
@@ -26,14 +26,23 @@ export const ROUTES = {
   },
   [ROUTE_NAMES.DICE]: {
     navId: 'casino',
-    render: renderDicePage,
+    async render() {
+      const { renderDicePage } = await import('../pages/dice.page.js');
+      return renderDicePage();
+    },
   },
   [ROUTE_NAMES.PLINKO]: {
     navId: 'casino',
-    render: renderPlinkoPage,
+    async render() {
+      const { renderPlinkoPage } = await import('../pages/plinko.page.js');
+      return renderPlinkoPage();
+    },
   },
   [ROUTE_NAMES.CRASH]: {
     navId: 'casino',
-    render: renderCrashPage,
+    async render() {
+      const { renderCrashPage } = await import('../pages/crash.page.js');
+      return renderCrashPage();
+    },
   },
 };

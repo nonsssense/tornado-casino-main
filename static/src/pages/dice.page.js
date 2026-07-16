@@ -4,6 +4,7 @@
 
 import { createElement } from '../utils/dom.js';
 import { DiceGame } from '../games/dice/index.js';
+import '../../styles/pages/dice.css';
 
 /**
  * @returns {HTMLElement}

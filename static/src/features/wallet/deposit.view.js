@@ -4,18 +4,19 @@
 
 import { createElement } from '../../utils/dom.js';
 import {
-  DEPOSIT_STATUS_LABELS,
-  DEPOSIT_DISCLAIMER,
+  getDepositDisclaimer,
+  getDepositStatusLabel,
 } from '../../utils/wallet.constants.js';
 import { formatCryptoAmount } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
 import { bonusService } from '../../services/bonus.service.js';
+import { t } from '../../i18n/index.js';
 import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
 import { createDepositBonusSelector } from './deposit.bonus-selector.js';
 import { Button } from '../../components/base/Button.js';
 import { Card } from '../../components/base/Card.js';
-import { Loader } from '../../components/base/Loader.js';
+import { SkeletonDepositAddress } from '../../components/base/Skeleton.js';
 import { QrLightbox } from '../../components/base/QrLightbox.js';
 import { Toast } from '../../components/base/Toast.js';
 import { CoinSelector } from '../../components/shared/CoinSelector.js';
@@ -24,6 +25,18 @@ import { NetworkSelector } from '../../components/shared/NetworkSelector.js';
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
 const ICON_QR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3z"/></svg>';
+
+/**
+ * @param {Array<object>} networks
+ * @returns {Array<object>}
+ */
+function resolveNetworkOptions(networks) {
+  return networks.map((option) => ({
+    ...option,
+    label: t(option.labelKey),
+    networkLabel: t(option.networkKey),
+  }));
+}
 
 /**
  * @param {object} [options]
@@ -87,11 +100,11 @@ export function createDepositView(options = {}) {
 
     networkMount.replaceChildren(
       NetworkSelector({
-        networkLabel: ctx.network.networkLabel,
-        label: ctx.network.label,
+        networkLabel: t(ctx.network.networkKey),
+        label: t(ctx.network.labelKey),
         iconSrc: ctx.network.icon,
         className: 'wallet-view__network',
-        options: ctx.networks,
+        options: resolveNetworkOptions(ctx.networks),
         activeId: ctx.network.id,
         onSelect: multiNetwork
           ? (networkId) => {
@@ -105,18 +118,7 @@ export function createDepositView(options = {}) {
   }
 
   function renderAddressLoading() {
-    addressMount.replaceChildren(
-      createElement('div', {
-        className: 'wallet-view__address-loading',
-        children: [
-          Loader({ size: 'md' }),
-          createElement('span', {
-            className: 'wallet-view__address-loading-text',
-            text: 'Loading deposit address…',
-          }),
-        ],
-      }),
-    );
+    addressMount.replaceChildren(SkeletonDepositAddress());
   }
 
   function renderAddressError() {
@@ -126,10 +128,10 @@ export function createDepositView(options = {}) {
         children: [
           createElement('p', {
             className: 'wallet-view__address-error-text',
-            text: state.error || 'Unable to load deposit address.',
+            text: state.error || t('wallet.deposit.error.load'),
           }),
           Button({
-            label: 'Retry',
+            label: t('common.retry'),
             variant: 'secondary',
             size: 'sm',
             onClick: loadDeposit,
@@ -151,11 +153,11 @@ export function createDepositView(options = {}) {
     addressMount.replaceChildren(
       Card({
         variant: 'default',
-        className: 'wallet-view__address-card',
+        className: 'wallet-view__address-card hydrate-fade',
         children: [
           createElement('p', {
             className: 'wallet-view__address-label',
-            text: ctx.network.addressLabel,
+            text: t(ctx.network.addressKey),
           }),
           createElement('p', {
             className: 'wallet-view__address-value',
@@ -165,7 +167,7 @@ export function createDepositView(options = {}) {
             className: 'wallet-view__address-actions',
             children: [
               Button({
-                label: 'скопировать',
+                label: t('wallet.deposit.copy'),
                 variant: 'primary',
                 size: 'sm',
                 className: 'wallet-view__action-btn',
@@ -173,7 +175,7 @@ export function createDepositView(options = {}) {
                 onClick: () => copyAddress(address),
               }),
               Button({
-                label: 'QR',
+                label: t('wallet.deposit.qr'),
                 variant: 'primary',
                 size: 'sm',
                 className: 'wallet-view__action-btn',
@@ -185,12 +187,18 @@ export function createDepositView(options = {}) {
         ],
       }),
     );
+    const card = addressMount.querySelector('.wallet-view__address-card');
+    if (card) {
+      requestAnimationFrame(() => card.classList.add('hydrate-fade--visible'));
+    }
   }
 
   function updateInfo() {
     const ctx = currentContext();
     const minimum = state.deposit?.minimum;
-    const coinLabel = ctx?.coin.symbol || ctx?.coin.label || 'USDT';
+    const coinLabel = ctx?.coin.symbol
+      || (ctx?.coin?.labelKey ? t(ctx.coin.labelKey) : null)
+      || 'USDT';
     const formattedMin = minimum != null
       ? formatCryptoAmount(minimum, { symbol: coinLabel })
       : null;
@@ -199,23 +207,28 @@ export function createDepositView(options = {}) {
       createElement('p', {
         className: 'wallet-view__min-sum',
         html: formattedMin
-          ? `min sum: <strong>${formattedMin}</strong>`
-          : 'min sum: <span class="wallet-view__min-sum-pending">—</span>',
+          ? t('wallet.deposit.minSum', { amount: `<strong>${formattedMin}</strong>` })
+          : t('wallet.deposit.minSumEmpty').replace(
+            t('common.emDash'),
+            `<span class="wallet-view__min-sum-pending">${t('common.emDash')}</span>`,
+          ),
       }),
       createElement('p', {
         className: 'wallet-view__disclaimer',
-        text: DEPOSIT_DISCLAIMER,
+        text: getDepositDisclaimer(),
       }),
     );
   }
 
   function updateStatus() {
-    const label = DEPOSIT_STATUS_LABELS[state.status] || DEPOSIT_STATUS_LABELS.pending;
+    const label = getDepositStatusLabel(state.status) || getDepositStatusLabel('pending');
 
     statusMount.replaceChildren(
       createElement('p', {
         className: 'wallet-view__status',
-        html: `Status: <span class="wallet-view__status-value">${label}</span>`,
+        html: t('wallet.deposit.statusPrefix', {
+          status: `<span class="wallet-view__status-value">${label}</span>`,
+        }),
       }),
     );
   }
@@ -254,7 +267,7 @@ export function createDepositView(options = {}) {
           // Balance/bonus refresh failures should not block completion UX.
         }
 
-        Toast({ message: 'Deposit completed', type: 'success', duration: 3000 });
+        Toast({ message: t('wallet.deposit.toast.completed'), type: 'success', duration: 3000 });
       },
     });
   }
@@ -264,7 +277,7 @@ export function createDepositView(options = {}) {
 
     if (!ctx) {
       state.loading = false;
-      state.error = 'Unsupported currency.';
+      state.error = t('wallet.deposit.error.unsupported');
       renderAddressError();
       return;
     }
@@ -289,13 +302,13 @@ export function createDepositView(options = {}) {
       }
     } catch (error) {
       if (error?.status === 404 || error?.status === 501) {
-        state.error = 'Deposit service is not available yet.';
+        state.error = t('wallet.deposit.error.unavailable');
       } else if (error?.status === 400) {
-        state.error = 'Selected network is not supported.';
+        state.error = t('wallet.deposit.error.network');
       } else if (error?.status === 502) {
-        state.error = 'Deposit address for this network is unavailable. Try another network.';
+        state.error = t('wallet.deposit.error.addressUnavailable');
       } else {
-        state.error = 'Unable to load deposit address. Please try again.';
+        state.error = t('wallet.deposit.error.retry');
       }
       renderAddressError();
     } finally {
@@ -310,10 +323,10 @@ export function createDepositView(options = {}) {
 
     navigator.clipboard.writeText(address)
       .then(() => {
-        Toast({ message: 'Address copied', type: 'success', duration: 2000 });
+        Toast({ message: t('wallet.deposit.toast.addressCopied'), type: 'success', duration: 2000 });
       })
       .catch(() => {
-        Toast({ message: 'Failed to copy address', type: 'error', duration: 2500 });
+        Toast({ message: t('wallet.deposit.toast.copyFailed'), type: 'error', duration: 2500 });
       });
   }
 
@@ -330,7 +343,7 @@ export function createDepositView(options = {}) {
     const address = state.deposit?.address;
 
     if (!qr && !address) {
-      Toast({ message: 'QR code not available yet', type: 'info', duration: 2500 });
+      Toast({ message: t('wallet.deposit.toast.qrUnavailable'), type: 'info', duration: 2500 });
       return;
     }
 
@@ -342,7 +355,7 @@ export function createDepositView(options = {}) {
     void closeQrLightbox().then(() => {
       qrLightbox = QrLightbox({
         src: qrUrl,
-        alt: 'Deposit QR code',
+        alt: t('wallet.deposit.qrAlt'),
         onClose: () => {
           qrLightbox = null;
         },

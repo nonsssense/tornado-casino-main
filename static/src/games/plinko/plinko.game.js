@@ -13,7 +13,8 @@ import { createPlinkoControls } from './plinko.controls.js';
 import { animatePlinkoPath } from './plinko.animation.js';
 import { isPremiumMultiplier } from './plinko.geometry.js';
 import { PLINKO_DEFAULT_STATE } from './plinko.constants.js';
-import { formatCryptoAmount } from '../../utils/format.js';
+import { formatUsd } from '../../utils/format.js';
+import { t } from '../../i18n/index.js';
 
 /** @type {HTMLElement|null} */
 let mountContainer = null;
@@ -43,7 +44,7 @@ async function handlePlay() {
   const { bid, risk_mode, rows } = controls.getState();
 
   if (!Number.isFinite(bid) || bid <= 0) {
-    Toast({ message: 'Enter a valid bet amount', type: 'warning', duration: 2500 });
+    Toast({ message: t('games.validation.bet'), type: 'warning', duration: 2500 });
     return;
   }
 
@@ -65,7 +66,7 @@ async function handlePlay() {
     const path = result.path ?? result.bits;
 
     if (!Array.isArray(path) || path.length !== rows) {
-      throw new Error('Backend did not return a valid ball path');
+      throw new Error(t('plinko.error.invalidPath'));
     }
 
     const { basketIndex } = await animatePlinkoPath({ path, board });
@@ -74,19 +75,20 @@ async function handlePlay() {
     const payout = Number(result.payout) || 0;
     const profit = payout - bid;
     const premium = isPremiumMultiplier(multiplier);
+    const mult = multiplier.toFixed(2);
 
     board.highlightBasket(basketIndex, { premium });
     board.hideBall();
 
     if (profit > 0) {
       showGameWinToast({
-        gameName: `Plinko · ${multiplier.toFixed(2)}×`,
+        gameName: t('plinko.toast.winMeta', { mult }),
         amount: profit,
         duration: premium ? 4800 : 3800,
       });
     } else {
       Toast({
-        message: `${multiplier.toFixed(2)}× — ${formatCryptoAmount(payout, { symbol: 'USDT' })} returned`,
+        message: t('plinko.toast.returned', { mult, usd: formatUsd(payout) }),
         type: 'info',
         duration: 3200,
       });
@@ -95,7 +97,7 @@ async function handlePlay() {
     board.hideBall();
     board.clearBasketHighlight();
     Toast({
-      message: error.message || 'Plinko round failed',
+      message: error.message || t('plinko.toast.failed'),
       type: 'error',
       duration: 3200,
     });
@@ -120,11 +122,11 @@ export const PlinkoGame = {
       container.replaceChildren(
         createElement('p', {
           className: 'plinko-board-wrap__error',
-          text: 'Unable to load Plinko configuration from server.',
+          text: t('plinko.error.config'),
         }),
       );
       Toast({
-        message: error.message || 'Failed to load Plinko config',
+        message: error.message || t('plinko.toast.configFailed'),
         type: 'error',
         duration: 4000,
       });

@@ -186,6 +186,111 @@
   pointer-events: none;
 }
 
+/* ── Waiting / betting countdown overlay ─────────────────── */
+
+.crash-waiting {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-6) var(--space-5);
+  pointer-events: none;
+  opacity: 1;
+  transition: opacity 420ms ease;
+}
+
+.crash-waiting[hidden] {
+  display: none !important;
+}
+
+.crash-waiting__logo {
+  display: block;
+  width: auto;
+  height: 40px;
+  max-width: min(42%, 152px);
+  margin: 0 0 var(--space-2);
+  object-fit: contain;
+  user-select: none;
+  -webkit-user-drag: none;
+}
+
+.crash-waiting__title {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-family-base);
+  font-size: clamp(1.35rem, 4.2vw, 1.75rem);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+  color: var(--color-text-primary, #fff);
+}
+
+.crash-waiting__subtitle {
+  margin: 0;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.48);
+}
+
+.crash-waiting__track {
+  width: min(70%, 14rem);
+  height: 5px;
+  margin-top: var(--space-2);
+  border-radius: 999px;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.04);
+}
+
+.crash-waiting__fill {
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--crash-orange);
+  transform-origin: left center;
+  transform: scaleX(1);
+  will-change: transform;
+}
+
+.crash-waiting__seconds {
+  margin: var(--space-1) 0 0;
+  padding: 0;
+  text-align: center;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.crash-waiting--enter {
+  animation: crash-waiting-enter 480ms ease both;
+}
+
+.crash-waiting--exit {
+  opacity: 0;
+}
+
+@keyframes crash-waiting-enter {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
 /* Fixed centered slot — multiplier never leaves the viewport */
 .crash-animation__multiplier-slot {
   position: absolute;
@@ -200,6 +305,10 @@
   align-items: center;
   justify-content: center;
   pointer-events: none;
+}
+
+.crash-animation__multiplier-slot[hidden] {
+  display: none !important;
 }
 
 .crash-animation__multiplier {
@@ -257,8 +366,17 @@
     transition: color 180ms ease;
   }
 
-  .crash-animation__placeholder--enter {
+  .crash-animation__placeholder--enter,
+  .crash-waiting--enter {
     animation: none;
+  }
+
+  .crash-waiting {
+    transition: none;
+  }
+
+  .crash-waiting__fill {
+    transition: none;
   }
 }
 
@@ -384,6 +502,57 @@
 
 .crash-bet-amount__stepper:active:not(:disabled) {
   transform: scale(0.96);
+}
+
+.crash-bet-amount__quick-bets {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: var(--space-1);
+}
+
+.crash-bet-amount__quick-bet {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  height: 2.25rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(0, 0, 0, 0.5);
+  color: #fff;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  cursor: pointer;
+  transition:
+    background 150ms ease-out,
+    border-color 150ms ease-out,
+    transform 150ms ease-out;
+}
+
+.crash-bet-amount__quick-bet:hover {
+  background: rgba(255, 255, 255, 0.04);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.crash-bet-amount__quick-bet:active,
+.crash-bet-amount__quick-bet--pressed {
+  transform: scale(0.96);
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.crash-bet-amount__quick-bet--active {
+  background: rgba(255, 255, 255, 0.08);
+  border-color: rgba(255, 255, 255, 0.16);
+}
+
+.crash-bet-amount--disabled .crash-bet-amount__quick-bet {
+  pointer-events: none;
+  opacity: 0.55;
 }
 
 .crash-bet-amount--disabled {

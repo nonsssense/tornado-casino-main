@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { formatPayout, getPayoutTierKey } from './crash.utils.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @typedef {'bet' | 'cashout'} CrashActionMode
@@ -32,7 +33,7 @@ export function createBetButton(options = {}) {
 
   const label = createElement('span', {
     className: 'crash-bet-button__label',
-    text: 'BET',
+    text: t('crash.action.bet'),
   });
 
   const payoutEl = createElement('span', {
@@ -55,7 +56,7 @@ export function createBetButton(options = {}) {
     element.classList.toggle('crash-bet-button--bet', !isCashout);
     element.disabled = disabled;
 
-    label.textContent = isCashout ? 'CASH OUT' : 'BET';
+    label.textContent = isCashout ? t('crash.action.cashout') : t('crash.action.bet');
     payoutEl.hidden = !isCashout;
     payoutEl.textContent = formatPayout(payout);
 

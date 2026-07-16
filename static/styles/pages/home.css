@@ -96,6 +96,17 @@
   overflow: hidden;
 }
 
+.home-page__promos .home-page__media {
+  width: 100%;
+  min-height: var(--home-promo-min-height);
+  height: var(--home-promo-min-height);
+  border-radius: var(--radius-base);
+}
+
+.home-page__promos .home-page__media-skeleton {
+  border-radius: var(--radius-base);
+}
+
 .home-page__promo--banner:hover {
   border-color: transparent;
   background: none;
@@ -156,6 +167,24 @@
   object-position: center;
   border-radius: var(--radius-base);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.home-page__game-banner--loaded {
+  opacity: 1;
+}
+
+.home-page__game-skeleton {
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-base);
+  pointer-events: none;
+}
+
+.home-page__game-skeleton--hidden {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
 }
 
 .home-page__game:hover {
@@ -175,8 +204,9 @@
 
 .home-page__footer-logo {
   flex-shrink: 0;
-  height: 2.75rem;
+  height: 44px;
   width: auto;
+  max-width: min(100%, 192px);
   object-fit: contain;
 }
 
@@ -189,9 +219,7 @@
   border: none;
   background: transparent;
   cursor: pointer;
-  transition:
-    opacity var(--duration-fast) var(--ease-out),
-    transform var(--duration-fast) var(--ease-out);
+  transition: opacity var(--duration-fast) var(--ease-out);
 }
 
 .home-page__footer-support:hover {
@@ -199,12 +227,13 @@
 }
 
 .home-page__footer-support:active {
-  transform: scale(0.96);
+  /* Avoid scale() — it softens raster branding art */
+  opacity: 0.85;
 }
 
 .home-page__footer-support-img {
   display: block;
-  height: 3.75rem;
+  height: 60px;
   width: auto;
   object-fit: contain;
 }

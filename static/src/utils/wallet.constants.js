@@ -1,169 +1,193 @@
 /**
- * Wallet UI constants — coins, networks, and deposit status labels.
+ * Wallet UI constants — coins, networks (labels via i18n).
  *
  * Ticker values are official BlockBee path tickers used by:
  * GET https://api.blockbee.io/{ticker}/create/
- *
- * Source: BlockBee /info + docs (e.g. btc, eth, trc20/usdt, sol/sol).
  */
+
+import { t } from '../i18n/index.js';
 
 export const WALLET_ASSET_BASE = '/assets';
 
 export const WALLET_COINS = [
   {
     id: 'usdt',
-    label: 'USDT',
+    labelKey: 'wallet.coin.usdt',
     symbol: 'USDT',
     icon: `${WALLET_ASSET_BASE}/tether.png`,
   },
   {
     id: 'btc',
-    label: 'Bitcoin',
+    labelKey: 'wallet.coin.btc',
     symbol: 'BTC',
     icon: `${WALLET_ASSET_BASE}/btc%20icon.png`,
   },
   {
     id: 'eth',
-    label: 'Ethereum',
+    labelKey: 'wallet.coin.eth',
     symbol: 'ETH',
     icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
   },
   {
     id: 'tron',
-    label: 'Tron',
+    labelKey: 'wallet.coin.tron',
     symbol: 'TRX',
     icon: `${WALLET_ASSET_BASE}/tron%20icon.png`,
   },
   {
     id: 'sol',
-    label: 'Solana',
+    labelKey: 'wallet.coin.sol',
     symbol: 'SOL',
     icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
   },
   {
     id: 'usdc',
-    label: 'USDC',
+    labelKey: 'wallet.coin.usdc',
     symbol: 'USDC',
     icon: `${WALLET_ASSET_BASE}/usdc%20icon.png`,
   },
 ];
 
 /**
- * Networks available per coin id.
- * `ticker` MUST be the BlockBee path ticker.
- * @type {Record<string, Array<{ id: string, label: string, networkLabel: string, icon: string, ticker: string, addressLabel: string }>>}
+ * @type {Record<string, Array<{ id: string, labelKey: string, networkKey: string, addressKey: string, icon: string, ticker: string }>>}
  */
 export const WALLET_NETWORKS = {
   usdt: [
     {
       id: 'trc20',
-      label: 'TRC20',
-      networkLabel: 'Tron network',
+      labelKey: 'wallet.network.trc20.label',
+      networkKey: 'wallet.network.trc20.name',
       icon: `${WALLET_ASSET_BASE}/tron%20icon.png`,
       ticker: 'trc20/usdt',
-      addressLabel: 'Постоянный адрес Tron (TRC20)',
+      addressKey: 'wallet.deposit.addressLabel.usdt_trc20',
     },
     {
       id: 'erc20',
-      label: 'ERC20',
-      networkLabel: 'Ethereum network',
+      labelKey: 'wallet.network.erc20.label',
+      networkKey: 'wallet.network.erc20.name',
       icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
       ticker: 'erc20/usdt',
-      addressLabel: 'Постоянный адрес Ethereum (ERC20)',
+      addressKey: 'wallet.deposit.addressLabel.usdt_erc20',
     },
     {
       id: 'bep20',
-      label: 'BEP20',
-      networkLabel: 'BNB Smart Chain',
+      labelKey: 'wallet.network.bep20.label',
+      networkKey: 'wallet.network.bep20.name',
       icon: `${WALLET_ASSET_BASE}/tether.png`,
       ticker: 'bep20/usdt',
-      addressLabel: 'Постоянный адрес BNB Smart Chain (BEP20)',
+      addressKey: 'wallet.deposit.addressLabel.usdt_bep20',
     },
     {
       id: 'solana',
-      label: 'Solana',
-      networkLabel: 'Solana network',
+      labelKey: 'wallet.network.solana.label',
+      networkKey: 'wallet.network.solana.name',
       icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
       ticker: 'sol/usdt',
-      addressLabel: 'Постоянный адрес Solana',
+      addressKey: 'wallet.deposit.addressLabel.usdt_solana',
     },
   ],
   btc: [
     {
       id: 'btc',
-      label: 'Bitcoin',
-      networkLabel: 'Bitcoin network',
+      labelKey: 'wallet.network.btc.label',
+      networkKey: 'wallet.network.btc.name',
       icon: `${WALLET_ASSET_BASE}/btc%20icon.png`,
       ticker: 'btc',
-      addressLabel: 'Постоянный адрес Bitcoin',
+      addressKey: 'wallet.deposit.addressLabel.btc_btc',
     },
   ],
   eth: [
     {
       id: 'ethereum',
-      label: 'Ethereum',
-      networkLabel: 'Ethereum network',
+      labelKey: 'wallet.network.ethereum.label',
+      networkKey: 'wallet.network.ethereum.name',
       icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
       ticker: 'eth',
-      addressLabel: 'Постоянный адрес Ethereum',
+      addressKey: 'wallet.deposit.addressLabel.eth_ethereum',
     },
   ],
   tron: [
     {
       id: 'tron',
-      label: 'Tron',
-      networkLabel: 'Tron network',
+      labelKey: 'wallet.network.tron.label',
+      networkKey: 'wallet.network.tron.name',
       icon: `${WALLET_ASSET_BASE}/tron%20icon.png`,
       ticker: 'trx',
-      addressLabel: 'Постоянный адрес Tron',
+      addressKey: 'wallet.deposit.addressLabel.tron_tron',
     },
   ],
   sol: [
     {
       id: 'solana',
-      label: 'Solana',
-      networkLabel: 'Solana network',
+      labelKey: 'wallet.network.solana.label',
+      networkKey: 'wallet.network.solana.name',
       icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
       ticker: 'sol/sol',
-      addressLabel: 'Постоянный адрес Solana',
+      addressKey: 'wallet.deposit.addressLabel.sol_solana',
     },
   ],
   usdc: [
     {
       id: 'erc20',
-      label: 'ERC20',
-      networkLabel: 'Ethereum network',
+      labelKey: 'wallet.network.erc20.label',
+      networkKey: 'wallet.network.erc20.name',
       icon: `${WALLET_ASSET_BASE}/eth%20icon.png`,
       ticker: 'erc20/usdc',
-      addressLabel: 'Постоянный адрес Ethereum (ERC20)',
+      addressKey: 'wallet.deposit.addressLabel.usdc_erc20',
     },
     {
       id: 'bep20',
-      label: 'BEP20',
-      networkLabel: 'BNB Smart Chain',
+      labelKey: 'wallet.network.bep20.label',
+      networkKey: 'wallet.network.bep20.name',
       icon: `${WALLET_ASSET_BASE}/usdc%20icon.png`,
       ticker: 'bep20/usdc',
-      addressLabel: 'Постоянный адрес BNB Smart Chain (BEP20)',
+      addressKey: 'wallet.deposit.addressLabel.usdc_bep20',
     },
     {
       id: 'solana',
-      label: 'Solana',
-      networkLabel: 'Solana network',
+      labelKey: 'wallet.network.solana.label',
+      networkKey: 'wallet.network.solana.name',
       icon: `${WALLET_ASSET_BASE}/solana%20icon.png`,
       ticker: 'sol/usdc',
-      addressLabel: 'Постоянный адрес Solana',
+      addressKey: 'wallet.deposit.addressLabel.usdc_solana',
     },
   ],
 };
 
-export const DEPOSIT_STATUS_LABELS = {
-  open: 'Открыт',
-  pending: 'Ожидание оплаты',
-  confirming: 'Подтверждение',
-  completed: 'Завершён',
-};
+/**
+ * @param {string} status
+ * @returns {string}
+ */
+export function getDepositStatusLabel(status) {
+  const key = `wallet.deposit.status.${status}`;
+  const label = t(key);
+  return label === key ? status : label;
+}
 
-export const DEPOSIT_DISCLAIMER =
-  'Сумма ниже минимального депозита не будет зачислена. Для зачисления средств обратитесь в поддержку.';
+/**
+ * @returns {string}
+ */
+export function getDepositDisclaimer() {
+  return t('wallet.deposit.disclaimer');
+}
 
-export const WITHDRAW_ADDRESS_PLACEHOLDER = 'Введите ваш адрес криптокошелька';
+/**
+ * @returns {string}
+ */
+export function getWithdrawAddressPlaceholder() {
+  return t('wallet.withdraw.addressPlaceholder');
+}
+
+/**
+ * Compat map — reads live translations.
+ * Prefer getDepositStatusLabel(status).
+ */
+export const DEPOSIT_STATUS_LABELS = new Proxy({}, {
+  get(_target, prop) {
+    if (typeof prop !== 'string') return undefined;
+    return getDepositStatusLabel(prop);
+  },
+});
+
+export const DEPOSIT_DISCLAIMER = getDepositDisclaimer;
+export const WITHDRAW_ADDRESS_PLACEHOLDER = getWithdrawAddressPlaceholder;

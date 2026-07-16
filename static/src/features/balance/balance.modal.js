@@ -1,15 +1,15 @@
 /**
- * Balance modal — single USDT account overview inside bottom sheet.
+ * Balance modal — USD account overview inside bottom sheet.
  */
 
 import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
-import { WALLET_COINS } from '../../utils/wallet.constants.js';
-import { formatCryptoAmount } from '../../utils/format.js';
+import { formatUsd } from '../../utils/format.js';
 import { balanceService } from '../../services/balance.service.js';
+import { t } from '../../i18n/index.js';
 import { Button } from '../../components/base/Button.js';
-
-const USDT_ASSET = WALLET_COINS.find((coin) => coin.id === 'usdt');
+import { Skeleton } from '../../components/base/Skeleton.js';
+import { hydrateFadeIn } from '../../utils/hydrate.js';
 
 /**
  * @param {object} options
@@ -21,14 +21,10 @@ function createBalanceCard({ title, valueEl }) {
   return createElement('div', {
     className: 'balance-modal__card',
     children: [
-      createElement('img', {
-        className: 'balance-modal__asset-icon',
-        attrs: {
-          src: USDT_ASSET?.icon || '',
-          alt: '',
-          draggable: false,
-          'aria-hidden': 'true',
-        },
+      createElement('span', {
+        className: 'balance-modal__asset-icon balance-modal__asset-icon--usd',
+        attrs: { 'aria-hidden': 'true' },
+        text: '$',
       }),
       createElement('div', {
         className: 'balance-modal__card-meta',
@@ -45,6 +41,53 @@ function createBalanceCard({ title, valueEl }) {
 }
 
 /**
+ * @param {boolean} loading
+ * @returns {HTMLElement}
+ */
+function createValueMount(loading) {
+  if (loading) {
+    return createElement('div', {
+      className: 'balance-modal__card-value balance-modal__card-value--loading',
+      attrs: { 'aria-live': 'polite', 'aria-busy': 'true' },
+      children: [
+        Skeleton({
+          className: 'balance-modal__card-value-skeleton',
+          variant: 'text',
+        }),
+      ],
+    });
+  }
+
+  return createElement('span', {
+    className: 'balance-modal__card-value',
+    attrs: { 'aria-live': 'polite' },
+    text: t('common.emDash'),
+  });
+}
+
+/**
+ * @param {HTMLElement} mount
+ * @param {string} formatted
+ */
+function hydrateValueMount(mount, formatted) {
+  if (mount.classList.contains('balance-modal__card-value--loading')) {
+    mount.replaceChildren(
+      createElement('span', {
+        className: 'balance-modal__card-value-text',
+        text: formatted,
+      }),
+    );
+    mount.classList.remove('balance-modal__card-value--loading');
+    mount.removeAttribute('aria-busy');
+    hydrateFadeIn(mount, 150);
+    return;
+  }
+
+  mount.textContent = formatted;
+  hydrateFadeIn(mount, 150);
+}
+
+/**
  * @param {object} [options]
  * @param {string} [options.amount]
  * @param {number} [options.cashback]
@@ -54,27 +97,24 @@ function createBalanceCard({ title, valueEl }) {
  */
 export function createBalanceModal(options = {}) {
   const {
-    amount = formatCryptoAmount(0),
-    cashback = 0,
     onDeposit,
     onWithdraw,
   } = options;
 
-  const amountValue = createElement('span', {
-    className: 'balance-modal__card-value',
-    attrs: { 'aria-live': 'polite' },
-    text: amount,
-  });
+  const cached = balanceService.getBalances();
+  const hasBalance = Boolean(cached);
 
-  const bonusValue = createElement('span', {
-    className: 'balance-modal__card-value',
-    attrs: { 'aria-live': 'polite' },
-    text: formatCryptoAmount(Number(cashback) || 0),
-  });
+  const amountValue = createValueMount(!hasBalance);
+  const bonusValue = createValueMount(!hasBalance);
+
+  if (hasBalance) {
+    hydrateValueMount(amountValue, formatUsd(cached.real));
+    hydrateValueMount(bonusValue, formatUsd(cached.bonus));
+  }
 
   const unsubscribe = balanceService.subscribe(({ formattedReal, formattedBonus }) => {
-    amountValue.textContent = formattedReal;
-    bonusValue.textContent = formattedBonus;
+    hydrateValueMount(amountValue, formattedReal);
+    hydrateValueMount(bonusValue, formattedBonus);
   });
 
   const element = createElement('div', {
@@ -85,11 +125,11 @@ export function createBalanceModal(options = {}) {
         className: 'balance-modal__cards',
         children: [
           createBalanceCard({
-            title: 'Your Balance',
+            title: t('balance.real.title'),
             valueEl: amountValue,
           }),
           createBalanceCard({
-            title: 'Bonus Balance',
+            title: t('balance.bonus.title'),
             valueEl: bonusValue,
           }),
         ],
@@ -98,14 +138,14 @@ export function createBalanceModal(options = {}) {
         className: 'balance-modal__actions',
         children: [
           Button({
-            label: 'deposit',
+            label: t('balance.actions.deposit'),
             variant: 'primary',
             block: true,
             className: 'balance-modal__action',
             onClick: onDeposit,
           }),
           Button({
-            label: 'withdraw',
+            label: t('balance.actions.withdraw'),
             variant: 'secondary',
             block: true,
             className: 'balance-modal__action',
@@ -120,7 +160,7 @@ export function createBalanceModal(options = {}) {
             className: 'balance-modal__brand-logo',
             attrs: {
               src: ASSETS.logo,
-              alt: 'Tornado',
+              alt: t('brand.name'),
               draggable: false,
             },
           }),

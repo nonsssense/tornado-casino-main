@@ -8,7 +8,7 @@
  */
 
 import { fetchBalance } from '../api/wallet.js';
-import { formatCryptoAmount } from '../utils/format.js';
+import { formatUsd } from '../utils/format.js';
 
 /** @type {Set<function>} */
 const listeners = new Set();
@@ -48,8 +48,8 @@ export const balanceService = {
   notify() {
     if (!cachedBalances) return;
 
-    const formattedReal = formatCryptoAmount(cachedBalances.real);
-    const formattedBonus = formatCryptoAmount(cachedBalances.bonus);
+    const formattedReal = formatUsd(cachedBalances.real);
+    const formattedBonus = formatUsd(cachedBalances.bonus);
 
     listeners.forEach((listener) => {
       listener({
@@ -72,8 +72,8 @@ export const balanceService = {
       callback({
         real: cachedBalances.real,
         bonus: cachedBalances.bonus,
-        formattedReal: formatCryptoAmount(cachedBalances.real),
-        formattedBonus: formatCryptoAmount(cachedBalances.bonus),
+        formattedReal: formatUsd(cachedBalances.real),
+        formattedBonus: formatUsd(cachedBalances.bonus),
       });
     }
 

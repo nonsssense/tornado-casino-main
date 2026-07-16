@@ -15,6 +15,7 @@ import {
 } from '../api/crash.js';
 import { balanceService } from './balance.service.js';
 import { CRASH_GROWTH_RATE, CRASH_GROWTH_POWER } from '../games/crash/crash.constants.js';
+import { t } from '../i18n/index.js';
 
 /** @type {WebSocket|null} */
 let socket = null;
@@ -41,22 +42,22 @@ function getCrashErrorMessage(error) {
   }
 
   if (error?.status === 401) {
-    return 'Session expired. Please reload the app.';
+    return t('crash.error.session');
   }
 
   if (error?.status === 404) {
-    return 'Crash API is not reachable. Check that the backend is running.';
+    return t('crash.error.unreachable');
   }
 
   if (error?.status === 409) {
-    return typeof detail === 'string' ? detail : 'Action not allowed right now.';
+    return typeof detail === 'string' ? detail : t('crash.error.conflict');
   }
 
   if (error?.message) {
     return error.message;
   }
 
-  return 'Unable to complete Crash action. Please try again.';
+  return t('crash.error.generic');
 }
 
 /**
@@ -94,7 +95,7 @@ export const crashService = {
     try {
       const data = await fetchCrashState();
       if (!data || typeof data !== 'object' || Array.isArray(data) || !('state' in data)) {
-        throw new Error('Invalid crash state response from server');
+        throw new Error(t('crash.error.invalidState'));
       }
       return data;
     } catch (error) {

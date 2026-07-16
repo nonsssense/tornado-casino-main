@@ -15,6 +15,7 @@ export { createLiveBets } from './crash.live-bets.js';
 export { createLiveBetRow } from './crash.live-bet-row.js';
 export {
   CRASH_BET_LIMITS,
+  CRASH_QUICK_BETS,
   CRASH_GROWTH_RATE,
   CRASH_GROWTH_POWER,
   CRASH_HISTORY_LIMIT,

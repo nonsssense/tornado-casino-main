@@ -8,6 +8,7 @@
 
 import { getTelegramContext } from '../app/telegram.js';
 import { balanceService } from './balance.service.js';
+import { t } from '../i18n/index.js';
 
 export const profileService = {
   /**
@@ -20,13 +21,15 @@ export const profileService = {
 
     const nickname = user?.username
       ? `@${user.username}`
-      : [user?.first_name, user?.last_name].filter(Boolean).join(' ') || 'Player';
+      : [user?.first_name, user?.last_name].filter(Boolean).join(' ') || t('common.player');
+
+    const dash = t('common.emDash');
 
     return {
       nickname,
-      status: '—',
-      userId: user?.id ? String(user.id) : '—',
-      email: '—',
+      status: dash,
+      userId: user?.id ? String(user.id) : dash,
+      email: dash,
       balances,
     };
   },

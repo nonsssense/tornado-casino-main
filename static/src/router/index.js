@@ -10,6 +10,14 @@ import {
 } from './routes.js';
 import { initOverlayManager, overlayManager } from '../overlays/index.js';
 import { DURATION, wait, waitFrames } from '../animations/transitions.js';
+import { t } from '../i18n/index.js';
+import { BOTTOM_NAV_ITEMS } from '../utils/constants.js';
+import {
+  bindTelegramBackButton,
+  isTelegramBackButtonSupported,
+  setTelegramBackButtonVisible,
+  ensureTelegramReady,
+} from '../app/telegram.js';
 
 /** @type {object|null} */
 let shell = null;
@@ -97,6 +105,12 @@ function updateRouteChrome(routeName) {
 
   const header = shell.root.querySelector('.app-header');
   header?.classList.toggle('app-header--game', immersive);
+
+  // Native Telegram BackButton (Bot API 6.1+) replaces in-app Back on games.
+  // Unsupported clients keep the existing in-app Back only.
+  const useNativeBack = isTelegramBackButtonSupported();
+  header?.classList.toggle('app-header--native-back', useNativeBack && immersive);
+  setTelegramBackButtonVisible(useNativeBack && immersive);
 }
 
 /**
@@ -136,7 +150,7 @@ export async function navigate(routeName) {
 
     let page = pageCache.get(routeName);
     if (!page) {
-      page = route.render();
+      page = await route.render();
       pageCache.set(routeName, page);
     }
 
@@ -228,8 +242,18 @@ export function initRouter(appShell) {
   shell = appShell;
   initOverlayManager(shell, restoreNavHighlight, navigateByNavId);
   wireHeaderActions();
-  updateBottomNav(ROUTES[DEFAULT_ROUTE].navId);
-  void navigate(DEFAULT_ROUTE);
+
+  // Native Back → Home. No-op bind when unsupported (browser / old clients).
+  ensureTelegramReady();
+  bindTelegramBackButton(() => {
+    void navigate(ROUTE_NAMES.HOME);
+  });
+  setTelegramBackButtonVisible(false);
+
+  const routeParam = new URLSearchParams(window.location.search).get('route');
+  const startRoute = routeParam && ROUTES[routeParam] ? routeParam : DEFAULT_ROUTE;
+  updateBottomNav(ROUTES[startRoute].navId);
+  void navigate(startRoute);
 }
 
 /**
@@ -239,9 +263,52 @@ export function getCurrentRoute() {
   return currentRoute;
 }
 
+/**
+ * Re-render chrome + current page after a locale change (no full reload).
+ */
+export async function refreshForLocale() {
+  if (!shell) return;
+
+  pageCache.clear();
+
+  const nav = shell.bottomNav;
+  if (nav) {
+    BOTTOM_NAV_ITEMS.forEach((item) => {
+      const label = nav.querySelector(`[data-nav="${item.id}"] .bottom-nav__label`);
+      if (label) label.textContent = t(`nav.${item.id}`);
+    });
+    nav.setAttribute('aria-label', t('nav.ariaLabel'));
+  }
+
+  const header = shell.root?.querySelector('.app-header');
+  if (header) {
+    const logo = header.querySelector('.app-header__logo');
+    if (logo) {
+      logo.setAttribute('alt', t('brand.name'));
+      logo.setAttribute('aria-label', t('header.home'));
+    }
+    header.querySelector('.app-header__back')?.setAttribute('aria-label', t('header.back'));
+    header.querySelector('.app-header__profile')?.setAttribute('aria-label', t('header.profile'));
+
+    const pill = header.querySelector('.balance__pill');
+    if (pill) {
+      const loading = pill.classList.contains('balance__pill--loading');
+      pill.setAttribute('aria-label', loading ? t('balance.aria.loading') : t('balance.aria.open'));
+    }
+    header.querySelector('.balance__add')?.setAttribute('aria-label', t('balance.aria.deposit'));
+  }
+
+  const routeName = currentRoute;
+  if (!routeName || !ROUTES[routeName]) return;
+
+  currentRoute = null;
+  await navigate(routeName);
+}
+
 export const router = {
   init: initRouter,
   navigate,
   navigateByNavId,
   getCurrentRoute,
+  refreshForLocale,
 };

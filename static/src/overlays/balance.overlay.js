@@ -1,9 +1,11 @@
 /**
- * Balance overlay — bottom sheet with single USDT account overview.
+ * Balance overlay — bottom sheet with USD account overview.
  */
 
 import { createBalanceModal } from '../features/balance/balance.modal.js';
+import { t } from '../i18n/index.js';
 import { BottomSheet } from './bottom-sheet.js';
+import '../../styles/pages/balance.css';
 
 /**
  * @param {object} options
@@ -34,7 +36,7 @@ export function createBalanceOverlay(options = {}) {
 
   return BottomSheet({
     content: modal.element,
-    ariaLabel: 'Balance',
+    ariaLabel: t('balance.overlay.title'),
     panelClass: 'bottom-sheet__panel--balance',
     size: 'balance',
     onBeforeRemove,

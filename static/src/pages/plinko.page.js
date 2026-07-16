@@ -4,6 +4,7 @@
 
 import { createElement } from '../utils/dom.js';
 import { PlinkoGame } from '../games/plinko/index.js';
+import '../../styles/pages/plinko.css';
 
 /**
  * @returns {HTMLElement}

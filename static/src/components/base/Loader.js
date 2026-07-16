@@ -3,6 +3,7 @@
  */
 
 import { createElement } from '../../utils/dom.js';
+import { t } from '../../i18n/index.js';
 
 const SIZES = new Set(['sm', 'md', 'lg']);
 
@@ -14,7 +15,7 @@ const SIZES = new Set(['sm', 'md', 'lg']);
  * @param {string} [options.label] - accessible label
  */
 export function Loader(options = {}) {
-  const { size = 'md', light = false, className = '', label = 'Loading' } = options;
+  const { size = 'md', light = false, className = '', label = t('common.loading') } = options;
 
   const classes = ['loader'];
 
@@ -34,7 +35,7 @@ export function Loader(options = {}) {
  * @param {string} [options.label]
  */
 export function LoaderOverlay(options = {}) {
-  const { visible = false, label = 'Loading' } = options;
+  const { visible = false, label = t('common.loading') } = options;
 
   const overlay = createElement('div', {
     className: `loader-overlay${visible ? ' loader-overlay--visible' : ''}`,

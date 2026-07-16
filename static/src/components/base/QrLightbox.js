@@ -5,6 +5,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { DURATION } from '../../animations/transitions.js';
+import { t } from '../../i18n/index.js';
 
 const CLOSE_MS = DURATION.base;
 
@@ -48,7 +49,7 @@ export function QrLightbox(options = {}) {
     className: 'qr-lightbox__close',
     attrs: {
       type: 'button',
-      'aria-label': 'Close',
+      'aria-label': t('common.close'),
       onClick: () => {
         void close();
       },

@@ -1,43 +1,47 @@
-# House edge in dice will be 2.5%
+"""Plinko result evaluation — mathematics unchanged; seeds injected by caller."""
+
 from games.provably_fair import ProvablyFair
 from config import plinko_tables
-from fastapi import Request
-from database.user_db import getUserData
 from log_manager import log
 
-def getPlincoResult(json, user_id):
-    user_data = getUserData(user_id)
 
-    rows = json.rows
-    bits = ProvablyFair.getBits(user_data['server_seed'], user_data['client_seed'], user_data['nonce'], rows)
-    bid = json.bid
-    risk_mode = json.risk_mode
+def evaluate_plinco(bid, rows, risk_mode, server_seed, client_seed, nonce):
+    """
+    Existing Plinko algorithm with injected fairness material.
 
-
+    Bits / basket / multiplier / payout formulas are unchanged.
+    """
+    bits = ProvablyFair.getBits(server_seed, client_seed, nonce, rows)
     final_basket = sum(bits)
     multiplier = plinko_tables[risk_mode][rows][final_basket]
+    payout = bid * multiplier
 
     result_json = {
-        "payout": bid * multiplier,
+        "payout": payout,
         "multiplier": multiplier,
         "basket": final_basket,
         "path": bits,
-        "nonce": user_data['nonce'],
-        "server_seed_hash": user_data['server_seed_hash']
-        }
-    
-    log.info(
-        f"Plinco result | user_id={user_id} | basket={final_basket} | "
-        f"multiplier={multiplier} | payout={result_json['payout']}"
-    )
-    
-    #with engine.begin() as conn:
-        #pass
+        "nonce": nonce,
+        "nonce_used": nonce,
+        "server_seed_hash": ProvablyFair.getServerSeedHash(server_seed),
+        "hash_server_seed": ProvablyFair.getServerSeedHash(server_seed),
+        "client_seed_used": client_seed,
+    }
 
+    log.info(
+        f"Plinco result | basket={final_basket} | "
+        f"multiplier={multiplier} | payout={payout} | nonce={nonce}"
+    )
     return result_json
 
 
-
-
-
-    
+def getPlincoResult(json, server_seed, client_seed, nonce):
+    """Evaluate Plinko from locked fairness seeds (no DB side effects)."""
+    return evaluate_plinco(
+        bid=float(json.bid),
+        rows=int(json.rows),
+        risk_mode=json.risk_mode,
+        server_seed=server_seed,
+        client_seed=client_seed,
+        nonce=int(nonce),
+    )

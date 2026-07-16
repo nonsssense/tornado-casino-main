@@ -103,6 +103,7 @@ crash_table = sa.Table(
     autoload_with=engine
 )
 
+# `dice` is defined explicitly in database/dice_db.py (created via ensure_dice_schema).
 
 
 def getTelegramUser(data): 

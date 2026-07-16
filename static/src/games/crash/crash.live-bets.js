@@ -9,6 +9,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { createLiveBetRow } from './crash.live-bet-row.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @typedef {{ id: string, username: string, amount: number, cashedOut?: boolean }} LiveBetData
@@ -34,12 +35,12 @@ export function createLiveBets(options = {}) {
 
   const list = createElement('ul', {
     className: 'crash-live-bets__list',
-    attrs: { 'aria-label': 'Live bets' },
+    attrs: { 'aria-label': t('crash.liveBets.aria') },
   });
 
   const empty = createElement('p', {
     className: 'crash-live-bets__empty',
-    text: 'No bets yet',
+    text: t('crash.liveBets.empty'),
   });
 
   const scroll = createElement('div', {
@@ -50,7 +51,7 @@ export function createLiveBets(options = {}) {
   const element = createElement('section', {
     className: 'crash-live-bets',
     attrs: {
-      'aria-label': 'Live bets',
+      'aria-label': t('crash.liveBets.aria'),
       role: 'region',
     },
     children: [
@@ -59,7 +60,7 @@ export function createLiveBets(options = {}) {
         children: [
           createElement('h2', {
             className: 'crash-live-bets__title',
-            text: 'Live Bets',
+            text: t('crash.liveBets.title'),
           }),
         ],
       }),

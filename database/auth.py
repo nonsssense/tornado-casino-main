@@ -18,17 +18,22 @@ def userValidate(data):
             log.info(f"Existing user found | telegram_id={user['id']} | user_id={user_id}")
         else:
             server_seed = ProvablyFair.generateServerSeed()
-            conn.execute(sa.insert(users_table).values(tg_id=user["id"],
-                                                       lang_code=user.get("language_code"),
-                                                       status='real',
-                                                       first_name=user.get("first_name"),
-                                                       last_name=user.get("last_name"),
-                                                       username=user.get("username"),
-                                                       allows_write_to_pm=user.get("allows_write_to_pm"),
-                                                       client_seed=ProvablyFair.generateClientSeed(),
-                                                       hash_server_seed=ProvablyFair.getServerSeedHash(server_seed),
-                                                       nonce=1,
-                                                       ))
+            values = dict(
+                tg_id=user["id"],
+                lang_code=user.get("language_code"),
+                status='real',
+                first_name=user.get("first_name"),
+                last_name=user.get("last_name"),
+                username=user.get("username"),
+                allows_write_to_pm=user.get("allows_write_to_pm"),
+                client_seed=ProvablyFair.generateClientSeed(),
+                hash_server_seed=ProvablyFair.getServerSeedHash(server_seed),
+                nonce=1,
+            )
+            # Persist plaintext seed when the column exists (HMAC for Dice/PF games).
+            if "server_seed" in users_table.c:
+                values["server_seed"] = server_seed
+            conn.execute(sa.insert(users_table).values(**values))
             stmt = (sa.select(users_table).where(users_table.c.tg_id == user["id"]))
             user_db = (conn.execute(stmt).mappings().first())
             
@@ -52,7 +57,7 @@ def ensureDevBrowserUser():
             return user_db['id']
 
         server_seed = ProvablyFair.generateServerSeed()
-        conn.execute(sa.insert(users_table).values(
+        values = dict(
             tg_id=DEV_BROWSER_TG_ID,
             lang_code='en',
             status='real',
@@ -63,7 +68,10 @@ def ensureDevBrowserUser():
             client_seed=ProvablyFair.generateClientSeed(),
             hash_server_seed=ProvablyFair.getServerSeedHash(server_seed),
             nonce=1,
-        ))
+        )
+        if "server_seed" in users_table.c:
+            values["server_seed"] = server_seed
+        conn.execute(sa.insert(users_table).values(**values))
         user_db = conn.execute(stmt).mappings().first()
         log.info(
             f"Dev browser user created | telegram_id={DEV_BROWSER_TG_ID} | user_id={user_db['id']}"

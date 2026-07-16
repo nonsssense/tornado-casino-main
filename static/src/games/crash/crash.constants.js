@@ -22,6 +22,12 @@ export const CRASH_BET_LIMITS = {
   default: 1,
 };
 
+/** Quick-select amounts shown under the Bet Amount steppers. */
+export const CRASH_QUICK_BETS = [0.1, 0.2, 0.5, 1, 2, 5];
+
+/** Match backend CrashGameLoop.BETTING_TIME for progress denominator. */
+export const CRASH_BETTING_DURATION_SEC = 8;
+
 /** How many recent crash multipliers to show in the history strip. */
 export const CRASH_HISTORY_LIMIT = 10;
 

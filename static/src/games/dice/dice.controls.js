@@ -5,13 +5,12 @@
 import { createElement } from '../../utils/dom.js';
 import { Button } from '../../components/base/Button.js';
 import { getDisplayStats } from './dice.utils.js';
-import { formatCryptoAmount } from '../../utils/format.js';
-import { WALLET_COINS } from '../../utils/wallet.constants.js';
+import { formatUsd } from '../../utils/format.js';
 import { DICE_BET_LIMITS, DICE_QUICK_BETS } from './dice.constants.js';
+import { t } from '../../i18n/index.js';
 
 const LIMIT_MIN = 1;
 const LIMIT_MAX = 98;
-const USDT_ICON = WALLET_COINS.find((coin) => coin.id === 'usdt')?.icon ?? '/assets/tether.png';
 
 /**
  * @param {object} options
@@ -43,7 +42,7 @@ export function createDiceControls(options) {
       max: String(LIMIT_MAX),
       step: '1',
       value: String(state.limit),
-      'aria-label': 'Target number',
+      'aria-label': t('dice.targetAria'),
       onInput: (event) => {
         state.limit = Number(event.target.value);
         sync();
@@ -62,7 +61,7 @@ export function createDiceControls(options) {
       createElement('div', {
         className: 'dice-controls__slider-header',
         children: [
-          createElement('span', { className: 'dice-controls__slider-label', text: 'Target' }),
+          createElement('span', { className: 'dice-controls__slider-label', text: t('dice.target') }),
           limitValue,
         ],
       }),
@@ -83,13 +82,13 @@ export function createDiceControls(options) {
   const payoutPreview = createElement('div', {
     className: 'dice-payout-preview',
     children: [
-      createElement('span', { className: 'dice-payout-preview__title', text: 'Potential Win' }),
+      createElement('span', { className: 'dice-payout-preview__title', text: t('dice.payout.title') }),
       createElement('div', {
         className: 'dice-payout-preview__grid',
         children: [
-          createPreviewRow('Multiplier', previewMultiplier),
-          createPreviewRow('Profit', previewProfit),
-          createPreviewRow('Payout', previewPayout),
+          createPreviewRow(t('dice.payout.multiplier'), previewMultiplier),
+          createPreviewRow(t('dice.payout.profit'), previewProfit),
+          createPreviewRow(t('dice.payout.payout'), previewPayout),
         ],
       }),
     ],
@@ -101,7 +100,7 @@ export function createDiceControls(options) {
       type: 'text',
       inputmode: 'decimal',
       value: String(state.bid),
-      'aria-label': 'Bet amount in USDT',
+      'aria-label': t('games.betAmount'),
       onInput: (event) => {
         const parsed = parseFloat(event.target.value.replace(',', '.'));
         if (Number.isFinite(parsed) && parsed >= 0) {
@@ -169,13 +168,24 @@ export function createDiceControls(options) {
         },
       },
       children: [
-        createElement('span', { className: 'dice-direction__title', text: isOver ? 'Roll Over' : 'Roll Under' }),
+        createElement('span', {
+          className: 'dice-direction__title',
+          text: isOver ? t('dice.direction.over') : t('dice.direction.under'),
+        }),
         multiplierEl,
         createElement('div', {
           className: 'dice-direction__meta',
           children: [
-            createElement('span', { className: 'dice-direction__chance', children: [chanceEl] }),
-            createElement('span', { className: 'dice-direction__profit', children: [profitEl] }),
+            createElement('span', {
+              className: 'dice-direction__chance',
+              attrs: { 'data-chance-label': t('dice.meta.chance') },
+              children: [chanceEl],
+            }),
+            createElement('span', {
+              className: 'dice-direction__profit',
+              attrs: { 'data-profit-label': t('dice.meta.profit') },
+              children: [profitEl],
+            }),
           ],
         }),
       ],
@@ -192,8 +202,8 @@ export function createDiceControls(options) {
   function updatePayoutPreview() {
     const stats = getDisplayStats(state.bid, state.limit, state.over);
     previewMultiplier.textContent = `${stats.multiplier.toFixed(2)}×`;
-    previewProfit.textContent = formatCryptoAmount(stats.profit, { symbol: 'USDT' });
-    previewPayout.textContent = formatCryptoAmount(stats.payout, { symbol: 'USDT' });
+    previewProfit.textContent = formatUsd(stats.profit);
+    previewPayout.textContent = formatUsd(stats.payout);
   }
 
   function sync(opts = {}) {
@@ -213,7 +223,7 @@ export function createDiceControls(options) {
       const stats = getDisplayStats(state.bid, state.limit, entry.isOver);
       entry.chanceEl.textContent = `${stats.chance}%`;
       entry.multiplierEl.textContent = `${stats.multiplier.toFixed(2)}×`;
-      entry.profitEl.textContent = formatCryptoAmount(stats.profit, { symbol: 'USDT' });
+      entry.profitEl.textContent = formatUsd(stats.profit);
     });
 
     updatePayoutPreview();
@@ -253,35 +263,36 @@ export function createDiceControls(options) {
       createElement('div', {
         className: 'dice-controls__bet-panel',
         children: [
-          createElement('span', { className: 'dice-controls__bet-title', text: 'Bet Amount' }),
+          createElement('span', { className: 'dice-controls__bet-title', text: t('games.betAmount') }),
           createElement('div', {
             className: 'dice-controls__bet-input-wrap',
             children: [
-              createElement('img', {
-                className: 'dice-controls__bet-icon',
-                attrs: { src: USDT_ICON, alt: '', 'aria-hidden': 'true', draggable: false },
+              createElement('span', {
+                className: 'dice-controls__bet-icon dice-controls__bet-icon--usd',
+                attrs: { 'aria-hidden': 'true' },
+                text: '$',
               }),
               betInput,
-              createElement('span', { className: 'dice-controls__bet-currency', text: 'USDT' }),
+              createElement('span', { className: 'dice-controls__bet-currency', text: t('common.usd') }),
             ],
           }),
           createElement('div', {
             className: 'dice-controls__quick-bets',
-            attrs: { role: 'group', 'aria-label': 'Quick bet amounts' },
+            attrs: { role: 'group', 'aria-label': t('games.quickBets.aria') },
             children: quickBetButtons,
           }),
           createElement('div', {
             className: 'dice-controls__bet-actions',
             children: [
               Button({
-                label: 'Minimum',
+                label: t('games.bet.min'),
                 variant: 'ghost',
                 size: 'sm',
                 className: 'dice-controls__bet-limit',
                 onClick: () => setBetAmount(DICE_BET_LIMITS.min),
               }),
               Button({
-                label: 'Maximum',
+                label: t('games.bet.max'),
                 variant: 'ghost',
                 size: 'sm',
                 className: 'dice-controls__bet-limit',
@@ -296,7 +307,7 @@ export function createDiceControls(options) {
 
   const playWrap = root.querySelector('.dice-controls__play-wrap');
   playButton = Button({
-    label: 'Roll',
+    label: t('dice.play'),
     variant: 'primary',
     block: true,
     size: 'md',

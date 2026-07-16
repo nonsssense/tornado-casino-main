@@ -10,7 +10,8 @@ import { createCrashHistory } from './crash.history.js';
 import { createAnimationContainer } from './crash.animation-container.js';
 import { createBetPanel } from './crash.bet-panel.js';
 import { createLiveBets } from './crash.live-bets.js';
-import { CRASH_BET_LIMITS, CRASH_HISTORY_LIMIT } from './crash.constants.js';
+import { CRASH_BET_LIMITS, CRASH_HISTORY_LIMIT, CRASH_BETTING_DURATION_SEC } from './crash.constants.js';
+import { t } from '../../i18n/index.js';
 
 /** @type {HTMLElement|null} */
 let mountContainer = null;
@@ -55,6 +56,8 @@ const runtime = {
   crashMultiplier: null,
   timeLeft: null,
   bettingEndsAt: null,
+  /** Fixed duration for the betting progress bar (set on ROUND_OPEN). */
+  bettingDurationSec: CRASH_BETTING_DURATION_SEC,
   myBet: null,
   /** Track cashed-out rows that left active_bets on the server */
   cashedOutIds: new Set(),
@@ -91,28 +94,35 @@ function stopBettingCountdown() {
 }
 
 function renderBettingStatus() {
-  let seconds = 0;
+  let remaining = 0;
   if (runtime.bettingEndsAt != null) {
-    seconds = Math.max(0, Math.ceil(runtime.bettingEndsAt - Date.now() / 1000));
+    remaining = Math.max(0, runtime.bettingEndsAt - Date.now() / 1000);
   } else {
-    seconds = Math.max(0, Math.ceil(Number(runtime.timeLeft) || 0));
+    remaining = Math.max(0, Number(runtime.timeLeft) || 0);
   }
 
-  animationContainer?.setPlaceholder(
-    seconds > 0 ? `Betting · ${seconds}s` : 'Place your bets',
+  const duration = Math.max(
+    remaining,
+    Number(runtime.bettingDurationSec) || CRASH_BETTING_DURATION_SEC,
   );
+
+  animationContainer?.setWaiting({
+    remainingSec: remaining,
+    durationSec: duration,
+  });
 }
 
 function startBettingCountdown() {
   stopBettingCountdown();
   renderBettingStatus();
+  // Smooth continuous progress; seconds label updates on whole-second changes inside setWaiting
   bettingTimer = window.setInterval(() => {
     if (runtime.state !== 'BETTING') {
       stopBettingCountdown();
       return;
     }
     renderBettingStatus();
-  }, 250);
+  }, 50);
 }
 
 function updateCashoutPreviews(multiplier) {
@@ -185,7 +195,7 @@ function setCrashedUi(crashMultiplier) {
   if (crashMultiplier != null) {
     animationContainer?.setCrashed(crashMultiplier);
   } else {
-    animationContainer?.setPlaceholder('Round ended');
+    animationContainer?.setWaiting(null);
   }
   panelA?.setMode('bet');
   panelB?.setMode('bet');
@@ -219,6 +229,12 @@ function applyServerState(state) {
     runtime.state === 'BETTING' && runtime.timeLeft != null
       ? Date.now() / 1000 + Number(runtime.timeLeft)
       : null;
+  if (runtime.state === 'BETTING' && runtime.timeLeft != null) {
+    runtime.bettingDurationSec = Math.max(
+      Number(runtime.timeLeft) || 0,
+      Number(runtime.bettingDurationSec) || CRASH_BETTING_DURATION_SEC,
+    );
+  }
 
   if (runtime.myBet && !activePanelId) {
     activePanelId = 'a';
@@ -257,6 +273,10 @@ async function handleSocketEvent(payload) {
     runtime.state = 'BETTING';
     runtime.roundId = payload.round_id ?? runtime.roundId;
     runtime.timeLeft = payload.time_left ?? 0;
+    runtime.bettingDurationSec = Math.max(
+      Number(payload.time_left) || 0,
+      CRASH_BETTING_DURATION_SEC,
+    );
     runtime.bettingEndsAt = Date.now() / 1000 + Number(runtime.timeLeft || 0);
     runtime.startTime = null;
     runtime.crashMultiplier = null;
@@ -323,17 +343,17 @@ async function handlePanelAction(panelId) {
 
   if (panel.getMode() === 'bet') {
     if (runtime.state !== 'BETTING') {
-      Toast({ message: 'Bets are closed', type: 'warning', duration: 2200 });
+      Toast({ message: t('crash.toast.betsClosed'), type: 'warning', duration: 2200 });
       return;
     }
     if (runtime.myBet) {
-      Toast({ message: 'You already have an active bet', type: 'warning', duration: 2200 });
+      Toast({ message: t('crash.toast.alreadyBet'), type: 'warning', duration: 2200 });
       return;
     }
 
     const amount = panel.getAmount();
     if (!Number.isFinite(amount) || amount <= 0) {
-      Toast({ message: 'Enter a valid bet amount', type: 'warning', duration: 2200 });
+      Toast({ message: t('games.validation.bet'), type: 'warning', duration: 2200 });
       return;
     }
 
@@ -353,11 +373,11 @@ async function handlePanelAction(panelId) {
 
       // Live Bets row comes from PLAYER_BET / state only — avoid optimistic dual-write.
       applyRoundPhase();
-      Toast({ message: 'Bet placed', type: 'success', duration: 1800 });
+      Toast({ message: t('crash.toast.betPlaced'), type: 'success', duration: 1800 });
     } catch (error) {
       panel.setDisabled(false);
       Toast({
-        message: error?.message || 'Failed to place bet',
+        message: error?.message || t('crash.toast.betFailed'),
         type: 'error',
         duration: 2800,
       });
@@ -369,7 +389,7 @@ async function handlePanelAction(panelId) {
 
   // cashout mode
   if (runtime.state !== 'FLYING' || !runtime.myBet) {
-    Toast({ message: 'Cash out is not available', type: 'warning', duration: 2200 });
+    Toast({ message: t('crash.toast.cashoutUnavailable'), type: 'warning', duration: 2200 });
     return;
   }
 
@@ -394,14 +414,14 @@ async function handlePanelAction(panelId) {
     else panelA?.setDisabled(true);
 
     showGameWinToast({
-      gameName: 'Crash',
+      gameName: t('games.crash.name'),
       amount: Number(result.profit) || 0,
       duration: 3600,
     });
   } catch (error) {
     panel.setDisabled(false);
     Toast({
-      message: error?.message || 'Failed to cash out',
+      message: error?.message || t('crash.toast.cashoutFailed'),
       type: 'error',
       duration: 2800,
     });
@@ -416,9 +436,9 @@ async function bootstrap() {
     const state = await crashService.getState();
     applyServerState(state);
   } catch (error) {
-    animationContainer?.setPlaceholder('Unable to sync Crash state');
+    animationContainer?.setPlaceholder(t('crash.error.sync'));
     Toast({
-      message: error?.message || 'Failed to load Crash',
+      message: error?.message || t('crash.toast.loadFailed'),
       type: 'error',
       duration: 3500,
     });
@@ -478,7 +498,7 @@ export const CrashGame = {
         animationContainer.element,
         createElement('div', {
           className: 'crash-bets',
-          attrs: { 'aria-label': 'Betting panels' },
+          attrs: { 'aria-label': t('crash.panels.aria') },
           children: [panelA.element, panelB.element],
         }),
         liveBets.element,

@@ -3,11 +3,12 @@
  */
 
 import { createElement } from '../../utils/dom.js';
+import { t } from '../../i18n/index.js';
 
 export const WALLET_TABS = [
-  { id: 'deposit', label: 'deposit' },
-  { id: 'withdraw', label: 'withdraw' },
-  { id: 'history', label: 'history' },
+  { id: 'deposit', labelKey: 'wallet.tabs.deposit' },
+  { id: 'withdraw', labelKey: 'wallet.tabs.withdraw' },
+  { id: 'history', labelKey: 'wallet.tabs.history' },
 ];
 
 /**
@@ -28,7 +29,7 @@ export function WalletTabs(options = {}) {
 
   return createElement('div', {
     className: classes.join(' '),
-    attrs: { role: 'tablist', 'aria-label': 'Wallet sections' },
+    attrs: { role: 'tablist', 'aria-label': t('wallet.tabs.ariaLabel') },
     children: WALLET_TABS.map((tab) => {
       const isActive = tab.id === activeId;
 
@@ -43,7 +44,7 @@ export function WalletTabs(options = {}) {
           'aria-selected': isActive ? 'true' : 'false',
           onClick: onTabSelect ? () => onTabSelect(tab.id) : undefined,
         },
-        text: tab.label,
+        text: t(tab.labelKey),
       });
     }),
   });

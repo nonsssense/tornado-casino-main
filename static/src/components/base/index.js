@@ -10,6 +10,7 @@ export { Card } from './Card.js';
 export { Modal } from './Modal.js';
 export { QrLightbox } from './QrLightbox.js';
 export { Loader, LoaderOverlay } from './Loader.js';
+export { Skeleton, SkeletonHistoryRows, SkeletonDepositAddress } from './Skeleton.js';
 export { Badge } from './Badge.js';
 export { Chip, ChipGroup } from './Chip.js';
 export { Toast } from './Toast.js';

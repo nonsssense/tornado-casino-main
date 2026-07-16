@@ -11,6 +11,7 @@ import { createDiceWheel } from './dice.wheel.js';
 import { createDiceControls } from './dice.controls.js';
 import { animateDiceRoll } from './dice.animation.js';
 import { DICE_BET_LIMITS } from './dice.constants.js';
+import { t } from '../../i18n/index.js';
 
 /** @type {HTMLElement|null} */
 let mountContainer = null;
@@ -45,7 +46,7 @@ async function handlePlay() {
   const { limit, over, bid } = controls.getState();
 
   if (!Number.isFinite(bid) || bid <= 0) {
-    Toast({ message: 'Enter a valid bet amount', type: 'warning', duration: 2500 });
+    Toast({ message: t('games.validation.bet'), type: 'warning', duration: 2500 });
     return;
   }
 
@@ -75,13 +76,15 @@ async function handlePlay() {
 
     if (won) {
       showGameWinToast({
-        gameName: 'Dice',
+        gameName: t('games.dice.name'),
         amount: Number(result.payout) || 0,
         duration: 4200,
       });
     } else {
       Toast({
-        message: roll !== null ? `No win — roll ${roll}` : 'No win this round',
+        message: roll !== null
+          ? t('dice.toast.loseWithRoll', { roll })
+          : t('dice.toast.lose'),
         type: 'info',
         duration: 2800,
       });
@@ -89,7 +92,7 @@ async function handlePlay() {
   } catch (error) {
     wheel.resetResult();
     Toast({
-      message: error.message || 'Dice round failed',
+      message: error.message || t('dice.toast.failed'),
       type: 'error',
       duration: 3200,
     });

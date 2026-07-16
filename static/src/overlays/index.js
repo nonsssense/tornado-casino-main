@@ -5,12 +5,11 @@
  * - Open/close overlays without route navigation.
  * - Preserve underlying page context (continuous flow principle).
  * - Bottom navigation stays in the shell footer at all times.
+ *
+ * Wallet / Profile / Balance overlay modules are lazy-loaded on first open.
  */
 
 import { OVERLAY_NAMES } from '../utils/constants.js';
-import { createWalletOverlay } from './wallet.overlay.js';
-import { createProfileOverlay } from './profile.overlay.js';
-import { createBalanceOverlay } from './balance.overlay.js';
 
 /** @type {object|null} */
 let shell = null;
@@ -82,13 +81,13 @@ function teardownOverlay() {
 
 /**
  * @param {'wallet'|'profile'|'balance'} kind
- * @param {function} createOverlay
+ * @param {(options: object) => object | Promise<object>} createOverlay
  * @param {object} props
  */
 function mountOverlay(kind, createOverlay, props = {}) {
   if (activeOverlayKind === kind) return;
 
-  const launch = () => {
+  const launch = async () => {
     const root = getOverlayRoot();
     if (!root) return;
 
@@ -98,7 +97,7 @@ function mountOverlay(kind, createOverlay, props = {}) {
       highlightNav(kind === 'balance' ? 'wallet' : kind);
     }
 
-    const overlay = createOverlay({
+    const overlay = await createOverlay({
       onClose: teardownOverlay,
       ...props,
     });
@@ -111,11 +110,13 @@ function mountOverlay(kind, createOverlay, props = {}) {
   };
 
   if (activeOverlay) {
-    activeOverlay.close().then(launch);
+    activeOverlay.close().then(() => {
+      void launch();
+    });
     return;
   }
 
-  launch();
+  void launch();
 }
 
 function getHeaderBalanceAmount() {
@@ -144,18 +145,21 @@ export const overlayManager = {
   },
 
   openBalance(props = {}) {
-    mountOverlay('balance', (options) => createBalanceOverlay({
-      amount: props.amount ?? getHeaderBalanceAmount(),
-      cashback: props.cashback ?? 0,
-      onDeposit: () => {
-        this.openDeposit({ previousNavId: props.previousNavId ?? navIdBeforeOverlay ?? 'casino' });
-      },
-      onWithdraw: () => {
-        this.openWithdraw({ previousNavId: props.previousNavId ?? navIdBeforeOverlay ?? 'casino' });
-      },
-      onClose: options.onClose,
-      onBeforeRemove: options.onBeforeRemove,
-    }), props);
+    mountOverlay('balance', async (options) => {
+      const { createBalanceOverlay } = await import('./balance.overlay.js');
+      return createBalanceOverlay({
+        amount: props.amount ?? getHeaderBalanceAmount(),
+        cashback: props.cashback ?? 0,
+        onDeposit: () => {
+          this.openDeposit({ previousNavId: props.previousNavId ?? navIdBeforeOverlay ?? 'casino' });
+        },
+        onWithdraw: () => {
+          this.openWithdraw({ previousNavId: props.previousNavId ?? navIdBeforeOverlay ?? 'casino' });
+        },
+        onClose: options.onClose,
+        onBeforeRemove: options.onBeforeRemove,
+      });
+    }, props);
   },
 
   openDeposit(props = {}) {
@@ -167,19 +171,25 @@ export const overlayManager = {
   },
 
   openWallet(props = {}) {
-    mountOverlay('wallet', (options) => createWalletOverlay({
-      initialTab: props.initialTab ?? 'deposit',
-      onClose: options.onClose,
-      onBeforeRemove: options.onBeforeRemove,
-    }), props);
+    mountOverlay('wallet', async (options) => {
+      const { createWalletOverlay } = await import('./wallet.overlay.js');
+      return createWalletOverlay({
+        initialTab: props.initialTab ?? 'deposit',
+        onClose: options.onClose,
+        onBeforeRemove: options.onBeforeRemove,
+      });
+    }, props);
   },
 
   openProfile(props = {}) {
-    mountOverlay('profile', (options) => createProfileOverlay({
-      onClose: options.onClose,
-      onBeforeRemove: options.onBeforeRemove,
-      // onMenuAction: wire profile menu items here when flows are ready.
-    }), props);
+    mountOverlay('profile', async (options) => {
+      const { createProfileOverlay } = await import('./profile.overlay.js');
+      return createProfileOverlay({
+        onClose: options.onClose,
+        onBeforeRemove: options.onBeforeRemove,
+        // onMenuAction: wire profile menu items here when flows are ready.
+      });
+    }, props);
   },
 
   close(options = {}) {

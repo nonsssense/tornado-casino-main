@@ -2,12 +2,6 @@
  * Wallet modal — deposit, withdraw, and history views inside bottom sheet.
  */
 
-.bottom-sheet__panel--wallet,
-.bottom-sheet__panel--profile,
-.bottom-sheet__panel--balance {
-  background-color: #0a0a0a;
-}
-
 .wallet-modal {
   display: flex;
   flex-direction: column;
@@ -959,10 +953,10 @@
 }
 
 .wallet-modal__brand-logo {
-  height: 2.5rem;
+  height: 40px;
   width: auto;
+  max-width: 100%;
   object-fit: contain;
-  opacity: 0.92;
 }
 
 /* Network selector (shared) */

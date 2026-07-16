@@ -4,16 +4,13 @@
 
 import { createElement } from '../../utils/dom.js';
 import { Button } from '../../components/base/Button.js';
-import { formatCryptoAmount } from '../../utils/format.js';
-import { WALLET_COINS } from '../../utils/wallet.constants.js';
 import {
   PLINKO_BET_LIMITS,
   PLINKO_QUICK_BETS,
   PLINKO_ROW_OPTIONS,
   PLINKO_RISK_OPTIONS,
 } from './plinko.constants.js';
-
-const USDT_ICON = WALLET_COINS.find((coin) => coin.id === 'usdt')?.icon ?? '/assets/tether.png';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} options
@@ -49,7 +46,7 @@ export function createPlinkoControls(options) {
           sync();
         },
       },
-      text: opt.label,
+      text: t(opt.labelKey),
     }),
   );
 
@@ -74,7 +71,7 @@ export function createPlinkoControls(options) {
       type: 'text',
       inputmode: 'decimal',
       value: String(state.bid),
-      'aria-label': 'Bet amount in USDT',
+      'aria-label': t('games.betAmount'),
       onInput: (event) => {
         const parsed = parseFloat(event.target.value.replace(',', '.'));
         if (Number.isFinite(parsed) && parsed >= 0) state.bid = parsed;
@@ -150,35 +147,36 @@ export function createPlinkoControls(options) {
       createElement('div', {
         className: 'plinko-controls__bet-panel',
         children: [
-          createElement('span', { className: 'plinko-controls__bet-title', text: 'Bet Amount' }),
+          createElement('span', { className: 'plinko-controls__bet-title', text: t('games.betAmount') }),
           createElement('div', {
             className: 'plinko-controls__bet-input-wrap',
             children: [
-              createElement('img', {
-                className: 'plinko-controls__bet-icon',
-                attrs: { src: USDT_ICON, alt: '', 'aria-hidden': 'true', draggable: false },
+              createElement('span', {
+                className: 'plinko-controls__bet-icon plinko-controls__bet-icon--usd',
+                attrs: { 'aria-hidden': 'true' },
+                text: '$',
               }),
               betInput,
-              createElement('span', { className: 'plinko-controls__bet-currency', text: 'USDT' }),
+              createElement('span', { className: 'plinko-controls__bet-currency', text: t('common.usd') }),
             ],
           }),
           createElement('div', {
             className: 'plinko-controls__quick-bets',
-            attrs: { role: 'group', 'aria-label': 'Quick bet amounts' },
+            attrs: { role: 'group', 'aria-label': t('games.quickBets.aria') },
             children: quickBetButtons,
           }),
           createElement('div', {
             className: 'plinko-controls__bet-actions',
             children: [
               Button({
-                label: 'Minimum',
+                label: t('games.bet.min'),
                 variant: 'ghost',
                 size: 'sm',
                 className: 'plinko-controls__bet-limit',
                 onClick: () => setBetAmount(PLINKO_BET_LIMITS.min),
               }),
               Button({
-                label: 'Maximum',
+                label: t('games.bet.max'),
                 variant: 'ghost',
                 size: 'sm',
                 className: 'plinko-controls__bet-limit',
@@ -191,10 +189,10 @@ export function createPlinkoControls(options) {
       createElement('div', {
         className: 'plinko-controls__section',
         children: [
-          createElement('span', { className: 'plinko-controls__label', text: 'Risk' }),
+          createElement('span', { className: 'plinko-controls__label', text: t('plinko.risk') }),
           createElement('div', {
             className: 'plinko-controls__segmented plinko-controls__segmented--risk',
-            attrs: { role: 'group', 'aria-label': 'Risk level' },
+            attrs: { role: 'group', 'aria-label': t('plinko.risk') },
             children: riskButtons,
           }),
         ],
@@ -202,10 +200,10 @@ export function createPlinkoControls(options) {
       createElement('div', {
         className: 'plinko-controls__section',
         children: [
-          createElement('span', { className: 'plinko-controls__label', text: 'Rows' }),
+          createElement('span', { className: 'plinko-controls__label', text: t('plinko.rows') }),
           createElement('div', {
             className: 'plinko-controls__segmented plinko-controls__segmented--rows',
-            attrs: { role: 'group', 'aria-label': 'Row count' },
+            attrs: { role: 'group', 'aria-label': t('plinko.rows') },
             children: rowButtons,
           }),
         ],
@@ -215,7 +213,7 @@ export function createPlinkoControls(options) {
 
   const playWrap = root.querySelector('.plinko-controls__play-wrap');
   playButton = Button({
-    label: 'Play',
+    label: t('plinko.play'),
     variant: 'primary',
     block: true,
     size: 'md',

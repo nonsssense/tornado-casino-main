@@ -6,30 +6,12 @@
  */
 
 import { createElement } from '../utils/dom.js';
+import { t } from '../i18n/index.js';
 import { DURATION } from '../animations/transitions.js';
 
 const DISMISS_THRESHOLD_PX = 96;
 const DISMISS_VELOCITY_PX_MS = 0.55;
 const DIRECTION_LOCK_PX = 8;
-
-/**
- * Block Telegram Mini App vertical swipe (collapse) while a sheet is open.
- * @param {boolean} enabled
- */
-function setTelegramVerticalSwipes(enabled) {
-  const tg = window.Telegram?.WebApp;
-  if (!tg) return;
-
-  try {
-    if (enabled && typeof tg.enableVerticalSwipes === 'function') {
-      tg.enableVerticalSwipes();
-    } else if (!enabled && typeof tg.disableVerticalSwipes === 'function') {
-      tg.disableVerticalSwipes();
-    }
-  } catch {
-    // Older clients may not support the API.
-  }
-}
 
 /**
  * @param {object} options
@@ -48,7 +30,7 @@ export function BottomSheet(options = {}) {
     header = null,
     onClose,
     onBeforeRemove,
-    ariaLabel = 'Dialog',
+    ariaLabel = t('common.dialog'),
     panelClass = '',
     size = 'standard',
   } = options;
@@ -70,7 +52,7 @@ export function BottomSheet(options = {}) {
     className: 'bottom-sheet__backdrop',
     attrs: {
       type: 'button',
-      'aria-label': 'Close',
+      'aria-label': t('common.close'),
     },
   });
 
@@ -314,7 +296,6 @@ export function BottomSheet(options = {}) {
   function open() {
     root.setAttribute('aria-hidden', 'false');
     lockScroll();
-    setTelegramVerticalSwipes(false);
     bindGestureListeners();
 
     // Double rAF: paint closed state first, then animate in (no flash)
@@ -351,7 +332,6 @@ export function BottomSheet(options = {}) {
     return new Promise((resolve) => {
       setTimeout(() => {
         unlockScroll();
-        setTelegramVerticalSwipes(true);
         unbindGestureListeners();
         clearDragStyles();
         if (onBeforeRemove) onBeforeRemove();

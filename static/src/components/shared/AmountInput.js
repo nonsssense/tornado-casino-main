@@ -4,13 +4,14 @@
  */
 
 import { createElement } from '../../utils/dom.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
  * @param {string} [options.label]
  * @param {string} [options.name]
  * @param {string} [options.value] - controlled numeric value (currency is display-only)
- * @param {string} [options.currency] - visual suffix, e.g. USDT, BTC
+ * @param {string} [options.currency] - visual suffix, e.g. USD, BTC
  * @param {string} [options.placeholder]
  * @param {string} [options.error] - validation message (rendered when set)
  * @param {string} [options.hint]
@@ -23,11 +24,11 @@ import { createElement } from '../../utils/dom.js';
  */
 export function AmountInput(options = {}) {
   const {
-    label = 'Amount',
+    label = t('wallet.amount.label'),
     name = 'amount',
     value = '',
     currency = '',
-    placeholder = 'Enter amount',
+    placeholder = t('wallet.amount.placeholder'),
     error = '',
     hint = '',
     disabled = false,
@@ -82,9 +83,9 @@ export function AmountInput(options = {}) {
           type: 'button',
           disabled,
           onClick: onMaxClick,
-          'aria-label': 'Use maximum amount',
+          'aria-label': t('wallet.amount.maxAria'),
         },
-        text: 'MAX',
+        text: t('wallet.amount.max'),
       }),
     ],
   });

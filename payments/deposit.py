@@ -8,6 +8,7 @@ import sqlalchemy as sa
 from datetime import datetime
 from log_manager import log
 from database.event_treck import Event
+from payments.convert import crypto_to_usd
 
 SUPPORTED_BLOCKBEE_TICKERS = frozenset({
     "btc",
@@ -299,8 +300,24 @@ class DepositManager:
             )
 
     def completeDeposit(self, deposit, webhook):
-        amount = float(webhook["value_forwarded_coin"])
-        payment_uuid = webhook.get("uuid")
+        try:
+            crypto_amount = float(webhook["value_forwarded_coin"])
+            payment_uuid = webhook.get("uuid")
+            # Custom payment flow uses `coin`; checkout-style payloads may use `paid_coin`.
+            coin = webhook.get("coin") or webhook.get("paid_coin") or deposit.get("coin")
+        except (TypeError, ValueError, KeyError):
+            log.warning(
+                f"Problems with parsing webhook data | user_id={self.user_id} | "
+                f"deposit_id={deposit.get('id')}"
+            )
+            return
+
+        if not coin:
+            log.warning(
+                f"Deposit webhook missing coin | user_id={self.user_id} | "
+                f"deposit_id={deposit.get('id')}"
+            )
+            return
 
         with engine.begin() as conn:
             locked = conn.execute(
@@ -336,7 +353,7 @@ class DepositManager:
                     .where(
                         transaction_table.c.user_id == locked["user_id"],
                         transaction_table.c.reference_id == payment_uuid,
-                        transaction_table.c.transaction_type == "deposit",
+                        transaction_table.c.type == "deposit",
                     )
                     .limit(1)
                 ).scalar_one_or_none()
@@ -348,9 +365,13 @@ class DepositManager:
                     self.finishDeposit(locked, webhook, existing_tx, conn)
                     return
 
+            # Convert only after idempotency gates so retries never re-price twice.
+            coin_for_convert = locked.get("coin") or coin
+            usd_amount, convert_rate = crypto_to_usd(coin_for_convert, crypto_amount)
+
             wallet = WalletManager(locked["user_id"])
             real_balance = wallet.getRealBalance(locked["wallet_id"], conn=conn)
-            balance_after = real_balance + amount
+            balance_after = real_balance + usd_amount
             wallet.updateRealBalance(conn, balance_after)
 
             transaction = TransactionManager(
@@ -358,7 +379,7 @@ class DepositManager:
                 wallet_id=locked["wallet_id"],
                 balance_type=BALANCE_REAL,
                 transaction_type="deposit",
-                amount=amount,
+                amount=usd_amount,
                 balance_after=balance_after,
                 status="Completed",
                 reference_id=payment_uuid,
@@ -366,7 +387,9 @@ class DepositManager:
             transaction_id = transaction.postTransaction(conn)
             log.info(
                 f"Deposit transaction created | user_id={locked['user_id']} | "
-                f"deposit_id={locked['id']} | transaction_id={transaction_id}"
+                f"deposit_id={locked['id']} | transaction_id={transaction_id} | "
+                f"coin={coin_for_convert} | received_amount={crypto_amount} | "
+                f"convert_rate={convert_rate} | usd_amount={usd_amount}"
             )
 
             # Grant before marking Completed so deposit_index = completed_before + 1.
@@ -374,33 +397,66 @@ class DepositManager:
             deposit_index = bonus_manager.countCompletedDeposits(conn=conn) + 1
             bonus_manager.grantDepositBonus(
                 locked["wallet_id"],
-                amount,
+                usd_amount,
                 deposit_index=deposit_index,
                 conn=conn,
             )
 
-            self.finishDeposit(locked, webhook, transaction_id, conn)
+            self.finishDeposit(
+                locked,
+                webhook,
+                transaction_id,
+                conn,
+                crypto_amount=crypto_amount,
+                usd_amount=usd_amount,
+                convert_rate=convert_rate,
+            )
 
-    def finishDeposit(self, deposit, webhook, transaction_id, conn):
+    def finishDeposit(
+        self,
+        deposit,
+        webhook,
+        transaction_id,
+        conn,
+        crypto_amount=None,
+        usd_amount=None,
+        convert_rate=None,
+    ):
         log.info(
             f"Finalizing deposit | user_id={deposit['user_id']} | deposit_id={deposit['id']} | "
             f"transaction_id={transaction_id}"
         )
-        update_stmt = sa.update(deposit_table).where(deposit_table.c.id==deposit["id"]).values(transaction_id=transaction_id,
-                                                                                       address_in=webhook["address_in"],
-                                                                                       received_amount=webhook["value_forwarded_coin"],
-                                                                                       uuid=webhook["uuid"],
-                                                                                       txid_in=webhook["txid_in"],
-                                                                                       txid_out=webhook["txid_out"],
-                                                                                       confirmations=webhook["confirmations"],
-                                                                                       status="Completed",
-                                                                                       fee_coin=webhook["fee_coin"],
-                                                                                       confirmed_at=datetime.now()
-                                                                                       )
+        if crypto_amount is None:
+            crypto_amount = webhook.get("value_forwarded_coin")
+
+        values = {
+            "transaction_id": transaction_id,
+            "address_in": webhook["address_in"],
+            "received_amount": crypto_amount,
+            "uuid": webhook["uuid"],
+            "txid_in": webhook["txid_in"],
+            "txid_out": webhook["txid_out"],
+            "confirmations": webhook["confirmations"],
+            "status": "Completed",
+            "fee_coin": webhook["fee_coin"],
+            "confirmed_at": datetime.now(),
+        }
+        if usd_amount is not None:
+            values["usd_amount"] = usd_amount
+        if convert_rate is not None:
+            values["convert_rate"] = convert_rate
+
+        update_stmt = (
+            sa.update(deposit_table)
+            .where(deposit_table.c.id == deposit["id"])
+            .values(**values)
+        )
         conn.execute(update_stmt)
         log.info(
-            f"Deposit UPDATE to completed | user_id={deposit['user_id']} | deposit_id={deposit['id']} | "
-            f"transaction_id={transaction_id} | amount={webhook.get('value_forwarded_coin')}"
+            f"Deposit UPDATE to completed | user_id={deposit['user_id']} | "
+            f"deposit_id={deposit['id']} | transaction_id={transaction_id} | "
+            f"coin={deposit.get('coin')} | received_amount={crypto_amount} | "
+            f"convert_rate={convert_rate} | usd_amount={usd_amount}"
         )
 
 

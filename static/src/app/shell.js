@@ -12,6 +12,7 @@ import { BottomNavigation } from '../components/shared/BottomNavigation.js';
  * @property {HTMLElement} [mountTarget]
  * @property {string} [activeNavId]
  * @property {string} [balanceAmount]
+ * @property {boolean} [balanceLoading]
  */
 
 /**
@@ -24,6 +25,7 @@ export function mountAppShell(options = {}) {
     mountTarget = document.getElementById('app-root'),
     activeNavId = 'casino',
     balanceAmount,
+    balanceLoading = false,
   } = options;
 
   if (!mountTarget) {
@@ -59,7 +61,7 @@ export function mountAppShell(options = {}) {
     children: [
       createElement('div', {
         className: 't-app__header',
-        children: [Header({ balanceAmount })],
+        children: [Header({ balanceAmount, balanceLoading })],
       }),
       createElement('main', {
         className: 't-app__main',
@@ -157,9 +159,20 @@ export function mountAppShell(options = {}) {
 
     updateBalanceAmount(amount) {
       const pill = shell.querySelector('.balance__pill');
-      if (pill) {
-        pill.textContent = amount;
-      }
+      if (!pill) return;
+
+      const wasLoading = pill.classList.contains('balance__pill--loading');
+
+      pill.textContent = amount;
+      pill.classList.remove('balance__pill--loading');
+
+      if (!wasLoading) return;
+
+      pill.classList.add('balance__pill--hydrate', 'balance__pill--hydrate-fade');
+      requestAnimationFrame(() => {
+        pill.classList.remove('balance__pill--hydrate-fade');
+        pill.classList.add('balance__pill--hydrate-visible');
+      });
     },
   };
 }

@@ -13,11 +13,11 @@ export const PLINKO_QUICK_BETS = [0.1, 0.2, 0.5, 1, 2, 5, 10];
 
 export const PLINKO_ROW_OPTIONS = [8, 10, 12, 14, 16];
 
-/** @type {Array<{ id: string, label: string, riskMode: string }>} */
+/** @type {Array<{ id: string, labelKey: string, riskMode: string }>} */
 export const PLINKO_RISK_OPTIONS = [
-  { id: 'low', label: 'Easy', riskMode: 'low' },
-  { id: 'medium', label: 'Medium', riskMode: 'medium' },
-  { id: 'high', label: 'High', riskMode: 'high' },
+  { id: 'low', labelKey: 'plinko.riskLevel.easy', riskMode: 'low' },
+  { id: 'medium', labelKey: 'plinko.riskLevel.medium', riskMode: 'medium' },
+  { id: 'high', labelKey: 'plinko.riskLevel.high', riskMode: 'high' },
 ];
 
 export const PLINKO_DEFAULT_STATE = {

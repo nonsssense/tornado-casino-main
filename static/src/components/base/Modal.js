@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { IconButton } from './IconButton.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} options
@@ -46,7 +47,7 @@ export function Modal(options = {}) {
 
     if (closable) {
       headerChildren.push(IconButton({
-        ariaLabel: 'Close',
+        ariaLabel: t('common.close'),
         variant: 'ghost',
         size: 'sm',
         iconHtml: '&#10005;',

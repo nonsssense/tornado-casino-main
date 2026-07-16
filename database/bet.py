@@ -44,3 +44,22 @@ class Bet:
             f"Bet UPDATE completed | user_id={self.user_id} | bet_id={bet_id} | "
             f"win_transaction_id={win_transaction_id}"
         )
+
+    def updateOutcome(self, conn, bet_id, result, profit, win_transaction_id=None):
+        values = {
+            "result": result,
+            "profit": profit,
+        }
+        if win_transaction_id is not None:
+            values["win_transaction_id"] = win_transaction_id
+
+        update_stmt = (
+            sa.update(bet_table)
+            .where(bet_table.c.id == bet_id)
+            .values(**values)
+        )
+        conn.execute(update_stmt)
+        log.info(
+            f"Bet outcome UPDATE completed | user_id={self.user_id} | bet_id={bet_id} | "
+            f"result={result} | profit={profit} | win_transaction_id={win_transaction_id}"
+        )

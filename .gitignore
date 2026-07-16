@@ -40,4 +40,12 @@ node_modules/
 .coverage
 htmlcov/
 
-payments/blockbee_public.pem
+.env
+venv/
+node_modules/
+logs/
+dist/
+tmp/
+
+secrets/
+*.pem

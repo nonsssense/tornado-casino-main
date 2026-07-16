@@ -4,6 +4,7 @@
  * Responsibility:
  * - Route names, overlay names, game keys, supported tickers (when documented).
  * - No secrets, no session tokens — cookies are HttpOnly.
+ * - Nav item labels resolve via i18n (see BottomNavigation).
  */
 
 export const OVERLAY_NAMES = {
@@ -21,10 +22,10 @@ export const GAME_KEYS = {
 };
 
 export const BOTTOM_NAV_ITEMS = [
-  { id: 'wallet', label: 'Wallet', icon: 'wallet' },
-  { id: 'referrals', label: 'Referrals', icon: 'referrals' },
-  { id: 'casino', label: 'Casino', icon: 'casino' },
-  { id: 'profile', label: 'Profile', icon: 'profile' },
+  { id: 'wallet', labelKey: 'nav.wallet', icon: 'wallet' },
+  { id: 'referrals', labelKey: 'nav.referrals', icon: 'referrals' },
+  { id: 'casino', labelKey: 'nav.casino', icon: 'casino' },
+  { id: 'profile', labelKey: 'nav.profile', icon: 'profile' },
 ];
 
 export const SHELL_IDS = {

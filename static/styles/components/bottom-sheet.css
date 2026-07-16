@@ -176,3 +176,9 @@ html.bottom-sheet-open .t-app__page {
   display: none;
   padding: 0;
 }
+
+.bottom-sheet__panel--wallet,
+.bottom-sheet__panel--profile,
+.bottom-sheet__panel--balance {
+  background-color: #0a0a0a;
+}

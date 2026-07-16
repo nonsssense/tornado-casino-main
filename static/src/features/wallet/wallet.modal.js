@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
+import { t } from '../../i18n/index.js';
 import { WalletTabs, WALLET_TABS } from '../../components/shared/WalletTabs.js';
 import { createDepositView } from './deposit.view.js';
 import { createWithdrawView } from './withdraw.view.js';
@@ -69,7 +70,7 @@ export function createWalletModal(options = {}) {
       if (!factory) return null;
 
       const controller = tabId === 'history'
-        ? factory()
+        ? factory({ deferLoad: true })
         : factory({
           getCoinId,
           getNetworkId,
@@ -109,12 +110,16 @@ export function createWalletModal(options = {}) {
 
   function showActiveView() {
     ['deposit', 'withdraw', 'history'].forEach((tabId) => {
-      const controller = getController(tabId);
+      const controller = controllers.get(tabId);
       if (!controller) return;
 
       const isActive = tabId === activeTab;
       controller.element.classList.toggle('wallet-view--hidden', !isActive);
       controller.element.setAttribute('aria-hidden', isActive ? 'false' : 'true');
+
+      if (isActive) {
+        controller.onTabVisible?.();
+      }
     });
 
     walletModal.setAttribute('data-active-view', activeTab);
@@ -124,16 +129,20 @@ export function createWalletModal(options = {}) {
     if (tabId === activeTab) return;
 
     activeTab = tabId;
+
+    const controller = getController(tabId);
+    if (controller && !walletModal.contains(controller.element)) {
+      walletModal.insertBefore(controller.element, tabsMount);
+    }
+
     showActiveView();
     renderTabs();
   }
 
-  ['deposit', 'withdraw', 'history'].forEach((tabId) => {
-    const controller = getController(tabId);
-    if (controller) {
-      walletModal.appendChild(controller.element);
-    }
-  });
+  const initialController = getController(activeTab);
+  if (initialController) {
+    walletModal.appendChild(initialController.element);
+  }
 
   walletModal.appendChild(tabsMount);
   walletModal.appendChild(
@@ -144,7 +153,7 @@ export function createWalletModal(options = {}) {
           className: 'wallet-modal__brand-logo',
           attrs: {
             src: ASSETS.logo,
-            alt: 'Tornado',
+            alt: t('brand.name'),
             draggable: false,
           },
         }),

@@ -412,6 +412,17 @@
   object-fit: contain;
 }
 
+.plinko-controls__bet-icon--usd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  object-fit: unset;
+}
+
 .plinko-controls__bet-input {
   flex: 1;
   min-width: 0;

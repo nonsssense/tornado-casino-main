@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="ru">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
@@ -7,12 +7,179 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="static/styles/foundation.css" />
+  <style>
+    .app-splash{position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#000;opacity:0;pointer-events:none;transition:opacity 180ms ease-out}
+    .app-splash--visible{opacity:1;pointer-events:auto}
+    .app-splash--dismissed{opacity:0;pointer-events:none}
+    .app-splash__stage{position:relative;width:min(100vw,calc(100vh * 1080 / 1920));height:min(100vh,calc(100vw * 1920 / 1080));width:min(100vw,calc(100dvh * 1080 / 1920));height:min(100dvh,calc(100vw * 1920 / 1080));overflow:hidden}
+    .app-splash__art{position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;user-select:none}
+    .app-splash__tornado-wrap{position:absolute;display:flex;align-items:center;justify-content:center;pointer-events:none;left:38.981%;top:43.854%;width:21.296%;height:12.917%}
+    .app-splash__tornado-stack{position:relative;width:100%;height:100%}
+    .app-splash__tornado-defs{position:absolute;width:0;height:0;overflow:hidden}
+    .app-splash__tornado{position:absolute;inset:0;display:block;width:100%;height:100%;object-fit:contain;user-select:none;pointer-events:none}
+    .app-splash__tornado-mesh{position:absolute;inset:0;z-index:2;filter:brightness(1.01) drop-shadow(0 0 3px rgba(255,200,40,.18))}
+    .app-splash__tornado--upper{transform-origin:50% 18%;clip-path:inset(0% -8% 48% -8%);z-index:3}
+    .app-splash__tornado--mid{transform-origin:50% 48%;clip-path:inset(26% -10% 26% -10%);z-index:2}
+    .app-splash__tornado--tail{transform-origin:50% 90%;clip-path:inset(52% -8% 0% -8%);z-index:1}
+    .app-splash__tornado-aura{position:absolute;inset:-2%;z-index:1;pointer-events:none;opacity:.14;mix-blend-mode:screen}
+    .app-splash__tornado-light{position:absolute;inset:0;z-index:3;pointer-events:none;-webkit-mask-size:contain;mask-size:contain;-webkit-mask-repeat:no-repeat;mask-repeat:no-repeat;-webkit-mask-position:center;mask-position:center;-webkit-mask-mode:alpha;mask-mode:alpha}
+    .app-splash__tornado-light--vortex{z-index:3;mix-blend-mode:soft-light;opacity:.85}
+    .app-splash__tornado-light--shade{z-index:4;mix-blend-mode:multiply;opacity:.55}
+    .app-splash__tornado-light--specular{z-index:5;mix-blend-mode:screen;opacity:.55}
+  </style>
 </head>
 <body>
   <div id="app-root"></div>
 
+  <script>
+    (function () {
+      var THRESHOLD_MS = 375;
+      var TORNADO_URL = '/assets/loading-splash-tornado.webp';
+
+      function applyLive(stack, t) {
+        var mesh = stack.querySelector('.app-splash__tornado-mesh');
+        var upper = stack.querySelector('.app-splash__tornado--upper');
+        var mid = stack.querySelector('.app-splash__tornado--mid');
+        var tail = stack.querySelector('.app-splash__tornado--tail');
+        var aura = stack.querySelector('.app-splash__tornado-aura');
+        var vortex = stack.querySelector('.app-splash__tornado-light--vortex');
+        var specular = stack.querySelector('.app-splash__tornado-light--specular');
+        var shade = stack.querySelector('.app-splash__tornado-light--shade');
+
+        if (mesh) {
+          var brightness = 1.01 + Math.sin(t * 0.85) * 0.025;
+          mesh.style.filter =
+            'url(#tornado-micro-warp) brightness(' + brightness.toFixed(3) + ') drop-shadow(0 0 3px rgba(255,200,40,0.18))';
+        }
+
+        if (upper) {
+          var up = Math.sin(t * 1.05);
+          var tw = Math.sin(t * 0.92 + 0.5);
+          upper.style.transform =
+            'rotate(' + (tw * 0.65).toFixed(3) + 'deg) scale(' + (1 + up * 0.028).toFixed(4) + ',' + (1 - up * 0.016).toFixed(4) + ')';
+        }
+
+        if (mid) {
+          var mp = Math.sin(t * 1.18 + 1.9);
+          var flow = Math.sin(t * 1.55 + 0.7);
+          mid.style.transform =
+            'scale(' + (1 + mp * 0.032).toFixed(4) + ',' + (1 - mp * 0.02 + flow * 0.008).toFixed(4) + ')';
+        }
+
+        if (tail) {
+          var tp = Math.sin(t * 1.32 + 3.1);
+          var sway = Math.sin(t * 1.08 + 2.4);
+          tail.style.transform =
+            'translateX(' + (sway * 0.7).toFixed(3) + 'px) rotate(' + (sway * 0.85).toFixed(3) + 'deg) scale(' +
+            (1 + tp * 0.02).toFixed(4) + ',' + (1 - tp * 0.014).toFixed(4) + ')';
+        }
+
+        if (aura) {
+          var aa = t * 0.9;
+          var pulse = 0.14 + Math.sin(t * 1.05) * 0.03;
+          aura.style.opacity = String(Math.max(0.1, Math.min(0.2, pulse)));
+          aura.style.background =
+            'radial-gradient(ellipse 42% 48% at ' + (50 + Math.cos(aa) * 6).toFixed(1) + '% ' +
+            (52 + Math.sin(aa) * 5).toFixed(1) + '%, rgba(255,210,50,0.45) 0%, rgba(255,180,0,0.12) 35%, transparent 62%)';
+        }
+
+        if (vortex) {
+          var deg = (t * 65) % 360;
+          vortex.style.background =
+            'conic-gradient(from ' + deg.toFixed(1) + 'deg at 50% 46%, transparent 0deg, rgba(255,248,200,0.38) 28deg, rgba(255,220,60,0.18) 55deg, transparent 95deg, rgba(40,20,0,0.22) 160deg, rgba(20,10,0,0.28) 195deg, transparent 240deg, rgba(255,230,90,0.32) 300deg, transparent 340deg)';
+          vortex.style.opacity = '0.85';
+        }
+
+        if (specular) {
+          var a = t * (Math.PI * 2 / 5.5);
+          specular.style.background =
+            'radial-gradient(circle at ' + (50 + Math.cos(a) * 28).toFixed(1) + '% ' +
+            (46 + Math.sin(a) * 26).toFixed(1) + '%, rgba(255,255,240,0.9) 0%, rgba(255,235,120,0.4) 12%, transparent 32%)';
+          specular.style.opacity = String(0.55 + Math.sin(a + 0.4) * 0.1);
+        }
+
+        if (shade) {
+          var s = t * (Math.PI * 2 / 5.5) + Math.PI;
+          shade.style.background =
+            'radial-gradient(ellipse 70% 55% at ' + (50 + Math.cos(s) * 26).toFixed(1) + '% ' +
+            (48 + Math.sin(s) * 24).toFixed(1) + '%, rgba(0,0,0,0.45) 0%, rgba(0,0,0,0.18) 30%, transparent 58%)';
+          shade.style.opacity = '0.55';
+        }
+      }
+
+      window.__tornadoSplash = {
+        ready: false,
+        el: null,
+        stack: null,
+        raf: 0,
+        stop: null,
+        timer: setTimeout(function () {
+          if (window.__tornadoSplash.ready || window.__tornadoSplash.el) return;
+          var root = document.getElementById('app-root');
+          if (!root) return;
+
+          var mask = 'url(\'' + TORNADO_URL + '\')';
+          var splash = document.createElement('div');
+          splash.className = 'app-splash';
+          splash.setAttribute('aria-hidden', 'true');
+          splash.innerHTML =
+            '<div class="app-splash__stage">' +
+              '<img class="app-splash__art" src="/assets/loading-splash.webp" alt="" draggable="false" decoding="async" />' +
+              '<div class="app-splash__tornado-wrap">' +
+                '<div class="app-splash__tornado-stack">' +
+                  '<svg class="app-splash__tornado-defs" aria-hidden="true"><defs>' +
+                    '<filter id="tornado-micro-warp" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">' +
+                      '<feTurbulence type="fractalNoise" baseFrequency="0.028 0.12" numOctaves="3" seed="7" result="noise">' +
+                        '<animate attributeName="baseFrequency" values="0.028 0.12;0.034 0.095;0.024 0.135;0.028 0.12" dur="5.2s" repeatCount="indefinite" calcMode="spline" keySplines="0.37 0 0.63 1;0.37 0 0.63 1;0.37 0 0.63 1" keyTimes="0;0.38;0.72;1"/>' +
+                      '</feTurbulence>' +
+                      '<feDisplacementMap in="SourceGraphic" in2="noise" scale="1.35" xChannelSelector="R" yChannelSelector="G"/>' +
+                    '</filter></defs></svg>' +
+                  '<div class="app-splash__tornado-aura"></div>' +
+                  '<div class="app-splash__tornado-mesh">' +
+                    '<img class="app-splash__tornado app-splash__tornado--region app-splash__tornado--upper" src="' + TORNADO_URL + '" alt="" draggable="false" decoding="async" />' +
+                    '<img class="app-splash__tornado app-splash__tornado--region app-splash__tornado--mid" src="' + TORNADO_URL + '" alt="" draggable="false" decoding="async" />' +
+                    '<img class="app-splash__tornado app-splash__tornado--region app-splash__tornado--tail" src="' + TORNADO_URL + '" alt="" draggable="false" decoding="async" />' +
+                  '</div>' +
+                  '<div class="app-splash__tornado-light app-splash__tornado-light--vortex" style="-webkit-mask-image:' + mask + ';mask-image:' + mask + '"></div>' +
+                  '<div class="app-splash__tornado-light app-splash__tornado-light--shade" style="-webkit-mask-image:' + mask + ';mask-image:' + mask + '"></div>' +
+                  '<div class="app-splash__tornado-light app-splash__tornado-light--specular" style="-webkit-mask-image:' + mask + ';mask-image:' + mask + '"></div>' +
+                '</div>' +
+              '</div>' +
+            '</div>';
+
+          root.appendChild(splash);
+          void splash.offsetWidth;
+          splash.classList.add('app-splash--visible');
+
+          var stack = splash.querySelector('.app-splash__tornado-stack');
+          window.__tornadoSplash.el = splash;
+          window.__tornadoSplash.stack = stack;
+          window.__tornadoSplash.tornado = stack.querySelector('.app-splash__tornado-mesh');
+
+          var started = performance.now();
+          var running = true;
+
+          function tick(now) {
+            if (!running || !window.__tornadoSplash.el) return;
+            applyLive(stack, (now - started) / 1000);
+            window.__tornadoSplash.raf = requestAnimationFrame(tick);
+          }
+
+          window.__tornadoSplash.stop = function () {
+            running = false;
+            if (window.__tornadoSplash.raf) {
+              cancelAnimationFrame(window.__tornadoSplash.raf);
+              window.__tornadoSplash.raf = 0;
+            }
+          };
+
+          window.__tornadoSplash.raf = requestAnimationFrame(tick);
+        }, THRESHOLD_MS)
+      };
+    })();
+  </script>
+
   <script src="https://telegram.org/js/telegram-web-app.js"></script>
-  <script type="module" src="static/src/app/main.js"></script>
+  <script type="module" src="/static/src/app/main.js"></script>
 </body>
 </html>

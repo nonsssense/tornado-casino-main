@@ -2,11 +2,16 @@
  * Formatting helpers.
  *
  * Responsibility:
- * - Display-only number and crypto amount formatting.
+ * - Display-only number, fiat USD, and crypto amount formatting.
  * - Never mutate stored values or calculation precision.
  */
 
 const DEFAULT_MAX_DECIMALS = 4;
+
+const USD_NUMBER_FORMAT = new Intl.NumberFormat('en-US', {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+});
 
 /**
  * Truncate toward zero to `decimals` fractional digits (display only).
@@ -28,7 +33,32 @@ function truncateDecimals(value, decimals) {
 }
 
 /**
- * Format a cryptocurrency amount for UI display.
+ * Format an internal wallet / balance amount as fiat USD.
+ *
+ * Always: `$` prefix, thousands separators, exactly 2 decimal places.
+ *
+ * @param {unknown} value
+ * @returns {string}
+ *
+ * @example
+ * formatUsd(0)        // "$0.00"
+ * formatUsd(5)        // "$5.00"
+ * formatUsd(25.5)     // "$25.50"
+ * formatUsd(1200)     // "$1,200.00"
+ * formatUsd(15342.4)  // "$15,342.40"
+ * formatUsd(1500000)  // "$1,500,000.00"
+ * formatUsd(-10)      // "-$10.00"
+ */
+export function formatUsd(value) {
+  const num = Number(value);
+  if (!Number.isFinite(num)) return '$0.00';
+
+  const formatted = USD_NUMBER_FORMAT.format(Math.abs(num));
+  return num < 0 ? `-$${formatted}` : `$${formatted}`;
+}
+
+/**
+ * Format a cryptocurrency amount for UI display (on-chain deposit/withdraw mins).
  *
  * Rules:
  * - at most `maxDecimals` fractional digits (default 4)
@@ -38,14 +68,13 @@ function truncateDecimals(value, decimals) {
  * @param {unknown} value
  * @param {object} [options]
  * @param {number} [options.maxDecimals=4]
- * @param {string} [options.symbol] - e.g. USDT, ETH
+ * @param {string} [options.symbol] - e.g. USDT, ETH (on-chain asset ticker)
  * @returns {string}
  *
  * @example
  * formatCryptoAmount(10) // "10"
  * formatCryptoAmount(10.00000000, { symbol: 'USDT' }) // "10 USDT"
  * formatCryptoAmount(0.00234234523, { symbol: 'ETH' }) // "0.0023 ETH"
- * formatCryptoAmount(1234.50000000) // "1234.5"
  */
 export function formatCryptoAmount(value, options = {}) {
   const {
@@ -70,15 +99,11 @@ export function formatCryptoAmount(value, options = {}) {
 }
 
 /**
- * Format a balance / money value for UI (shared crypto amount rules).
+ * Format a money balance for UI (alias of formatUsd).
  *
  * @param {unknown} value
- * @param {string} [currency] - optional ticker/symbol suffix (e.g. USDT)
  * @returns {string}
  */
-export function formatCurrency(value, currency) {
-  return formatCryptoAmount(value, {
-    maxDecimals: DEFAULT_MAX_DECIMALS,
-    symbol: currency || undefined,
-  });
+export function formatCurrency(value) {
+  return formatUsd(value);
 }

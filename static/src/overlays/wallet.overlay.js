@@ -3,7 +3,9 @@
  */
 
 import { createWalletModal } from '../features/wallet/wallet.modal.js';
+import { t } from '../i18n/index.js';
 import { BottomSheet } from './bottom-sheet.js';
+import '../../styles/pages/wallet.css';
 
 /**
  * @param {object} options
@@ -19,7 +21,7 @@ export function createWalletOverlay(options = {}) {
 
   return BottomSheet({
     content: modal.element,
-    ariaLabel: 'Wallet',
+    ariaLabel: t('wallet.overlay.title'),
     panelClass: 'bottom-sheet__panel--wallet',
     onClose,
     onBeforeRemove: () => {

@@ -8,9 +8,9 @@ from pathlib import Path
 import requests
 from cryptography.hazmat.primitives.serialization import load_pem_public_key
 from log_manager import log
+from config import BLOCKBEE_PUBLIC_KEY_PATH
 
-
-PUBLIC_KEY_PATH = Path("payments/blockbee_public.pem")
+PUBLIC_KEY_PATH = BLOCKBEE_PUBLIC_KEY_PATH
 
 
 def load_public_key():

@@ -1,20 +1,13 @@
 # House edge in dice will be 2.5%
 config = 97.5
 
-from secrets import randbelow
-from database.db_config import engine, user_events_table
-from sqlalchemy import insert
+from games.provably_fair import ProvablyFair
 from log_manager import log
 
 
-balance = 100
-
-bd = list()
 def getChance(limit, over):
-
     if over:
         return 99 - limit
-
     return limit
 
 
@@ -22,46 +15,70 @@ def getFactor(chance: float):
     return config / chance
 
 
-def get_payout(state, json, factor: float):
-    if state:
-        return (json.bid * factor) - json.bid
-    else:
-        return -json.bid
+def get_payout(won, bid, factor: float):
+    """Net profit on win, -stake on loss (unchanged payout formula)."""
+    if won:
+        return (bid * factor) - bid
+    return -bid
 
 
-def roll(json):
-    game_result = randbelow(100)  # random value 0-99
-
-    if json.over:
-        result = json.limit < game_result
-    else:
-        result = json.limit > game_result
-
-    return result, game_result
-    
-insert_wo_values = insert(user_events_table)
-
-def dice(json, result_of_game: bool, factor: float):
-    #bd[balance].append(payout)
-    # Здесь будет транзакция которая будет записывать результат в базуе данных + обновлять баланс игрока
-    # with ...
-    with engine.begin() as conn:
-        result = conn.execute(insert_wo_values.values(
-            user_id=json.user_id, # заправить данными таблицу
-        ))
-    
-    payout = get_payout(result_of_game, json, factor)
-    return {'payout': payout, 'result': result_of_game}
-   
+def resolve_roll(limit: int, over: bool, roll_result: int) -> bool:
+    """Existing over/under comparison — unchanged."""
+    if over:
+        return limit < roll_result
+    return limit > roll_result
 
 
+def roll_from_provably_fair(server_seed: str, client_seed: str, nonce: int) -> int:
+    """
+    Map existing ProvablyFair.getHmac digest to a Dice roll 0–99.
 
-def getDiceResult(json, user_id):
-    result, game_result = roll(json)
-    factor = getFactor(getChance(json.limit, json.over))
-    data = dice(json, result, factor)
-    data['roll'] = game_result
+    Does not modify ProvablyFair. Uses getHmac exactly as Crash does; only the
+    mapping from digest bytes → 0..99 is Dice-specific.
+    """
+    digest = ProvablyFair.getHmac(server_seed, client_seed, nonce)
+    return int.from_bytes(digest[:4], "big") % 100
+
+
+def evaluate_dice(bid, limit, over, server_seed, client_seed, nonce):
+    """
+    Pure Dice evaluation: PF roll + existing chance / factor / payout math.
+
+    Returns everything needed to persist the `dice` row and settle the bet.
+    """
+    roll_result = roll_from_provably_fair(server_seed, client_seed, nonce)
+    won = resolve_roll(limit, over, roll_result)
+    chance = getChance(limit, over)
+    factor = getFactor(chance)
+    net_payout = get_payout(won, bid, factor)
+    # Gross return credited on win (stake + net). Zero gross on loss (stake already debited).
+    gross_payout = (bid * factor) if won else 0.0
+
+    result = {
+        "result": won,
+        "result_of_game": won,
+        "roll": roll_result,
+        "payout": net_payout,
+        "multipier": factor,
+        "gross_payout": gross_payout,
+        "nonce_used": nonce,
+        "client_seed_used": client_seed,
+        "hash_server_seed_used": ProvablyFair.getServerSeedHash(server_seed),
+    }
     log.info(
-        f"Dice result | bid={json.bid} | roll={game_result} | result={data.get('result')} | payout={data.get('payout')}"
+        f"Dice result | bid={bid} | roll={roll_result} | result={won} | "
+        f"payout={net_payout} | multipier={factor} | nonce={nonce}"
     )
-    return data
+    return result
+
+
+def getDiceResult(json, user_id=None, *, server_seed, client_seed, nonce):
+    """Evaluate a Dice game from locked fairness material."""
+    return evaluate_dice(
+        bid=float(json.bid),
+        limit=int(json.limit),
+        over=bool(json.over),
+        server_seed=server_seed,
+        client_seed=client_seed,
+        nonce=int(nonce),
+    )

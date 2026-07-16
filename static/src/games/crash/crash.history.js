@@ -4,6 +4,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { createCrashHistoryItem } from './crash.history-item.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
@@ -13,7 +14,7 @@ import { createCrashHistoryItem } from './crash.history-item.js';
 export function createCrashHistory(options = {}) {
   const list = createElement('ul', {
     className: 'crash-history__list',
-    attrs: { 'aria-label': 'Recent multipliers' },
+    attrs: { 'aria-label': t('crash.history.aria') },
   });
 
   const element = createElement('div', {

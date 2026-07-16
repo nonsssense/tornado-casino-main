@@ -3,6 +3,8 @@
  */
 
 import { createElement } from '../../utils/dom.js';
+import { formatUsd } from '../../utils/format.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} options
@@ -21,7 +23,7 @@ import { createElement } from '../../utils/dom.js';
 export function createLiveBetRow(options) {
   const state = {
     id: String(options.id),
-    username: options.username || 'Player',
+    username: options.username || t('common.player'),
     amount: Number(options.amount) || 0,
     cashedOut: Boolean(options.cashedOut),
   };
@@ -74,9 +76,5 @@ export function createLiveBetRow(options) {
  * @returns {string}
  */
 function formatBetAmount(amount) {
-  const value = Number(amount);
-  if (!Number.isFinite(value)) return '$0';
-  const rounded = Math.round(value * 100) / 100;
-  const text = Number.isInteger(rounded) ? String(rounded) : rounded.toFixed(2).replace(/\.?0+$/, '');
-  return `$${text}`;
+  return formatUsd(amount);
 }

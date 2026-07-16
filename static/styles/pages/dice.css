@@ -674,11 +674,11 @@
 }
 
 .dice-direction__chance::before {
-  content: 'Chance ';
+  content: attr(data-chance-label);
 }
 
 .dice-direction__profit::before {
-  content: 'Profit ';
+  content: attr(data-profit-label);
 }
 
 /* Potential win preview */
@@ -769,6 +769,17 @@
   height: 1.25rem;
   flex-shrink: 0;
   object-fit: contain;
+}
+
+.dice-controls__bet-icon--usd {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  object-fit: unset;
 }
 
 .dice-controls__bet-input {

@@ -1,0 +1,348 @@
+/**
+ * Skeleton placeholders — fixed dimensions, subtle shimmer, opacity-only hydrate.
+ */
+
+.skeleton {
+  position: relative;
+  overflow: hidden;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: var(--radius-sm);
+}
+
+.skeleton--text {
+  height: 0.75rem;
+  border-radius: var(--radius-pill);
+}
+
+.skeleton--block {
+  width: 100%;
+}
+
+.skeleton--circle {
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.skeleton--pill {
+  height: 2.5rem;
+  border-radius: var(--radius-pill);
+}
+
+.skeleton::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.07) 50%,
+    transparent 100%
+  );
+  transform: translateX(-100%);
+  animation: skeleton-shimmer 1.35s ease-in-out infinite;
+}
+
+.skeleton__text {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  text-align: center;
+}
+
+@keyframes skeleton-shimmer {
+  100% {
+    transform: translateX(100%);
+  }
+}
+
+/* Progressive hydration */
+.hydrate-fade {
+  opacity: 0;
+  transition: opacity var(--hydrate-duration, 150ms) ease-out;
+}
+
+.hydrate-fade--visible {
+  opacity: 1;
+}
+
+/* Header balance */
+.balance__pill--loading {
+  color: var(--color-text-secondary);
+}
+
+.balance__pill--hydrate {
+  transition: opacity 150ms ease-out;
+}
+
+.balance__pill--hydrate-fade {
+  opacity: 0;
+}
+
+.balance__pill--hydrate-visible {
+  opacity: 1;
+}
+
+/* Home media */
+.home-page__media {
+  position: relative;
+  overflow: hidden;
+}
+
+.home-page__media-skeleton {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.home-page__media-skeleton--hidden {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.home-page__media-img {
+  opacity: 0;
+  transition: opacity 200ms ease-out;
+}
+
+.home-page__media-img--loaded {
+  opacity: 1;
+}
+
+/* Profile skeleton card */
+.profile-card--skeleton .profile-card__avatar-wrap {
+  flex-shrink: 0;
+}
+
+.profile-card--skeleton .profile-field__value-skeleton {
+  width: 5.5rem;
+  margin-left: auto;
+}
+
+.profile-card--skeleton .profile-field__value-skeleton--wide {
+  width: 7rem;
+}
+
+/* Balance modal skeleton values */
+.balance-modal__card-value--loading {
+  color: var(--color-text-secondary);
+}
+
+.balance-modal__card-value-skeleton {
+  display: block;
+  width: 5rem;
+  height: 1.25rem;
+}
+
+/* Wallet deposit address skeleton */
+.skeleton-deposit-address {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 8.5rem;
+  padding: var(--space-4);
+  border-radius: var(--radius-base);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-section-card);
+}
+
+.skeleton-deposit-address__value {
+  height: 3.5rem;
+}
+
+.skeleton-deposit-address__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2);
+}
+
+.skeleton-deposit-address__btn {
+  height: 2.5rem;
+}
+
+/* History skeleton rows */
+.skeleton-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.skeleton-history__row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: var(--space-2) var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-base);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  background: var(--color-bg-section-card);
+}
+
+.skeleton-history__line--type {
+  width: 45%;
+}
+
+.skeleton-history__line--amount {
+  width: 35%;
+  justify-self: end;
+}
+
+.skeleton-history__line--meta {
+  width: 40%;
+}
+
+.skeleton-history__line--meta:last-child {
+  justify-self: end;
+  width: 30%;
+}
+
+/* Startup splash — exact Loading Banner artwork */
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: calc(var(--z-loader) + 5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: #000;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease-out;
+}
+
+.app-splash--visible {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.app-splash--dismissed {
+  opacity: 0;
+  pointer-events: none;
+}
+
+.app-splash__stage {
+  position: relative;
+  width: min(100vw, calc(100vh * 1080 / 1920));
+  height: min(100vh, calc(100vw * 1920 / 1080));
+  width: min(100vw, calc(100dvh * 1080 / 1920));
+  height: min(100dvh, calc(100vw * 1920 / 1080));
+  overflow: hidden;
+}
+
+.app-splash__art {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+  pointer-events: none;
+  user-select: none;
+}
+
+.app-splash__tornado-wrap {
+  position: absolute;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.app-splash__tornado-stack {
+  position: relative;
+  width: 100%;
+  height: 100%;
+}
+
+.app-splash__tornado-defs {
+  position: absolute;
+  width: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.app-splash__tornado {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  user-select: none;
+  pointer-events: none;
+}
+
+.app-splash__tornado-mesh {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  filter: brightness(1.01) drop-shadow(0 0 3px rgba(255, 200, 40, 0.18));
+}
+
+.app-splash__tornado--region {
+  /* Soft overlapping bands — avoids hard seams while allowing local flow. */
+  will-change: transform;
+}
+
+.app-splash__tornado--upper {
+  transform-origin: 50% 18%;
+  clip-path: inset(0% -8% 48% -8%);
+  z-index: 3;
+}
+
+.app-splash__tornado--mid {
+  transform-origin: 50% 48%;
+  clip-path: inset(26% -10% 26% -10%);
+  z-index: 2;
+}
+
+.app-splash__tornado--tail {
+  transform-origin: 50% 90%;
+  clip-path: inset(52% -8% 0% -8%);
+  z-index: 1;
+}
+
+.app-splash__tornado-aura {
+  position: absolute;
+  inset: -2%;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.14;
+  mix-blend-mode: screen;
+}
+
+.app-splash__tornado-light {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  -webkit-mask-size: contain;
+  mask-size: contain;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  -webkit-mask-position: center;
+  mask-position: center;
+  -webkit-mask-mode: alpha;
+  mask-mode: alpha;
+}
+
+.app-splash__tornado-light--vortex {
+  z-index: 3;
+  mix-blend-mode: soft-light;
+  opacity: 0.85;
+}
+
+.app-splash__tornado-light--shade {
+  z-index: 4;
+  mix-blend-mode: multiply;
+  opacity: 0.55;
+}
+
+.app-splash__tornado-light--specular {
+  z-index: 5;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}

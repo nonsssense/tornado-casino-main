@@ -4,7 +4,8 @@
 
 import { createElement } from '../../utils/dom.js';
 import { IconButton } from './IconButton.js';
-import { formatCryptoAmount } from '../../utils/format.js';
+import { formatUsd } from '../../utils/format.js';
+import { t } from '../../i18n/index.js';
 
 const TYPES = new Set(['success', 'error', 'warning', 'info']);
 
@@ -78,7 +79,7 @@ export function Toast(options = {}) {
 
   if (closable) {
     children.push(IconButton({
-      ariaLabel: 'Dismiss notification',
+      ariaLabel: t('toast.dismiss'),
       variant: 'ghost',
       size: 'sm',
       iconHtml: '&#10005;',
@@ -123,8 +124,8 @@ export function showGameWinToast(options = {}) {
     type: 'success',
     variant: 'game-win',
     meta: gameName,
-    title: 'You won',
-    message: typeof amount === 'number' ? `+${formatCryptoAmount(amount)}` : String(amount),
+    title: t('toast.win.title'),
+    message: typeof amount === 'number' ? `+${formatUsd(amount)}` : String(amount),
     duration,
     closable: true,
   });

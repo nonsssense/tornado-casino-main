@@ -4,6 +4,7 @@
 
 import { createElement } from '../utils/dom.js';
 import { CrashGame } from '../games/crash/index.js';
+import '../../styles/pages/crash.css';
 
 /**
  * @returns {HTMLElement}

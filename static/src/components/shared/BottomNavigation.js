@@ -5,6 +5,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { BOTTOM_NAV_ITEMS } from '../../utils/constants.js';
+import { t } from '../../i18n/index.js';
 
 /**
  * @param {object} [options]
@@ -43,7 +44,7 @@ export function BottomNavigation(options = {}) {
         }),
         createElement('span', {
           className: 'bottom-nav__label',
-          text: item.label,
+          text: t(item.labelKey),
         }),
       ],
     });
@@ -52,7 +53,7 @@ export function BottomNavigation(options = {}) {
   return createElement('nav', {
     className: classes.join(' '),
     attrs: {
-      'aria-label': 'Main navigation',
+      'aria-label': t('nav.ariaLabel'),
     },
     children: items,
   });
