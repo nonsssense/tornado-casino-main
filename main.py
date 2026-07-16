@@ -279,9 +279,7 @@ async def root(response: Response, request: Request, initdata: UserRequest):
     log.info(f"Authentication request received | request_id={request_id}")
 
     try:
-        response = FileResponse(_index_html_path())
         event_type = 'Auth'
-
         init_data = initdata.initdata or ""
 
         # Auth gate:
@@ -331,7 +329,11 @@ async def root(response: Response, request: Request, initdata: UserRequest):
             samesite="Lax"
         )
 
-        return response
+        return {
+            "ok": True,
+            "user_id": user_id,
+            "telegram_id": telegram_id,
+        }
     except HTTPException as e:
         if telegram_id is None and has_telegram_id(initdata.initdata):
             try:

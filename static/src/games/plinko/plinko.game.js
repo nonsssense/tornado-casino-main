@@ -10,7 +10,7 @@ import { plinkoConfigService } from '../../services/plinko.config.service.js';
 import { Toast, showGameWinToast } from '../../components/base/Toast.js';
 import { createPlinkoBoard } from './plinko.board.js';
 import { createPlinkoControls } from './plinko.controls.js';
-import { animatePlinkoPath } from './plinko.animation.js';
+import { animatePlinkoPath, cancelPlinkoPathAnimation } from './plinko.animation.js';
 import { isPremiumMultiplier } from './plinko.geometry.js';
 import { PLINKO_DEFAULT_STATE } from './plinko.constants.js';
 import { formatUsd } from '../../utils/format.js';
@@ -44,7 +44,7 @@ async function handlePlay() {
   const { bid, risk_mode, rows } = controls.getState();
 
   if (!Number.isFinite(bid) || bid <= 0) {
-    Toast({ message: t('games.validation.bet'), type: 'warning', duration: 2500 });
+    Toast({ message: t('game.validation.bet'), type: 'warning', duration: 2500 });
     return;
   }
 
@@ -63,6 +63,8 @@ async function handlePlay() {
     };
 
     const result = await gameService.playPlinko(payload);
+    if (!isPlaying || !board || !controls) return;
+
     const path = result.path ?? result.bits;
 
     if (!Array.isArray(path) || path.length !== rows) {
@@ -70,6 +72,7 @@ async function handlePlay() {
     }
 
     const { basketIndex } = await animatePlinkoPath({ path, board });
+    if (!isPlaying || !board) return;
 
     const multiplier = Number(result.multiplier) || 0;
     const payout = Number(result.payout) || 0;
@@ -94,8 +97,8 @@ async function handlePlay() {
       });
     }
   } catch (error) {
-    board.hideBall();
-    board.clearBasketHighlight();
+    board?.hideBall();
+    board?.clearBasketHighlight();
     Toast({
       message: error.message || t('plinko.toast.failed'),
       type: 'error',
@@ -103,19 +106,33 @@ async function handlePlay() {
     });
   } finally {
     isPlaying = false;
-    controls.setLoading(false);
-    controls.setDisabled(false);
+    controls?.setLoading(false);
+    controls?.setDisabled(false);
   }
 }
 
 export const PlinkoGame = {
-  async mount(container) {
-    if (mountContainer === container && board?.element?.isConnected && configReady) return;
+  /**
+   * @param {HTMLElement} container
+   * @param {{ signal?: AbortSignal }} [options]
+   * @returns {Promise<boolean>} true when board mounted successfully
+   */
+  async mount(container, options = {}) {
+    const { signal } = options;
 
+    if (mountContainer === container && board?.element?.isConnected && configReady) {
+      return true;
+    }
+
+    this.unmount({ keepDom: false });
     mountContainer = container;
 
     try {
       await plinkoConfigService.load();
+      if (signal?.aborted) {
+        this.unmount({ keepDom: false });
+        return false;
+      }
       configReady = true;
     } catch (error) {
       configReady = false;
@@ -130,7 +147,7 @@ export const PlinkoGame = {
         type: 'error',
         duration: 4000,
       });
-      return;
+      return false;
     }
 
     const balances = balanceService.getBalances();
@@ -165,7 +182,13 @@ export const PlinkoGame = {
       children: [stage, controls.element],
     });
 
+    if (signal?.aborted) {
+      this.unmount({ keepDom: false });
+      return false;
+    }
+
     container.replaceChildren(root);
+    return true;
   },
 
   /**
@@ -180,11 +203,31 @@ export const PlinkoGame = {
     await handlePlay();
   },
 
-  unmount() {
+  /**
+   * @param {{ keepDom?: boolean }} [options]
+   */
+  unmount(options = {}) {
+    const { keepDom = false } = options;
+
+    cancelPlinkoPathAnimation();
+    isPlaying = false;
+    controls?.setLoading(false);
+    controls?.setDisabled(false);
+    board?.setPlaying?.(false);
+    board?.hideBall?.();
+
+    if (keepDom && board?.element?.isConnected && configReady) {
+      return;
+    }
+
+    const container = mountContainer;
     mountContainer = null;
     board = null;
     controls = null;
-    isPlaying = false;
     configReady = false;
+
+    if (container) {
+      container.replaceChildren();
+    }
   },
 };

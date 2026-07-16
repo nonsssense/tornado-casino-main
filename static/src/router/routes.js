@@ -1,11 +1,13 @@
 /**
- * Route definitions.
+ * Route definitions — registry of RouteController factories.
  *
- * Games are lazy-loaded so Crash / Dice / Plinko bundles download only when opened.
- * Home stays static for faster first paint after shell boot.
+ * Adding a future game (Mines, Roulette, …):
+ * 1. Add ROUTE_NAMES entry
+ * 2. Add a ROUTES entry with createController factory
+ * No router logic changes required.
  */
 
-import { renderHomePage } from '../pages/home.page.js';
+import { createHomeController } from '../pages/home.page.js';
 import {
   ROUTE_NAMES,
   DEFAULT_ROUTE,
@@ -16,33 +18,39 @@ import {
 export { ROUTE_NAMES, DEFAULT_ROUTE, NAV_ROUTE_MAP, NAV_ROUTES };
 
 /**
+ * @typedef {object} RouteDefinition
+ * @property {string} navId
+ * @property {() => (import('./route-controller.js').RouteController | Promise<import('./route-controller.js').RouteController>)} createController
+ */
+
+/**
  * Registered application routes.
- * @type {Record<string, { navId: string, render: () => HTMLElement | Promise<HTMLElement> }>}
+ * @type {Record<string, RouteDefinition>}
  */
 export const ROUTES = {
   [ROUTE_NAMES.HOME]: {
     navId: 'casino',
-    render: renderHomePage,
+    createController: createHomeController,
   },
   [ROUTE_NAMES.DICE]: {
     navId: 'casino',
-    async render() {
-      const { renderDicePage } = await import('../pages/dice.page.js');
-      return renderDicePage();
+    async createController() {
+      const { createDiceController } = await import('../pages/dice.page.js');
+      return createDiceController();
     },
   },
   [ROUTE_NAMES.PLINKO]: {
     navId: 'casino',
-    async render() {
-      const { renderPlinkoPage } = await import('../pages/plinko.page.js');
-      return renderPlinkoPage();
+    async createController() {
+      const { createPlinkoController } = await import('../pages/plinko.page.js');
+      return createPlinkoController();
     },
   },
   [ROUTE_NAMES.CRASH]: {
     navId: 'casino',
-    async render() {
-      const { renderCrashPage } = await import('../pages/crash.page.js');
-      return renderCrashPage();
+    async createController() {
+      const { createCrashController } = await import('../pages/crash.page.js');
+      return createCrashController();
     },
   },
 };

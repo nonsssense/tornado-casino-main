@@ -1,0 +1,163 @@
+{
+  "cssUrlsFound": [],
+  "failed": [],
+  "assets": [
+    {
+      "path": "/assets/ava%20icon%20tornado%20main.webp",
+      "status": 200,
+      "size": 18498,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/assets/btc%20icon.webp",
+      "status": 200,
+      "size": 554,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/eth%20icon.webp",
+      "status": 200,
+      "size": 432,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/loading-splash-tornado.webp",
+      "status": 200,
+      "size": 53838,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/assets/loading-splash.webp",
+      "status": 200,
+      "size": 67722,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/assets/menu_bar_casino.webp",
+      "status": 200,
+      "size": 22132,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/menu_bar_profile.webp",
+      "status": 200,
+      "size": 12462,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/menu_bar_referals.webp",
+      "status": 200,
+      "size": 14040,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/menu_bar_wallet.webp",
+      "status": 200,
+      "size": 10898,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/personal_info_profile_page.webp",
+      "status": 200,
+      "size": 29234,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/profile_page_bonuses_page.webp",
+      "status": 200,
+      "size": 13632,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/solana%20icon.webp",
+      "status": 200,
+      "size": 700,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/tether.webp",
+      "status": 200,
+      "size": 574,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/tornado%20no%20background%20main.webp",
+      "status": 200,
+      "size": 87692,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/assets/tornado%20support%20main.webp",
+      "status": 200,
+      "size": 17364,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/assets/tron%20icon.webp",
+      "status": 200,
+      "size": 514,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/assets/usdc%20icon.webp",
+      "status": 200,
+      "size": 766,
+      "ct": "image/webp",
+      "via": "probe"
+    },
+    {
+      "path": "/banners/crash-game.webp",
+      "status": 200,
+      "size": 19992,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/banners/deposit-bonus-banner.webp",
+      "status": 200,
+      "size": 40480,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/banners/dice-game.webp",
+      "status": 200,
+      "size": 19298,
+      "ct": "image/webp",
+      "via": "page"
+    },
+    {
+      "path": "/banners/plinko-game.webp",
+      "status": 200,
+      "size": 36584,
+      "ct": "image/webp",
+      "via": "page"
+    }
+  ],
+  "summary": {
+    "pageTransferredEstimateKB": 353,
+    "allProbedAssetsKB": 342.8,
+    "webpAssets": 17,
+    "pngAssets": 0,
+    "svgAssets": 0,
+    "svgPaths": [],
+    "pngPaths": [],
+    "failures": 0
+  }
+}

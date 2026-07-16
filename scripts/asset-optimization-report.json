@@ -1,0 +1,242 @@
+[
+  {
+    "original": "ava icon tornado main.png",
+    "originalSize": 54303,
+    "optimized": "ava icon tornado main.webp",
+    "optimizedSize": 18498,
+    "format": "webp",
+    "reduction": "65.9%",
+    "dims": "243x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 18498,
+      "pngOpt": 21597,
+      "webpLossless": 39102
+    }
+  },
+  {
+    "original": "btc icon.png",
+    "originalSize": 1030,
+    "optimized": "btc icon.webp",
+    "optimizedSize": 554,
+    "format": "webp",
+    "reduction": "46.2%",
+    "dims": "23x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 554,
+      "pngOpt": 839,
+      "webpLossless": 554
+    }
+  },
+  {
+    "original": "eth icon.png",
+    "originalSize": 863,
+    "optimized": "eth icon.webp",
+    "optimizedSize": 432,
+    "format": "webp",
+    "reduction": "49.9%",
+    "dims": "14x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 432,
+      "pngOpt": 850,
+      "webpLossless": 432
+    }
+  },
+  {
+    "original": "menu_bar_casino.png",
+    "originalSize": 57191,
+    "optimized": "menu_bar_casino.webp",
+    "optimizedSize": 22132,
+    "format": "webp",
+    "reduction": "61.3%",
+    "dims": "256x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 22132,
+      "pngOpt": 23010,
+      "webpLossless": 34450
+    }
+  },
+  {
+    "original": "menu_bar_profile.png",
+    "originalSize": 33838,
+    "optimized": "menu_bar_profile.webp",
+    "optimizedSize": 12462,
+    "format": "webp",
+    "reduction": "63.2%",
+    "dims": "231x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 12462,
+      "pngOpt": 14657,
+      "webpLossless": 21226
+    }
+  },
+  {
+    "original": "menu_bar_referals.png",
+    "originalSize": 45973,
+    "optimized": "menu_bar_referals.webp",
+    "optimizedSize": 14040,
+    "format": "webp",
+    "reduction": "69.5%",
+    "dims": "268x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 14040,
+      "pngOpt": 21447,
+      "webpLossless": 31370
+    }
+  },
+  {
+    "original": "menu_bar_wallet.png",
+    "originalSize": 37501,
+    "optimized": "menu_bar_wallet.webp",
+    "optimizedSize": 10898,
+    "format": "webp",
+    "reduction": "70.9%",
+    "dims": "267x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 10898,
+      "pngOpt": 18973,
+      "webpLossless": 25778
+    }
+  },
+  {
+    "original": "solana icon.png",
+    "originalSize": 886,
+    "optimized": "solana icon.webp",
+    "optimizedSize": 700,
+    "format": "webp",
+    "reduction": "21.0%",
+    "dims": "23x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 700,
+      "pngOpt": 938,
+      "webpLossless": 700
+    }
+  },
+  {
+    "original": "tether.png",
+    "originalSize": 992,
+    "optimized": "tether.webp",
+    "optimizedSize": 574,
+    "format": "webp",
+    "reduction": "42.1%",
+    "dims": "23x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 574,
+      "pngOpt": 862,
+      "webpLossless": 574
+    }
+  },
+  {
+    "original": "tornado no background main.png",
+    "originalSize": 265356,
+    "optimized": "tornado no background main.webp",
+    "optimizedSize": 87692,
+    "format": "webp",
+    "reduction": "67.0%",
+    "dims": "1159x256",
+    "hasAlpha": true,
+    "reason": "Brand wordmark with transparency — WebP q92 keeps text edges sharp while cutting size ~70% vs PNG.",
+    "alternatives": {
+      "webpChosen": 87692,
+      "pngOpt": 99778,
+      "webpLossless": 188974
+    }
+  },
+  {
+    "original": "tornado support main.png",
+    "originalSize": 75039,
+    "optimized": "tornado support main.webp",
+    "optimizedSize": 17364,
+    "format": "webp",
+    "reduction": "76.9%",
+    "dims": "266x256",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 17364,
+      "pngOpt": 37650,
+      "webpLossless": 45302
+    }
+  },
+  {
+    "original": "tron icon.png",
+    "originalSize": 925,
+    "optimized": "tron icon.webp",
+    "optimizedSize": 514,
+    "format": "webp",
+    "reduction": "44.4%",
+    "dims": "23x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 514,
+      "pngOpt": 852,
+      "webpLossless": 514
+    }
+  },
+  {
+    "original": "usdc icon.png",
+    "originalSize": 1465,
+    "optimized": "usdc icon.webp",
+    "optimizedSize": 766,
+    "format": "webp",
+    "reduction": "47.7%",
+    "dims": "23x23",
+    "hasAlpha": true,
+    "reason": "Tiny UI icon with alpha — lossless WebP preserves exact pixels/colors and still beats PNG.",
+    "alternatives": {
+      "webpChosen": 766,
+      "pngOpt": 1212,
+      "webpLossless": 766
+    }
+  },
+  {
+    "original": "personal_info_profile_page.png",
+    "originalSize": 1348864,
+    "optimized": "personal_info_profile_page.webp",
+    "optimizedSize": 29234,
+    "format": "webp",
+    "reduction": "97.8%",
+    "dims": "1024x1024",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 29234,
+      "pngOpt": 41141,
+      "webpLossless": 65148
+    }
+  },
+  {
+    "original": "profile_page_bonuses_page.png",
+    "originalSize": 1320522,
+    "optimized": "profile_page_bonuses_page.webp",
+    "optimizedSize": 13632,
+    "format": "webp",
+    "reduction": "99.0%",
+    "dims": "1024x1024",
+    "hasAlpha": true,
+    "reason": "UI artwork with alpha — WebP q90 + full alpha quality is visually identical at UI sizes and much smaller than PNG/lossless WebP.",
+    "alternatives": {
+      "webpChosen": 13632,
+      "pngOpt": 15233,
+      "webpLossless": 21420
+    }
+  }
+]

@@ -1,23 +1,15 @@
 /**
- * Conditional startup splash — exact Loading Banner artwork.
+ * Conditional startup splash — mobile-first 9:16 brand + bottom tornado loader.
  *
- * Base: still silhouette + circulating internal light/shade.
- * Added: regional shape flow (upper / mid / tail) at ~2–3% deformation
- * so the vortex feels fluid without moving the whole logo.
+ * Loading animation: regional shape flow + circulating light on a single tornado.
+ * Dismissal / timing APIs are unchanged.
  */
 
 const SPLASH_THRESHOLD_MS = 375;
 const SPLASH_FADE_MS = 180;
 
-const TORNADO_LAYOUT = {
-  left: '38.981%',
-  top: '43.854%',
-  width: '21.296%',
-  height: '12.917%',
-};
-
-const SPLASH_ART_URL = '/assets/loading-splash.webp';
-const SPLASH_TORNADO_URL = '/assets/loading-splash-tornado.webp';
+const SPLASH_WORDMARK_URL = '/assets/tornado%20full%20name%20logo%201.png';
+const SPLASH_TORNADO_URL = '/assets/ava%20icon%20tornado%20main.webp';
 
 /** @type {number|null} */
 let showTimer = null;
@@ -47,15 +39,10 @@ let stopTornadoMotion = null;
 function buildTornadoStack() {
   const wrap = document.createElement('div');
   wrap.className = 'app-splash__tornado-wrap';
-  wrap.style.left = TORNADO_LAYOUT.left;
-  wrap.style.top = TORNADO_LAYOUT.top;
-  wrap.style.width = TORNADO_LAYOUT.width;
-  wrap.style.height = TORNADO_LAYOUT.height;
 
   const stack = document.createElement('div');
   stack.className = 'app-splash__tornado-stack';
 
-  // Soft procedural displacement — ~1px swirl through the surface.
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
   svg.setAttribute('class', 'app-splash__tornado-defs');
   svg.setAttribute('aria-hidden', 'true');
@@ -77,14 +64,13 @@ function buildTornadoStack() {
   const aura = document.createElement('div');
   aura.className = 'app-splash__tornado-aura';
 
-  // Three overlapping spiral bands — shape flow with phase offsets.
   const mesh = document.createElement('div');
   mesh.className = 'app-splash__tornado-mesh';
 
   const regions = [
-    { name: 'upper', className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--upper' },
-    { name: 'mid', className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--mid' },
-    { name: 'tail', className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--tail' },
+    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--upper' },
+    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--mid' },
+    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--tail' },
   ];
 
   regions.forEach(({ className }) => {
@@ -122,8 +108,6 @@ function buildTornadoStack() {
 }
 
 /**
- * Lighting (unchanged base) + subtle regional shape flow.
- * Position of the whole tornado stays still — only local form changes.
  * @param {HTMLElement} stack
  * @param {number} t
  */
@@ -137,7 +121,6 @@ function applyTornadoLive(stack, t) {
   const specular = stack.querySelector('.app-splash__tornado-light--specular');
   const shade = stack.querySelector('.app-splash__tornado-light--shade');
 
-  // Mesh: brightness + surface warp only — no whole-logo translate.
   if (mesh) {
     const brightness = 1.01 + Math.sin(t * 0.85) * 0.025;
     mesh.style.filter =
@@ -145,7 +128,6 @@ function applyTornadoLive(stack, t) {
       `drop-shadow(0 0 3px rgba(255, 200, 40, 0.18))`;
   }
 
-  // Upper spiral: tightens / loosens + micro twist (±~2.8%).
   if (upper) {
     const pulse = Math.sin(t * 1.05);
     const twist = Math.sin(t * 0.92 + 0.5);
@@ -155,17 +137,14 @@ function applyTornadoLive(stack, t) {
       `rotate(${(twist * 0.65).toFixed(3)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
   }
 
-  // Middle body: vortex compress / expand, phase offset (feels like rotation).
   if (mid) {
     const pulse = Math.sin(t * 1.18 + 1.9);
     const flow = Math.sin(t * 1.55 + 0.7);
     const sx = 1 + pulse * 0.032;
     const sy = 1 - pulse * 0.02 + flow * 0.008;
-    mid.style.transform =
-      `scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
+    mid.style.transform = `scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
   }
 
-  // Lower tip: soft asymmetric sway in shape space only (±~2%).
   if (tail) {
     const pulse = Math.sin(t * 1.32 + 3.1);
     const sway = Math.sin(t * 1.08 + 2.4);
@@ -176,7 +155,6 @@ function applyTornadoLive(stack, t) {
       `scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
   }
 
-  // Tight separation glow — circulates slightly, never a cloud.
   if (aura) {
     const a = t * 0.9;
     const hx = 50 + Math.cos(a) * 6;
@@ -188,7 +166,6 @@ function applyTornadoLive(stack, t) {
       `rgba(255, 210, 50, 0.45) 0%, rgba(255, 180, 0, 0.12) 35%, transparent 62%)`;
   }
 
-  // Continuous angular swirl inside the silhouette (~full turn ~5.5s).
   if (vortex) {
     const deg = (t * 65) % 360;
     vortex.style.background =
@@ -205,9 +182,8 @@ function applyTornadoLive(stack, t) {
     vortex.style.opacity = '0.85';
   }
 
-  // Specular rides the bright sector of the vortex.
   if (specular) {
-    const a = t * (Math.PI * 2 / 5.5);
+    const a = t * ((Math.PI * 2) / 5.5);
     const x = 50 + Math.cos(a) * 28;
     const y = 46 + Math.sin(a) * 26;
     specular.style.background =
@@ -217,9 +193,8 @@ function applyTornadoLive(stack, t) {
     specular.style.opacity = String(0.55 + Math.sin(a + 0.4) * 0.1);
   }
 
-  // Shade opposite the specular — depth cue for rotation.
   if (shade) {
-    const a = t * (Math.PI * 2 / 5.5) + Math.PI;
+    const a = t * ((Math.PI * 2) / 5.5) + Math.PI;
     const x = 50 + Math.cos(a) * 26;
     const y = 48 + Math.sin(a) * 24;
     shade.style.background =
@@ -276,6 +251,29 @@ function clearMotion() {
   }
 }
 
+function buildBrandBlock() {
+  const brand = document.createElement('div');
+  brand.className = 'app-splash__brand';
+
+  const wordmark = document.createElement('img');
+  wordmark.className = 'app-splash__wordmark';
+  wordmark.src = SPLASH_WORDMARK_URL;
+  wordmark.alt = 'Tornado';
+  wordmark.draggable = false;
+  wordmark.decoding = 'async';
+
+  const subtitle = document.createElement('p');
+  subtitle.className = 'app-splash__subtitle';
+  subtitle.textContent = 'Kazakhstan Casino App';
+
+  const tagline = document.createElement('p');
+  tagline.className = 'app-splash__tagline';
+  tagline.textContent = 'Provably Fair • Secure • Instant Crypto Deposits';
+
+  brand.append(wordmark, subtitle, tagline);
+  return brand;
+}
+
 function buildSplash() {
   const root = document.createElement('div');
   root.className = 'app-splash';
@@ -285,15 +283,11 @@ function buildSplash() {
   const stage = document.createElement('div');
   stage.className = 'app-splash__stage';
 
-  const art = document.createElement('img');
-  art.className = 'app-splash__art';
-  art.src = SPLASH_ART_URL;
-  art.alt = '';
-  art.draggable = false;
-  art.decoding = 'async';
+  const center = document.createElement('div');
+  center.className = 'app-splash__center';
+  center.appendChild(buildTornadoStack());
 
-  stage.appendChild(art);
-  stage.appendChild(buildTornadoStack());
+  stage.append(center, buildBrandBlock());
   root.appendChild(stage);
   return root;
 }
@@ -313,8 +307,6 @@ function adoptEarlySplash() {
 export function startSplashWatch() {
   bootStartedAt = performance.now();
 
-  // Ensure a fresh watch cannot be blocked by a previous dismiss flag,
-  // but cancel any leftover HTML timer so we don't get duplicate splash mounts.
   if (window.__tornadoSplash?.timer) {
     clearTimeout(window.__tornadoSplash.timer);
     window.__tornadoSplash.timer = null;
@@ -341,7 +333,6 @@ export function startSplashWatch() {
   showTimer = window.setTimeout(() => {
     showTimer = null;
 
-    // Startup already finished — never mount splash after a terminal state.
     if (window.__tornadoSplash?.ready) return;
 
     if (splashEl || window.__tornadoSplash?.el) {
@@ -369,9 +360,6 @@ export function startSplashWatch() {
   }, SPLASH_THRESHOLD_MS);
 }
 
-/**
- * Cancel pending splash timers and stop all motion loops.
- */
 function cancelSplashScheduling() {
   if (window.__tornadoSplash) {
     window.__tornadoSplash.ready = true;
@@ -394,9 +382,6 @@ function cancelSplashScheduling() {
   clearMotion();
 }
 
-/**
- * Remove every splash node from the document (covers orphaned / early / late mounts).
- */
 function purgeSplashDom() {
   document.querySelectorAll('.app-splash').forEach((node) => {
     node.remove();
@@ -414,8 +399,7 @@ function purgeSplashDom() {
 }
 
 /**
- * Call when startup reaches a terminal state (auth success or failure).
- * @param {{ immediate?: boolean }} [options] - skip fade when switching to auth error
+ * @param {{ immediate?: boolean }} [options]
  */
 export function dismissSplash(options = {}) {
   const immediate = Boolean(options.immediate);
@@ -426,7 +410,6 @@ export function dismissSplash(options = {}) {
     adoptEarlySplash();
   }
 
-  // Also catch any splash that was appended without going through local refs.
   const nodes = Array.from(document.querySelectorAll('.app-splash'));
   if (!splashEl && nodes.length) {
     splashEl = nodes[0];
@@ -448,7 +431,7 @@ export function dismissSplash(options = {}) {
     el.classList.remove('app-splash--visible');
   });
 
-  const toRemove = nodes.length ? nodes : (splashEl ? [splashEl] : []);
+  const toRemove = nodes.length ? nodes : splashEl ? [splashEl] : [];
   splashEl = null;
   tornadoStack = null;
 
@@ -461,7 +444,6 @@ export function dismissSplash(options = {}) {
   removeTimer = window.setTimeout(() => {
     removeTimer = null;
     toRemove.forEach((el) => el.remove());
-    // Final sweep in case another instance mounted during fade.
     document.querySelectorAll('.app-splash').forEach((node) => node.remove());
   }, SPLASH_FADE_MS);
 }

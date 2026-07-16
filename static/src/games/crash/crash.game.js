@@ -1,6 +1,6 @@
 /**
  * Crash (Aviator) game — connected to backend REST + WebSocket.
- * Flight animation is visual-only; multiplier / networking unchanged.
+ * Flight canvas is a deterministic renderer of the live multiplier timeline.
  */
 
 import { createElement } from '../../utils/dom.js';
@@ -144,7 +144,7 @@ function startMultiplierLoop() {
     }
 
     const multiplier = getLiveMultiplier(runtime.startTime);
-    animationContainer.setMultiplier(multiplier);
+    animationContainer.setMultiplier(multiplier, { startTime: runtime.startTime });
     updateCashoutPreviews(multiplier);
     multiplierRaf = requestAnimationFrame(tick);
   };
@@ -193,7 +193,7 @@ function setCrashedUi(crashMultiplier) {
   stopMultiplierLoop();
   stopBettingCountdown();
   if (crashMultiplier != null) {
-    animationContainer?.setCrashed(crashMultiplier);
+    animationContainer?.setCrashed(crashMultiplier, { startTime: runtime.startTime });
   } else {
     animationContainer?.setWaiting(null);
   }
@@ -430,12 +430,28 @@ async function handlePanelAction(panelId) {
   }
 }
 
-async function bootstrap() {
+/** @type {number} */
+let mountGeneration = 0;
+
+/**
+ * @param {AbortSignal} [signal]
+ */
+async function bootstrap(signal) {
+  const generation = mountGeneration;
+
+  const isStale = () => (
+    generation !== mountGeneration
+    || Boolean(signal?.aborted)
+    || !boardMount
+  );
+
   // 1) Mandatory state sync
   try {
     const state = await crashService.getState();
+    if (isStale()) return;
     applyServerState(state);
   } catch (error) {
+    if (isStale()) return;
     animationContainer?.setPlaceholder(t('crash.error.sync'));
     Toast({
       message: error?.message || t('crash.toast.loadFailed'),
@@ -444,12 +460,20 @@ async function bootstrap() {
     });
   }
 
+  if (isStale()) return;
+
   // 2) Live updates
   crashService.connect({
     onEvent: (payload) => {
+      if (generation !== mountGeneration || !boardMount) return;
       handleSocketEvent(payload);
     },
   });
+
+  if (isStale()) {
+    crashService.disconnect();
+    return;
+  }
 
   // 3) Optional history — never blocks startup
   void refreshHistory();
@@ -458,13 +482,17 @@ async function bootstrap() {
 export const CrashGame = {
   /**
    * @param {HTMLElement} container
+   * @param {{ signal?: AbortSignal }} [options]
    */
-  mount(container) {
+  mount(container, options = {}) {
+    const { signal } = options;
+
     if (mountContainer === container && boardMount?.isConnected) {
       return;
     }
 
     this.unmount();
+    mountGeneration += 1;
     mountContainer = container;
 
     history = createCrashHistory({ items: [] });
@@ -506,7 +534,13 @@ export const CrashGame = {
     });
 
     container.replaceChildren(boardMount);
-    bootstrap();
+
+    if (signal?.aborted) {
+      this.unmount();
+      return;
+    }
+
+    void bootstrap(signal);
   },
 
   /**
@@ -539,10 +573,13 @@ export const CrashGame = {
   },
 
   unmount() {
+    mountGeneration += 1;
     stopMultiplierLoop();
     stopBettingCountdown();
     crashService.disconnect();
     animationContainer?.destroy?.();
+
+    const container = mountContainer;
     mountContainer = null;
     boardMount = null;
     animationContainer = null;
@@ -556,5 +593,9 @@ export const CrashGame = {
     runtime.myBet = null;
     runtime.bettingEndsAt = null;
     runtime.cashedOutIds.clear();
+
+    if (container) {
+      container.replaceChildren();
+    }
   },
 };

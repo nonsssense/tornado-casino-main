@@ -7,11 +7,13 @@
     "build": "vite build",
     "preview": "vite preview",
     "backend": "python -m uvicorn main:app --host 127.0.0.1 --port 8080",
-    "backend:reload": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload"
+    "backend:reload": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload",
+    "optimize:assets": "node scripts/optimize-assets.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",
     "playwright": "^1.49.1",
+    "sharp": "^0.35.3",
     "vite": "^6.3.5",
     "wait-on": "^9.0.10"
   }

@@ -69,10 +69,22 @@ export default defineConfig({
       '/assets': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
+        // Let Vite handle `?import` / `?url` transforms for JS/CSS asset imports.
+        // Without this, FastAPI returns raw image bytes and ES modules fail to load.
+        bypass(req) {
+          if (req.url && /[?&](import|url)\b/.test(req.url)) {
+            return req.url;
+          }
+        },
       },
       '/banners': {
         target: 'http://127.0.0.1:8080',
         changeOrigin: true,
+        bypass(req) {
+          if (req.url && /[?&](import|url)\b/.test(req.url)) {
+            return req.url;
+          }
+        },
       },
     },
   },

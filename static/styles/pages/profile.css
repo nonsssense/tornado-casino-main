@@ -138,15 +138,15 @@
 }
 
 .profile-menu__icon--personal-data {
-  background-image: url('../../../assets/personal_info_profile_page.svg');
+  background-image: url('../../../assets/personal_info_profile_page.webp');
 }
 
 .profile-menu__icon--bonuses {
-  background-image: url('../../../assets/profile_page_bonuses_page.svg');
+  background-image: url('../../../assets/profile_page_bonuses_page.webp');
 }
 
 .profile-menu__icon--referrals {
-  background-image: url('../../../assets/referals_page_navigation_menu.svg');
+  background-image: url('../../../assets/menu_bar_referals.webp');
 }
 
 .profile-menu__label {

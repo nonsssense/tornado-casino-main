@@ -1,6 +1,6 @@
 /**
- * AnimationContainer — centered multiplier + premium flight canvas.
- * Multiplier remains the primary focus; flight supports it.
+ * AnimationContainer — centered multiplier + cinematic flight canvas.
+ * HUD uses growth formula; plane uses start_time elapsed (takeoff → cruise).
  */
 
 import { createElement } from '../../utils/dom.js';
@@ -355,8 +355,9 @@ export function createAnimationContainer(options = {}) {
     /**
      * Live / active flight multiplier (large, centered).
      * @param {number|null} value
+     * @param {{ startTime?: number|null }} [options]
      */
-    setMultiplier(value) {
+    setMultiplier(value, options = {}) {
       if (value == null || !Number.isFinite(Number(value))) {
         multiplierSlot.hidden = true;
         return;
@@ -369,14 +370,15 @@ export function createAnimationContainer(options = {}) {
       const numeric = Number(value);
       showMultiplier(numeric);
       phase = 'flying';
-      flight.setFlying(numeric);
+      flight.setFlying(numeric, { startTime: options.startTime });
     },
 
     /**
      * Round ended — freeze multiplier, plane exits, trail stays at crash.
      * @param {number|null} value
+     * @param {{ startTime?: number|null }} [options]
      */
-    setCrashed(value) {
+    setCrashed(value, options = {}) {
       phase = 'crashed';
       exitComplete = false;
       multiplierDone = false;
@@ -395,13 +397,13 @@ export function createAnimationContainer(options = {}) {
         multiplierSlot.hidden = true;
         multiplierEl.textContent = '';
         multiplierDone = true;
-        flight.setCrashed(null, { onExitComplete });
+        flight.setCrashed(null, { onExitComplete, startTime: options.startTime });
         return;
       }
 
       const numeric = Number(value);
       showMultiplier(numeric);
-      flight.setCrashed(numeric, { onExitComplete });
+      flight.setCrashed(numeric, { onExitComplete, startTime: options.startTime });
 
       // Freeze → ~2s hold → soft fade (plane exit continues independently)
       multHoldTimer = window.setTimeout(() => {

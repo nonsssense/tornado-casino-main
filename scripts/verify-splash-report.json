@@ -1,0 +1,62 @@
+{
+  "duringBoot": {
+    "splashVisible": false,
+    "stage": null,
+    "artNatural": null,
+    "expectedAspect": 0.5625
+  },
+  "after": {
+    "splashPresent": false,
+    "splashVisible": false,
+    "splashDismissed": false,
+    "splashReady": true,
+    "hasShell": false,
+    "hasHome": true,
+    "hasAuthError": false,
+    "mimeModuleErrorsInDom": [
+      {
+        "name": "/assets/tornado%20no%20background%20main.webp?import",
+        "type": "script"
+      },
+      {
+        "name": "/assets/ava%20icon%20tornado%20main.webp?import",
+        "type": "script"
+      },
+      {
+        "name": "/assets/tornado%20support%20main.webp?import",
+        "type": "script"
+      },
+      {
+        "name": "/assets/ava%20icon%20tornado%20main.webp",
+        "type": "img"
+      },
+      {
+        "name": "/assets/tornado%20no%20background%20main.webp",
+        "type": "img"
+      },
+      {
+        "name": "/assets/tornado%20support%20main.webp",
+        "type": "img"
+      },
+      {
+        "name": "/assets/menu_bar_wallet.webp",
+        "type": "css"
+      },
+      {
+        "name": "/assets/menu_bar_referals.webp",
+        "type": "css"
+      },
+      {
+        "name": "/assets/menu_bar_casino.webp",
+        "type": "css"
+      },
+      {
+        "name": "/assets/menu_bar_profile.webp",
+        "type": "css"
+      }
+    ]
+  },
+  "mimeErrors": [],
+  "consoleIssues": [],
+  "splashDismissedOk": true
+}

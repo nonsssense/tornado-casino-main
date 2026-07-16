@@ -4,6 +4,12 @@
 
 import { buildCollisionPath, toViewCoords } from './plinko.geometry.js';
 
+/** @type {number} */
+let activeRaf = 0;
+
+/** @type {boolean} */
+let cancelled = false;
+
 /**
  * @param {number} t
  */
@@ -32,6 +38,17 @@ function setBallSvg(ball, cx, cy, scale = 1) {
 }
 
 /**
+ * Stop any in-flight path animation.
+ */
+export function cancelPlinkoPathAnimation() {
+  cancelled = true;
+  if (activeRaf) {
+    cancelAnimationFrame(activeRaf);
+    activeRaf = 0;
+  }
+}
+
+/**
  * @param {object} options
  * @param {number[]} options.path
  * @param {ReturnType<import('./plinko.board.js').createPlinkoBoard>} options.board
@@ -45,6 +62,9 @@ export function animatePlinkoPath({ path, board }) {
   if (!bits.length || bits.length !== layout.rows || !ball) {
     return Promise.resolve({ basketIndex: 0 });
   }
+
+  cancelPlinkoPathAnimation();
+  cancelled = false;
 
   const baseR = Math.max(5, 9.5 - layout.rows * 0.28);
   ball.dataset.baseR = String(baseR);
@@ -60,6 +80,12 @@ export function animatePlinkoPath({ path, board }) {
   return new Promise((resolve) => {
     let pointIndex = 0;
 
+    function finish(result) {
+      activeRaf = 0;
+      board.setPlaying(false);
+      resolve(result);
+    }
+
     function animateFall(from, to, onDone) {
       const fromView = toViewCoords(from.x, from.y);
       const toView = toViewCoords(to.x, to.y);
@@ -68,6 +94,12 @@ export function animatePlinkoPath({ path, board }) {
       const duration = isPeg ? fallDuration : fallDuration * 0.9;
 
       function frame(now) {
+        activeRaf = 0;
+        if (cancelled) {
+          finish({ basketIndex });
+          return;
+        }
+
         const t = Math.min((now - start) / duration, 1);
         const xProg = easeOutQuad(t);
         const yProg = easeInQuad(t);
@@ -85,7 +117,7 @@ export function animatePlinkoPath({ path, board }) {
         }
 
         if (t < 1) {
-          requestAnimationFrame(frame);
+          activeRaf = requestAnimationFrame(frame);
           return;
         }
 
@@ -98,7 +130,7 @@ export function animatePlinkoPath({ path, board }) {
         onDone();
       }
 
-      requestAnimationFrame(frame);
+      activeRaf = requestAnimationFrame(frame);
     }
 
     function animateBounce(atView, onDone) {
@@ -106,25 +138,35 @@ export function animatePlinkoPath({ path, board }) {
       const lift = 6;
 
       function frame(now) {
+        activeRaf = 0;
+        if (cancelled) {
+          finish({ basketIndex });
+          return;
+        }
+
         const t = Math.min((now - start) / bounceDuration, 1);
         const up = Math.sin(t * Math.PI) * lift * (1 - t * 0.3);
         setBallSvg(ball, atView.cx, atView.cy - up, 1 + (1 - t) * 0.06);
         if (t < 1) {
-          requestAnimationFrame(frame);
+          activeRaf = requestAnimationFrame(frame);
           return;
         }
         setBallSvg(ball, atView.cx, atView.cy, 1);
         onDone();
       }
 
-      requestAnimationFrame(frame);
+      activeRaf = requestAnimationFrame(frame);
     }
 
     function nextSegment() {
+      if (cancelled) {
+        finish({ basketIndex });
+        return;
+      }
+
       if (pointIndex >= points.length - 1) {
         ball.classList.add('plinko-board__ball-svg--landed');
-        board.setPlaying(false);
-        resolve({ basketIndex });
+        finish({ basketIndex });
         return;
       }
 

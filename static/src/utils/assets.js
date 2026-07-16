@@ -1,14 +1,9 @@
 /**
- * Brand asset paths — imported so Vite fingerprints them in production.
- *
- * Branding SVGs are Figma sources with embedded raster — use as-is.
- * Do not convert/optimize logos or UI icons to WebP/PNG.
+ * Brand asset paths — served from FastAPI `/assets` (no Vite `?import`).
+ * Using plain URLs avoids MIME failures when requests hit StaticFiles directly.
  */
 
-import logoUrl from '../../../assets/tornado no background 13.svg';
-import iconUrl from '../../../assets/ava icon tornado main.svg';
-
 export const ASSETS = {
-  logo: logoUrl,
-  icon: iconUrl,
+  logo: '/assets/tornado%20no%20background%20main.webp',
+  icon: '/assets/ava%20icon%20tornado%20main.webp',
 };

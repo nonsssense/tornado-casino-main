@@ -9,7 +9,7 @@ import { balanceService } from '../../services/balance.service.js';
 import { Toast, showGameWinToast } from '../../components/base/Toast.js';
 import { createDiceWheel } from './dice.wheel.js';
 import { createDiceControls } from './dice.controls.js';
-import { animateDiceRoll } from './dice.animation.js';
+import { animateDiceRoll, cancelDiceRollAnimation } from './dice.animation.js';
 import { DICE_BET_LIMITS } from './dice.constants.js';
 import { t } from '../../i18n/index.js';
 
@@ -46,7 +46,7 @@ async function handlePlay() {
   const { limit, over, bid } = controls.getState();
 
   if (!Number.isFinite(bid) || bid <= 0) {
-    Toast({ message: t('games.validation.bet'), type: 'warning', duration: 2500 });
+    Toast({ message: t('game.validation.bet'), type: 'warning', duration: 2500 });
     return;
   }
 
@@ -63,10 +63,13 @@ async function handlePlay() {
     };
 
     const result = await gameService.playDice(payload);
+    if (!isPlaying || !wheel || !controls) return;
+
     const roll = typeof result.roll === 'number' ? result.roll : null;
 
     if (roll !== null) {
       await animateDiceRoll(roll, wheel);
+      if (!isPlaying || !wheel) return;
       wheel.showResult(roll);
     } else {
       wheel.showResult('?');
@@ -90,7 +93,9 @@ async function handlePlay() {
       });
     }
   } catch (error) {
-    wheel.resetResult();
+    if (wheel) {
+      wheel.resetResult();
+    }
     Toast({
       message: error.message || t('dice.toast.failed'),
       type: 'error',
@@ -98,17 +103,21 @@ async function handlePlay() {
     });
   } finally {
     isPlaying = false;
-    controls.setLoading(false);
-    wheel.setIdle();
+    controls?.setLoading(false);
+    wheel?.setIdle();
   }
 }
 
 export const DiceGame = {
+  /**
+   * @param {HTMLElement} container
+   */
   mount(container) {
-    if (mountContainer === container && boardMount?.isConnected) {
+    if (mountContainer === container && boardMount?.isConnected && wheel && controls) {
       return;
     }
 
+    this.unmount({ keepDom: false });
     mountContainer = container;
     wheel = createDiceWheel({ limit: gameState.limit, over: gameState.over });
     controls = createDiceControls({
@@ -168,11 +177,30 @@ export const DiceGame = {
     await handlePlay();
   },
 
-  unmount() {
+  /**
+   * @param {{ keepDom?: boolean }} [options]
+   */
+  unmount(options = {}) {
+    const { keepDom = false } = options;
+
+    cancelDiceRollAnimation();
+    isPlaying = false;
+    controls?.setLoading(false);
+    wheel?.setIdle?.();
+
+    if (keepDom && boardMount?.isConnected) {
+      // Keep board for instant return; cancel live animation only.
+      return;
+    }
+
+    const container = mountContainer;
     mountContainer = null;
     boardMount = null;
     wheel = null;
     controls = null;
-    isPlaying = false;
+
+    if (container) {
+      container.replaceChildren();
+    }
   },
 };

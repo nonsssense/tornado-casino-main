@@ -91,16 +91,15 @@
   text-align: center;
 }
 
-/* Canonical Figma SVGs — do not convert to WebP/PNG */
 .bottom-nav__icon--wallet {
-  background-image: url('../../../assets/wallet_page_navigation_menu.svg');
+  background-image: url('../../../assets/menu_bar_wallet.webp');
 }
 .bottom-nav__icon--referrals {
-  background-image: url('../../../assets/referals_page_navigation_menu.svg');
+  background-image: url('../../../assets/menu_bar_referals.webp');
 }
 .bottom-nav__icon--casino {
-  background-image: url('../../../assets/casino_page_navigation_menu.svg');
+  background-image: url('../../../assets/menu_bar_casino.webp');
 }
 .bottom-nav__icon--profile {
-  background-image: url('../../../assets/profile_page_navigation_menu.svg');
+  background-image: url('../../../assets/menu_bar_profile.webp');
 }

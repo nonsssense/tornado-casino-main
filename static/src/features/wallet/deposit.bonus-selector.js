@@ -6,13 +6,12 @@
 import { createElement } from '../../utils/dom.js';
 import { bonusService } from '../../services/bonus.service.js';
 import { t } from '../../i18n/index.js';
-import briefcaseIcon from '../../../../assets/bonus-briefcase.webp';
 
 const ICON_CHEVRON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.25" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>';
 
 const ICON_HELP = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>';
 
-const BRIEFCASE_ICON = briefcaseIcon;
+const BRIEFCASE_ICON = '/assets/bonus-briefcase.webp';
 
 const STATE_KEY = {
   available: 'available',

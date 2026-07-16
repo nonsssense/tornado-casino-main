@@ -1,0 +1,340 @@
+{
+  "elapsedMs": 1819,
+  "final": {
+    "splashVisible": false,
+    "splashCount": 0,
+    "splashReady": true,
+    "hasHome": true,
+    "hasShell": false,
+    "hasAuthError": false,
+    "cookies": "",
+    "telegram": {
+      "present": true,
+      "initDataLen": 0,
+      "initData": ""
+    },
+    "appRootSnippet": "<div class=\"t-app\" id=\"t-app\"><div class=\"t-app__header\"><header class=\"app-header\"><div class=\"app-header__left\"><img class=\"app-header__logo\" src=\"/assets/tornado%20no%20background%20main.webp\" alt=\"Tornado\" draggable=\"false\" role=\"button\" tabindex=\"0\" aria-label=\"Главная\" data-wired=\"true\"><button class=\"app-header__back\" type=\"button\" aria-label=\"Назад к играм\" data-wired=\"true\"><svg viewBox=\""
+  },
+  "cookies": [
+    {
+      "name": "session_token",
+      "value": "Uw5mcruIFwdQOoo3Fqs-…",
+      "path": "/"
+    }
+  ],
+  "mimeErrors": [],
+  "errors": [],
+  "authLogs": [
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_header_color {color_key: bg_color}",
+      "t": 1784217037639
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_set_bottom_bar_color {color: #ffffff}",
+      "t": 1784217037640
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_theme ",
+      "t": 1784217037640
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_viewport ",
+      "t": 1784217037640
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_safe_area ",
+      "t": 1784217037640
+    },
+    {
+      "type": "log",
+      "text": "[Telegram.WebView] > postEvent web_app_request_content_safe_area ",
+      "t": 1784217037640
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] window.Telegram: present",
+      "t": 1784217037695
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] window.Telegram?.WebApp: present",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] Telegram.WebApp.initData: {present: false, length: 0}",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] Telegram.WebApp.initDataUnsafe: {}",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] Telegram WebApp detected: true",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] InitData present: false",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] InitData length: 0",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] Telegram ID: null",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] Username: null",
+      "t": 1784217037696
+    },
+    {
+      "type": "log",
+      "text": "[getTelegramContext] returned: null (browser stub, no initData)",
+      "t": 1784217037696
+    }
+  ],
+  "network": [
+    {
+      "status": 200,
+      "url": "/static/src/app/main.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/js/telegram-web-app.js",
+      "ct": "application/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/styles/foundation.css",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/services/auth.service.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/services/balance.service.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/app/shell.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/router/index.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/app/auth-error.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/app/splash.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/i18n/index.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/overlays/index.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/app/telegram.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/utils/format.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/utils/dom.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/utils/constants.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/components/shared/Header.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/components/shared/BottomNavigation.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/router/routes.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/animations/transitions.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/api/wallet.js",
+      "ct": "text/javascript",
+      "bodyPreview": "/**\r\n * Wallet API.\r\n *\r\n * Responsibility:\r\n * - POST /api/wallet/deposit\r\n * - Future: withdraw, balance, history endpoints when documented.\r\n *\r\n * Never call POST /api/payment/webhook from the frontend.\r\n */\r\n\r\nimport { request } from \"/static/src/api/request.js\";\r\n\r\nexport async function createDeposit(ticker) {\r\n  return request('/api/wallet/deposit', {\r\n    method: 'POST',\r\n    body: JSON.stringify({ ticker }),\r\n  });\r\n}\r\n\r\nexport async function fetchBalance() {\r\n  return request('/api/wal"
+    },
+    {
+      "status": 200,
+      "url": "/static/src/api/auth.js",
+      "ct": "text/javascript",
+      "bodyPreview": "/**\r\n * Authentication API.\r\n *\r\n * Responsibility:\r\n * - POST /api/auth with Telegram initData.\r\n * - Session is established via HttpOnly session_token cookie (no manual headers).\r\n *\r\n * Documented endpoint only — do not invent auth APIs.\r\n */\r\n\r\nimport { request } from \"/static/src/api/request.js\";\r\n\r\nexport async function authenticate(initData = '') {\r\n  return request('/api/auth', {\r\n    method: 'POST',\r\n    body: JSON.stringify({ initdata: initData ?? '' }),\r\n  });\r\n}\r\n\n//# sourceMappingUR"
+    },
+    {
+      "status": 200,
+      "url": "/static/src/i18n/locales/ru.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/i18n/locales/en.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/utils/assets.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/components/shared/Balance.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/api/request.js",
+      "ct": "text/javascript",
+      "bodyPreview": "/**\r\n * Central HTTP client.\r\n *\r\n * Responsibility:\r\n * - Single entry point for all fetch() calls (per project rules).\r\n * - Attach Content-Type, send cookies (session_token) automatically.\r\n * - Parse JSON/text responses and normalize errors.\r\n */\r\n\r\n/**\r\n * @param {string} url\r\n * @param {RequestInit & { body?: string }} [options]\r\n * @returns {Promise<unknown>}\r\n */\r\nexport async function request(url, options = {}) {\r\n  const { headers = {}, body, method = 'GET', ...rest } = options;\r\n\r\n  c"
+    },
+    {
+      "status": 200,
+      "url": "/static/src/router/route-names.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/pages/home.page.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/static/src/components/base/Skeleton.js",
+      "ct": "text/javascript",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/tornado%20no%20background%20main.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/ava%20icon%20tornado%20main.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/api/auth",
+      "ct": "application/json",
+      "bodyPreview": "{\"ok\":true,\"user_id\":1,\"telegram_id\":null}"
+    },
+    {
+      "status": 200,
+      "url": "/api/wallet/balance",
+      "ct": "application/json",
+      "bodyPreview": "{\"balance\":30.0,\"real_balance\":30.0,\"bonus_balance\":0.0}"
+    },
+    {
+      "status": 200,
+      "url": "/assets/tornado%20support%20main.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/menu_bar_wallet.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/menu_bar_referals.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/menu_bar_casino.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    },
+    {
+      "status": 200,
+      "url": "/assets/menu_bar_profile.webp",
+      "ct": "image/webp",
+      "bodyPreview": ""
+    }
+  ],
+  "failures": []
+}

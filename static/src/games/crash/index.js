@@ -6,7 +6,7 @@ export { CrashGame } from './crash.game.js';
 export { createCrashHistory } from './crash.history.js';
 export { createCrashHistoryItem } from './crash.history-item.js';
 export { createAnimationContainer } from './crash.animation-container.js';
-export { createFlightEngine } from './crash.flight-engine.js';
+export { createFlightEngine, progressFromMultiplier, climbProgressFromElapsed, elapsedFromMultiplier } from './crash.flight-engine.js';
 export { createBetPanel } from './crash.bet-panel.js';
 export { createBetAmount } from './crash.bet-amount.js';
 export { createBetButton, createCashOutButton } from './crash.bet-button.js';
