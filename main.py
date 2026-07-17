@@ -535,7 +535,7 @@ async def get_deposit_status(request: Request, deposit_id: int):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        session_token, user_id = prepareRequest(request, "update_deposit_status")
+        session_token, user_id = prepareRequest(request)
 
         deposit = DepositManager(user_id)
         deposit_data = deposit.getDeposit(deposit_id)
@@ -695,16 +695,39 @@ async def blockbee_webhook(request: Request):
     webhook = await request.json()
     
     # user_id прилетит в callback URL
-    user_id = request.query_params.get("user_id")
+    user_id_raw = request.query_params.get("user_id")
+
+    if user_id_raw is None:
+        log.error("Webhook received without user_id")
+        return PlainTextResponse("*ok*", status_code=200)
+    
+    try:
+        user_id = int(user_id_raw)
+    except ValueError:
+        log.error(f"Invalid user_id: {user_id_raw}")
+        return PlainTextResponse("*ok*", status_code=200)
 
     if user_id is None:
         return PlainTextResponse("*ok*", status_code=200)
 
     deposit = DepositManager(user_id)
-    deposit_id = request.query_params.get("deposit_id")
+    deposit_id_raw = request.query_params.get("deposit_id")
+    
+    if deposit_id_raw is None:
+        log.error("Webhook received without deposit_id")
+        return PlainTextResponse("*ok*", status_code=200)
+    
+    try:
+        deposit_id = int(deposit_id_raw)
+    except ValueError:
+        log.error(f"Invalid deposit_id: {deposit_id_raw}")
+        return PlainTextResponse("*ok*", status_code=200)
+
     if deposit_id is None:
         return PlainTextResponse("*ok*", status_code=200)
+    
     deposit_data = deposit.getDeposit(deposit_id)
+
     if deposit_data is None:
         return PlainTextResponse("*ok*", status_code=200)
     

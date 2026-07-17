@@ -38,7 +38,6 @@ def prepareRequest(request: Request, event_type_or_user_id, event_type=None):
 
     session_token = request.cookies.get("session_token")
 
-
     if user_id is None:
         if session_token is None:
             log.warning(f"Missing session_token cookie | event_type={resolved_event_type}")
@@ -52,6 +51,9 @@ def prepareRequest(request: Request, event_type_or_user_id, event_type=None):
     session = SessionManager(user_id, session_token)
     session_token = session.checkSessionStatus()
 
+    if event_type is None:
+        return session_token, user_id
+    
     Event(user_id, resolved_event_type).postEvent()
 
     return session_token, user_id

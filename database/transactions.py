@@ -70,3 +70,6 @@ def getUserTransactions(user_id, limit=50):
             .limit(limit)
         )
         return conn.execute(stmt).mappings().all()
+    
+
+
