@@ -225,13 +225,21 @@ export function createPlinkoBoard(options = {}) {
   const pegsGroup = svgEl('g', { class: 'plinko-board__pegs-svg' });
   const binsGroup = svgEl('g', { class: 'plinko-board__bins-svg' });
 
-  const ball = svgEl('circle', {
-    class: 'plinko-board__ball-svg',
-    r: '7',
-    cx: String(PLINKO_VIEW.width / 2),
-    cy: String(PLINKO_VIEW.height * 0.018),
-    visibility: 'hidden',
-  });
+  function createBallElement() {
+    return svgEl('circle', {
+      class: 'plinko-board__ball-svg',
+      r: '7',
+      cx: String(PLINKO_VIEW.width / 2),
+      cy: String(PLINKO_VIEW.height * 0.018),
+      visibility: 'hidden',
+    });
+  }
+
+  const ballsGroup = svgEl('g', { class: 'plinko-board__balls-svg' });
+  const ball = createBallElement();
+  ballsGroup.appendChild(ball);
+  const ballPool = [ball];
+  let activeBallAnimations = 0;
 
   const svg = svgEl('svg', {
     class: 'plinko-board__svg',
@@ -244,7 +252,7 @@ export function createPlinkoBoard(options = {}) {
   svg.appendChild(trayGroup);
   svg.appendChild(pegsGroup);
   svg.appendChild(binsGroup);
-  svg.appendChild(ball);
+  svg.appendChild(ballsGroup);
 
   const canvas = createElement('div', {
     className: 'plinko-board__canvas',
@@ -262,6 +270,7 @@ export function createPlinkoBoard(options = {}) {
 
   /** @type {Map<number, SVGGElement>} */
   const binElements = new Map();
+  const binPulseTimers = new Map();
 
   function pegRadius() {
     return Math.max(4.5, 9.5 - state.rows * 0.28);
@@ -528,26 +537,31 @@ export function createPlinkoBoard(options = {}) {
   }
 
   /** Place ball at spawn and make it visible (start of a round). */
-  function showBall() {
+  function showBall(targetBall = ball) {
     const { cx, cy } = toViewCoords(layout.start.x, layout.start.y);
     const r = pegRadius() + 1;
-    ball.setAttribute('cx', String(cx));
-    ball.setAttribute('cy', String(cy));
-    ball.setAttribute('r', String(r));
-    ball.dataset.baseR = String(r);
-    ball.classList.remove('plinko-board__ball-svg--bounce', 'plinko-board__ball-svg--landed');
-    ball.setAttribute('visibility', 'visible');
+    targetBall.setAttribute('cx', String(cx));
+    targetBall.setAttribute('cy', String(cy));
+    targetBall.setAttribute('r', String(r));
+    targetBall.dataset.baseR = String(r);
+    targetBall.classList.remove(
+      'plinko-board__ball-svg--bounce',
+      'plinko-board__ball-svg--landed',
+    );
+    targetBall.setAttribute('visibility', 'visible');
   }
 
   /** Idle / post-round — board has no visible ball. */
-  function hideBall() {
-    ball.setAttribute('visibility', 'hidden');
-    ball.classList.remove(
+  function hideBall(targetBall = ball) {
+    targetBall.setAttribute('visibility', 'hidden');
+    targetBall.classList.remove(
       'plinko-board__ball-svg--bounce',
       'plinko-board__ball-svg--landed',
       'plinko-board__ball-svg--active',
     );
-    root.classList.remove('plinko-board--playing');
+    if (targetBall === ball && activeBallAnimations === 0) {
+      root.classList.remove('plinko-board--playing');
+    }
   }
 
   function resetBall() {
@@ -578,14 +592,73 @@ export function createPlinkoBoard(options = {}) {
   }
 
   function clearBasketHighlight() {
+    binPulseTimers.forEach((timer) => window.clearTimeout(timer));
+    binPulseTimers.clear();
     binElements.forEach((el) => {
       el.classList.remove('plinko-board__bin-svg--active', 'plinko-board__bin-svg--premium');
     });
   }
 
+  function pulseBasket(index, { premium = false } = {}) {
+    const target = binElements.get(index);
+    if (!target) return;
+    const previousTimer = binPulseTimers.get(index);
+    if (previousTimer) window.clearTimeout(previousTimer);
+
+    target.classList.remove('plinko-board__bin-svg--active', 'plinko-board__bin-svg--premium');
+    void target.getBoundingClientRect();
+    target.classList.add('plinko-board__bin-svg--active');
+    target.classList.toggle('plinko-board__bin-svg--premium', premium);
+
+    const timer = window.setTimeout(() => {
+      target.classList.remove('plinko-board__bin-svg--active', 'plinko-board__bin-svg--premium');
+      binPulseTimers.delete(index);
+    }, 400);
+    binPulseTimers.set(index, timer);
+  }
+
   function setPlaying(playing) {
     root.classList.toggle('plinko-board--playing', playing);
     ball.classList.toggle('plinko-board__ball-svg--active', playing);
+  }
+
+  function acquireBall() {
+    let targetBall = ballPool.find((candidate) => candidate.dataset.inUse !== 'true');
+    if (!targetBall) {
+      targetBall = createBallElement();
+      ballPool.push(targetBall);
+      ballsGroup.appendChild(targetBall);
+    }
+    targetBall.dataset.inUse = 'true';
+    showBall(targetBall);
+    return targetBall;
+  }
+
+  function releaseBall(targetBall) {
+    if (!targetBall) return;
+    hideBall(targetBall);
+    targetBall.dataset.inUse = 'false';
+  }
+
+  function beginBallAnimation(targetBall) {
+    activeBallAnimations += 1;
+    root.classList.add('plinko-board--playing');
+    targetBall?.classList.add('plinko-board__ball-svg--active');
+  }
+
+  function endBallAnimation(targetBall) {
+    activeBallAnimations = Math.max(0, activeBallAnimations - 1);
+    targetBall?.classList.remove('plinko-board__ball-svg--active');
+    root.classList.toggle('plinko-board--playing', activeBallAnimations > 0);
+  }
+
+  function releaseAllBalls() {
+    ballPool.forEach((targetBall) => {
+      hideBall(targetBall);
+      targetBall.dataset.inUse = 'false';
+    });
+    activeBallAnimations = 0;
+    root.classList.remove('plinko-board--playing');
   }
 
   function flashPeg(row, col) {
@@ -610,15 +683,22 @@ export function createPlinkoBoard(options = {}) {
     hideBall,
     resetBall,
     highlightBasket,
+    pulseBasket,
     clearBasketHighlight,
     setPlaying,
+    acquireBall,
+    releaseBall,
+    releaseAllBalls,
+    beginBallAnimation,
+    endBallAnimation,
     flashPeg,
     setMultipliers,
 
     updateSettings(rows, riskMode, multipliers = state.multipliers) {
       state.rows = rows;
       state.riskMode = riskMode;
-      if (multipliers) state.multipliers = multipliers;
+      // Always replace — never keep a previous risk/rows table when lookup fails.
+      state.multipliers = Array.isArray(multipliers) ? multipliers : null;
       buildBoard();
     },
   };

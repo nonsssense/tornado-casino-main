@@ -2,9 +2,13 @@
  * Bottom navigation styles.
  * Branding icons are Figma SVG sources (embedded raster) — keep sharp:
  * integer box sizes, no subpixel parent transforms on the bar.
+ *
+ * Safe-area inset lives in margin (not padding) so icon+label stacks stay
+ * optically centered inside the glass pill on every page.
  */
 
 .bottom-nav {
+  box-sizing: border-box;
   position: fixed;
   bottom: 0;
   left: 0;
@@ -17,9 +21,10 @@
   align-items: stretch;
   justify-content: space-around;
   gap: var(--space-1);
+  height: var(--bottom-nav-height);
   min-height: var(--bottom-nav-height);
-  padding: var(--space-2) var(--space-3) calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
-  margin-bottom: var(--space-4);
+  padding: var(--space-2) var(--space-3);
+  margin-bottom: calc(var(--bottom-nav-float-gap) + var(--app-safe-area-inset-bottom));
   background: rgba(21, 23, 26, 0.85);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
@@ -37,9 +42,10 @@
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 4px;
+  gap: 3px;
   min-width: 0;
-  padding: 8px 4px;
+  min-height: 100%;
+  padding: 0.25rem 0.25rem 0.125rem;
   border-radius: 10px;
   color: var(--color-text-secondary);
   background: transparent;
@@ -87,7 +93,7 @@
 .bottom-nav__label {
   font-size: var(--font-size-xs);
   font-weight: var(--font-weight-medium);
-  line-height: 1.2;
+  line-height: 1;
   text-align: center;
 }
 

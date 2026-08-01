@@ -10,6 +10,8 @@ import { PROFILE_MENU_ITEMS, PROFILE_FIELDS } from './profile.constants.js';
 import { profileService } from '../../services/profile.service.js';
 import { replaceChildrenFadeIn } from '../../utils/hydrate.js';
 
+const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
+
 /**
  * @param {string} actionId
  * @param {function(string): void} [onMenuAction]
@@ -67,9 +69,10 @@ function createProfileSkeletonCard() {
 
 /**
  * @param {Record<string, string>} values
+ * @param {function} [onStatusInfo]
  * @returns {HTMLElement}
  */
-function createProfileCard(values) {
+function createProfileCard(values, onStatusInfo) {
   return createElement('div', {
     className: 'profile-card',
     attrs: { 'aria-busy': 'false' },
@@ -77,21 +80,42 @@ function createProfileCard(values) {
       AvatarPlaceholder({ className: 'profile-card__avatar' }),
       createElement('div', {
         className: 'profile-card__info',
-        children: PROFILE_FIELDS.map((field) =>
-          createElement('div', {
+        children: PROFILE_FIELDS.map((field) => {
+          const valueEl = createElement('span', {
+            className: 'profile-field__value',
+            text: values[field.id] || t(field.placeholderKey),
+          });
+
+          const valueRow =
+            field.id === 'status'
+              ? createElement('span', {
+                  className: 'profile-field__value-row',
+                  children: [
+                    valueEl,
+                    createElement('button', {
+                      className: 'profile-field__info',
+                      attrs: {
+                        type: 'button',
+                        'aria-label': t('referrals.statusInfo.open'),
+                        onClick: () => onStatusInfo?.(),
+                      },
+                      html: ICON_INFO,
+                    }),
+                  ],
+                })
+              : valueEl;
+
+          return createElement('div', {
             className: 'profile-field',
             children: [
               createElement('span', {
                 className: 'profile-field__label',
                 text: `${t(field.labelKey)}:`,
               }),
-              createElement('span', {
-                className: 'profile-field__value',
-                text: values[field.id] || t(field.placeholderKey),
-              }),
+              valueRow,
             ],
-          }),
-        ),
+          });
+        }),
       }),
     ],
   });
@@ -136,10 +160,11 @@ function createProfileMenu(onMenuAction) {
 /**
  * @param {object} [options]
  * @param {function(string): void} [options.onMenuAction]
+ * @param {function(): void} [options.onStatusInfo]
  * @returns {HTMLElement}
  */
 export function createProfileModal(options = {}) {
-  const { onMenuAction } = options;
+  const { onMenuAction, onStatusInfo } = options;
   const cardMount = createElement('div');
 
   const modal = createElement('div', {
@@ -164,17 +189,20 @@ export function createProfileModal(options = {}) {
     .then((profile) => {
       replaceChildrenFadeIn(
         cardMount,
-        createProfileCard({
-          status: profile.status,
-          nickname: profile.nickname,
-          'user-id': profile.userId,
-          email: profile.email,
-        }),
+        createProfileCard(
+          {
+            status: profile.status,
+            nickname: profile.nickname,
+            'user-id': profile.userId,
+            email: profile.email,
+          },
+          onStatusInfo,
+        ),
         150,
       );
     })
     .catch(() => {
-      replaceChildrenFadeIn(cardMount, createProfileCard({}), 150);
+      replaceChildrenFadeIn(cardMount, createProfileCard({}, onStatusInfo), 150);
     });
 
   return modal;

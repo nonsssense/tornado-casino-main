@@ -238,7 +238,7 @@ button {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 8px;
-  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  padding: 10px 12px calc(10px + var(--app-safe-area-inset-bottom, env(safe-area-inset-bottom, 0px)));
   border-radius: 22px 22px 0 0;
   background: linear-gradient(180deg, rgba(9, 5, 18, 0.94), rgba(5, 3, 11, 0.98));
   border: 1px solid var(--stroke);

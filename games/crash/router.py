@@ -8,7 +8,7 @@ from pydantic import BaseModel, Field
 from database.crash import CrashDatabase
 from games.crash.crash_game import crash_loop
 from games.crash.websocketCrash import ws_manager
-from handler_helpers import prepareRequest
+from handler_helpers import prepareRequest, recordUserEvent
 from log_manager import log
 
 router = APIRouter(prefix="/crash", tags=["crash"])
@@ -22,21 +22,23 @@ class CrashBetRequest(BaseModel):
 
 
 class CrashCashoutRequest(BaseModel):
-    """Cashout uses the authenticated session; body is optional/empty."""
+    """Select one active bet owned by the authenticated user."""
 
-    pass
+    bet_id: int = Field(..., gt=0)
 
 
 @router.post("/bet")
 async def place_bet(request: Request, body: CrashBetRequest):
-    _, user_id = prepareRequest(request, "CrashBet")
+    session_token, user_id = prepareRequest(request, "CrashBet")
     try:
         result = await crash_loop.place_bet(
             user_id=user_id,
             amount=body.amount,
         )
         return {"ok": True, **result}
-    except HTTPException:
+    except HTTPException as exc:
+        if exc.status_code == 400:
+            recordUserEvent(user_id, "ValidationError", session_token)
         raise
     except Exception:
         log.exception(f"Crash bet failed | user_id={user_id}")
@@ -44,15 +46,20 @@ async def place_bet(request: Request, body: CrashBetRequest):
 
 
 @router.post("/cashout")
-async def cashout(request: Request, body: CrashCashoutRequest | None = None):
+async def cashout(request: Request, body: CrashCashoutRequest):
     _, user_id = prepareRequest(request, "CrashCashout")
     try:
-        result = await crash_loop.cashout(user_id=user_id)
+        result = await crash_loop.cashout(
+            bet_id=body.bet_id,
+            user_id=user_id,
+        )
         return {"ok": True, **result}
     except HTTPException:
         raise
     except Exception:
-        log.exception(f"Crash cashout failed | user_id={user_id}")
+        log.exception(
+            f"Crash cashout failed | user_id={user_id} | bet_id={body.bet_id}"
+        )
         raise HTTPException(status_code=500, detail="Failed to cash out")
 
 
@@ -60,7 +67,10 @@ async def cashout(request: Request, body: CrashCashoutRequest | None = None):
 async def get_state(request: Request):
     """Immediate sync snapshot after the page opens."""
     _, user_id = prepareRequest(request, "CrashState")
-    return crash_loop.get_state(viewer_user_id=user_id)
+    return {
+        **crash_loop.get_state(viewer_user_id=user_id),
+        "online": ws_manager.online_count(),
+    }
 
 
 @router.get("/history")
@@ -84,17 +94,36 @@ async def crash_websocket(websocket: WebSocket):
     """
     Live round events:
       ROUND_OPEN | ROUND_START | PLAYER_BET | PLAYER_CASHOUT | ROUND_END
+      ONLINE_COUNT | STATE_SYNC
     """
+    viewer_user_id = None
+    try:
+        _, viewer_user_id = prepareRequest(websocket, "CrashWebSocket")
+    except HTTPException:
+        # Preserve anonymous socket compatibility; public round state still syncs.
+        pass
+    except Exception:
+        log.exception("Crash websocket session lookup failed; continuing anonymously")
+
     await ws_manager.connect(websocket)
 
     # Push current snapshot so late joiners sync without waiting for next event
     try:
         await ws_manager.send_personal(
             websocket,
-            {"event": "STATE_SYNC", **crash_loop.get_state()},
+            {
+                "event": "STATE_SYNC",
+                **crash_loop.get_state(viewer_user_id=viewer_user_id),
+                "online": ws_manager.online_count(),
+            },
         )
+        await ws_manager.broadcast_online_count()
     except Exception:
         ws_manager.disconnect(websocket)
+        try:
+            await ws_manager.broadcast_online_count()
+        except Exception:
+            pass
         return
 
     try:
@@ -103,6 +132,8 @@ async def crash_websocket(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         ws_manager.disconnect(websocket)
+        await ws_manager.broadcast_online_count()
     except Exception:
         log.exception("Crash websocket error")
         ws_manager.disconnect(websocket)
+        await ws_manager.broadcast_online_count()

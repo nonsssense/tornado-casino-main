@@ -13,6 +13,7 @@ export { createBetButton, createCashOutButton } from './crash.bet-button.js';
 export { createAutoCashOut } from './crash.auto-cashout.js';
 export { createLiveBets } from './crash.live-bets.js';
 export { createLiveBetRow } from './crash.live-bet-row.js';
+export { createActivityHud } from './crash.activity-hud.js';
 export {
   CRASH_BET_LIMITS,
   CRASH_QUICK_BETS,

@@ -9,6 +9,7 @@ from datetime import datetime
 import sqlalchemy as sa
 
 from database.db_config import engine, metadata, users_table, wallet_table
+from database.wallet import lock_wallet  # canonical FOR UPDATE helper
 from games.provably_fair import ProvablyFair
 from log_manager import log
 
@@ -69,22 +70,6 @@ def ensure_dice_schema():
 
     _schema_ready = True
     log.info("Dice schema ensured (dice table + users.server_seed)")
-
-
-def lock_wallet(conn, user_id, wallet_id):
-    """SELECT wallet … FOR UPDATE. Returns wallet mapping or None."""
-    return (
-        conn.execute(
-            sa.select(wallet_table)
-            .where(
-                wallet_table.c.id == wallet_id,
-                wallet_table.c.user_id == user_id,
-            )
-            .with_for_update()
-        )
-        .mappings()
-        .first()
-    )
 
 
 def lock_user_fairness(conn, user_id):
@@ -162,12 +147,19 @@ def lock_user_fairness(conn, user_id):
 
 def increment_nonce(conn, user_id):
     """Increment users.nonce by 1 (must run after successful settle)."""
+    increment_nonce_by(conn, user_id, 1)
+
+
+def increment_nonce_by(conn, user_id, count):
+    """Increment users.nonce by a committed contiguous result count."""
+    if count < 1:
+        raise ValueError("Nonce increment count must be positive")
     conn.execute(
         sa.update(users_table)
         .where(users_table.c.id == user_id)
-        .values(nonce=users_table.c.nonce + 1)
+        .values(nonce=users_table.c.nonce + count)
     )
-    log.info(f"User nonce incremented | user_id={user_id}")
+    log.info(f"User nonce incremented | user_id={user_id} | count={count}")
 
 
 def insert_dice_round(

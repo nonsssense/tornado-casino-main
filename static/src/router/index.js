@@ -9,7 +9,7 @@ import {
   ROUTES,
   DEFAULT_ROUTE,
   NAV_ROUTE_MAP,
-  ROUTE_NAMES,
+  isStandaloneRoute,
 } from './routes.js';
 import { initOverlayManager, overlayManager } from '../overlays/index.js';
 import { DURATION, wait, waitFrames } from '../animations/transitions.js';
@@ -21,12 +21,16 @@ import {
   setTelegramBackButtonVisible,
   ensureTelegramReady,
 } from '../app/telegram.js';
+import { trackingService } from '../services/tracking.service.js';
 
 /** @type {object|null} */
 let shell = null;
 
 /** @type {string|null} */
 let currentRoute = null;
+
+/** @type {Record<string, string>|null} */
+let currentParams = null;
 
 /** @type {import('./route-controller.js').RouteController|null} */
 let currentController = null;
@@ -48,6 +52,12 @@ let navigationGeneration = 0;
 
 /** @type {AbortController|null} */
 let activeNavigationAbort = null;
+
+/** Skip pushState while applying a popstate-driven navigation. */
+let syncingFromHistory = false;
+
+/** True after the first history entry for this SPA session is seeded. */
+let historySeeded = false;
 
 /**
  * @param {string} navId
@@ -91,6 +101,16 @@ export function navigateByNavId(navId) {
     return;
   }
 
+  if (navId === 'referrals') {
+    if (overlayManager.isOpen('referrals')) {
+      void overlayManager.close();
+      return;
+    }
+
+    overlayManager.openReferrals({ previousNavId: activeNavId, highlightNav: true });
+    return;
+  }
+
   const routeName = NAV_ROUTE_MAP[navId];
 
   if (!routeName) {
@@ -101,23 +121,46 @@ export function navigateByNavId(navId) {
 }
 
 /**
- * @param {import('./route-controller.js').RouteController|null} controller
- * @param {string} routeName
+ * Single owner for bottom-nav / standalone chrome visibility.
+ * Driven only by route screenType (app vs standalone) — never by overlay
+ * open/close, and never by per-page exception lists.
+ * @param {boolean} standalone
  */
-function updateRouteChrome(controller, routeName) {
+function applyStandaloneChrome(standalone) {
   if (!shell?.root) return;
 
-  const immersive = Boolean(controller?.policy?.immersive);
-  shell.root.classList.toggle('t-app--game-immersive', immersive);
+  const next = Boolean(standalone);
+  shell.root.classList.toggle('t-app--standalone', next);
+  // Legacy alias kept while any cached CSS may still reference the old name.
+  shell.root.classList.toggle('t-app--game-immersive', next);
+
+  const footer = shell.root.querySelector('.t-app__footer');
+  if (footer) {
+    footer.hidden = next;
+    footer.setAttribute('aria-hidden', next ? 'true' : 'false');
+  }
 
   const header = shell.root.querySelector('.app-header');
-  header?.classList.toggle('app-header--game', immersive);
+  header?.classList.toggle('app-header--game', next);
 
   const useNativeBack = isTelegramBackButtonSupported();
-  header?.classList.toggle('app-header--native-back', useNativeBack && immersive);
-  setTelegramBackButtonVisible(useNativeBack && immersive);
+  header?.classList.toggle('app-header--native-back', useNativeBack && next);
+  setTelegramBackButtonVisible(useNativeBack && next);
+}
 
-  void routeName;
+/**
+ * @param {import('./route-controller.js').RouteController|null} _controller
+ * @param {string} routeName
+ */
+function updateRouteChrome(_controller, routeName) {
+  applyStandaloneChrome(isStandaloneRoute(routeName));
+}
+
+/**
+ * @param {string} routeName
+ */
+function applyChromeForRoute(routeName) {
+  applyStandaloneChrome(isStandaloneRoute(routeName));
 }
 
 /**
@@ -155,14 +198,125 @@ async function discardController(routeName, controller) {
 }
 
 /**
- * @param {string} routeName
+ * Read optional route params from the URL (currently: bonus id for detail page).
+ * @returns {Record<string, string>}
  */
-export async function navigate(routeName) {
+function readParamsFromUrl() {
+  const params = {};
+  const bonusId = new URLSearchParams(window.location.search).get('bonus');
+  if (bonusId) params.bonusId = bonusId;
+  return params;
+}
+
+/**
+ * @param {Record<string, string>|null|undefined} a
+ * @param {Record<string, string>|null|undefined} b
+ * @returns {boolean}
+ */
+function paramsEqual(a, b) {
+  const left = a || {};
+  const right = b || {};
+  const keys = new Set([...Object.keys(left), ...Object.keys(right)]);
+  for (const key of keys) {
+    if (left[key] !== right[key]) return false;
+  }
+  return true;
+}
+
+/**
+ * Keep `?route=` + history.state in sync with the active RouteController.
+ * @param {string} routeName
+ * @param {{ replace?: boolean, params?: Record<string, string>|null }} [options]
+ */
+function syncBrowserHistory(routeName, options = {}) {
+  if (typeof window === 'undefined' || !window.history?.pushState) return;
+
+  const params = options.params || {};
+  const url = new URL(window.location.href);
+  if (routeName === DEFAULT_ROUTE) {
+    url.searchParams.delete('route');
+  } else {
+    url.searchParams.set('route', routeName);
+  }
+
+  if (params.bonusId) {
+    url.searchParams.set('bonus', params.bonusId);
+  } else {
+    url.searchParams.delete('bonus');
+  }
+
+  const nextHref = `${url.pathname}${url.search}${url.hash}`;
+  const state = { route: routeName, params };
+
+  if (options.replace || !historySeeded) {
+    window.history.replaceState(state, '', nextHref);
+    historySeeded = true;
+    return;
+  }
+
+  const currentState =
+    window.history.state && typeof window.history.state === 'object'
+      ? window.history.state
+      : null;
+  const currentStateRoute = currentState?.route ?? null;
+  const currentStateParams = currentState?.params || {};
+  if (currentStateRoute === routeName && paramsEqual(currentStateParams, params)) {
+    window.history.replaceState(state, '', nextHref);
+    return;
+  }
+
+  window.history.pushState(state, '', nextHref);
+}
+
+/**
+ * Leave a standalone route (game / bonuses) via history when possible.
+ */
+function goBack() {
+  if (!currentRoute || currentRoute === DEFAULT_ROUTE) {
+    return;
+  }
+
+  if (window.history.state?.route === currentRoute && window.history.length > 1) {
+    window.history.back();
+    return;
+  }
+
+  void navigate(DEFAULT_ROUTE, { replace: true });
+}
+
+/**
+ * @param {PopStateEvent} event
+ */
+function onPopState(event) {
+  const stateRoute =
+    event.state && typeof event.state === 'object' && typeof event.state.route === 'string'
+      ? event.state.route
+      : null;
+  const nextRoute = stateRoute && ROUTES[stateRoute] ? stateRoute : DEFAULT_ROUTE;
+  const nextParams =
+    event.state && typeof event.state === 'object' && event.state.params
+      ? event.state.params
+      : readParamsFromUrl();
+
+  if (nextRoute === currentRoute && paramsEqual(nextParams, currentParams)) return;
+
+  syncingFromHistory = true;
+  void navigate(nextRoute, { fromPopState: true, params: nextParams }).finally(() => {
+    syncingFromHistory = false;
+  });
+}
+
+/**
+ * @param {string} routeName
+ * @param {{ replace?: boolean, fromPopState?: boolean, params?: Record<string, string>|null }} [options]
+ */
+export async function navigate(routeName, options = {}) {
   if (!shell) return;
 
   const route = ROUTES[routeName];
   if (!route) return;
 
+  const params = options.params || {};
   const generation = ++navigationGeneration;
   activeNavigationAbort?.abort();
   const abortController = new AbortController();
@@ -173,6 +327,10 @@ export async function navigate(routeName) {
 
   const hadOverlay = overlayManager.isOpen();
 
+  // Apply chrome for the *target* route immediately so visibility never depends
+  // on the previous page, async controller load, or which CSS chunk is present.
+  applyChromeForRoute(routeName);
+
   if (hadOverlay) {
     await overlayManager.close({ restoreNavId: route.navId });
     if (isStale()) return;
@@ -181,6 +339,30 @@ export async function navigate(routeName) {
   if (currentRoute === routeName && currentController) {
     updateBottomNav(route.navId);
     updateRouteChrome(currentController, routeName);
+
+    if (!paramsEqual(params, currentParams)) {
+      currentParams = params;
+      if (!options.fromPopState && !syncingFromHistory) {
+        syncBrowserHistory(routeName, {
+          replace: Boolean(options.replace),
+          params,
+        });
+      }
+      await currentController.activate({
+        reason: 'navigate',
+        fromRoute: routeName,
+        signal,
+        params,
+      });
+      return;
+    }
+
+    if (!options.fromPopState && !syncingFromHistory) {
+      syncBrowserHistory(routeName, {
+        replace: Boolean(options.replace),
+        params,
+      });
+    }
     return;
   }
 
@@ -202,6 +384,7 @@ export async function navigate(routeName) {
 
     // 1–2. Deactivate previous (stops all page-owned runtime)
     if (previousController) {
+      void trackingService.gameClose(previousRoute);
       await previousController.deactivate({
         reason: 'navigate',
         toRoute: routeName,
@@ -222,6 +405,7 @@ export async function navigate(routeName) {
       if (currentController === previousController) {
         currentController = null;
         currentRoute = null;
+        currentParams = null;
       }
     }
 
@@ -234,6 +418,7 @@ export async function navigate(routeName) {
     // 5. Attach next page
     shell.setPageContent(nextController.getRoot());
     currentRoute = routeName;
+    currentParams = params;
     currentController = nextController;
     hasNavigatedOnce = true;
 
@@ -241,6 +426,13 @@ export async function navigate(routeName) {
 
     updateBottomNav(route.navId);
     updateRouteChrome(nextController, routeName);
+
+    if (!options.fromPopState && !syncingFromHistory) {
+      syncBrowserHistory(routeName, {
+        replace: Boolean(options.replace) || previousRoute == null,
+        params,
+      });
+    }
 
     if (shouldAnimate) {
       shell.setPageTransition('enter');
@@ -256,7 +448,11 @@ export async function navigate(routeName) {
       reason: 'navigate',
       fromRoute: previousRoute,
       signal,
+      params,
     });
+
+    void trackingService.pageNav();
+    void trackingService.gameOpen(routeName);
 
     if (isStale()) {
       // Superseded during activate — tear down live work; newer nav owns the UI.
@@ -336,7 +532,7 @@ function wireHeaderActions() {
   if (backButton && !backButton.dataset.wired) {
     backButton.dataset.wired = 'true';
     backButton.addEventListener('click', () => {
-      void navigate(ROUTE_NAMES.HOME);
+      goBack();
     });
   }
 }
@@ -346,19 +542,23 @@ function wireHeaderActions() {
  */
 export function initRouter(appShell) {
   shell = appShell;
-  initOverlayManager(shell, restoreNavHighlight, navigateByNavId);
+  initOverlayManager(shell, restoreNavHighlight, navigateByNavId, navigate);
   wireHeaderActions();
 
   ensureTelegramReady();
   bindTelegramBackButton(() => {
-    void navigate(ROUTE_NAMES.HOME);
+    goBack();
   });
   setTelegramBackButtonVisible(false);
 
+  window.removeEventListener('popstate', onPopState);
+  window.addEventListener('popstate', onPopState);
+
   const routeParam = new URLSearchParams(window.location.search).get('route');
   const startRoute = routeParam && ROUTES[routeParam] ? routeParam : DEFAULT_ROUTE;
+  const startParams = readParamsFromUrl();
   updateBottomNav(ROUTES[startRoute].navId);
-  void navigate(startRoute);
+  void navigate(startRoute, { replace: true, params: startParams });
 }
 
 /**
@@ -408,10 +608,12 @@ export async function refreshForLocale() {
   }
 
   const routeName = currentRoute;
+  const routeParams = currentParams || {};
   if (!routeName || !ROUTES[routeName]) return;
 
   currentRoute = null;
-  await navigate(routeName);
+  currentParams = null;
+  await navigate(routeName, { params: routeParams });
 }
 
 export const router = {

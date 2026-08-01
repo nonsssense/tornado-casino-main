@@ -98,3 +98,39 @@ def crypto_to_usd(coin: str, amount_in: float) -> tuple[float, float]:
         f"usd={usd_amount} | convert_rate={rate}"
     )
     return usd_amount, rate
+
+
+def usd_to_crypto(coin: str, usd_amount: float) -> tuple[float, float]:
+    """Convert a USD wallet debit to on-chain crypto units for BlockBee payout.
+
+    Returns (crypto_amount, convert_rate) where crypto_amount = usd / rate.
+    Stablecoins (USDT/USDC) use rate 1.0 without calling Binance.
+
+    Wallet balances are USD. BlockBee payout `value` is native crypto (or token
+    units). Never pass a USD amount as BTC/ETH/… `value`.
+    """
+    usd_amount = float(usd_amount)
+    if usd_amount <= 0:
+        raise ValueError("USD amount must be greater than zero")
+
+    symbol = resolve_binance_symbol(coin)
+
+    if symbol is None:
+        rate = 1.0
+        crypto_amount = usd_amount
+        log.info(
+            f"Stablecoin withdraw convert | coin={coin} | usd={usd_amount} | "
+            f"crypto={crypto_amount} | convert_rate={rate}"
+        )
+        return crypto_amount, rate
+
+    rate = float(get_price(symbol))
+    if rate <= 0:
+        raise RuntimeError(f"Invalid market rate for {symbol}")
+
+    crypto_amount = usd_amount / rate
+    log.info(
+        f"Crypto withdraw convert | coin={coin} | symbol={symbol} | usd={usd_amount} | "
+        f"crypto={crypto_amount} | convert_rate={rate}"
+    )
+    return crypto_amount, rate

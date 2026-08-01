@@ -1,5 +1,6 @@
 /**
- * Deposit view — deposit panel content for the wallet modal.
+ * Deposit view — crypto deposit + bank coming-soon, welcome bonus banner.
+ * Address is requested immediately after coin/network selection.
  */
 
 import { createElement } from '../../utils/dom.js';
@@ -7,44 +8,29 @@ import {
   getDepositDisclaimer,
   getDepositStatusLabel,
 } from '../../utils/wallet.constants.js';
-import { formatCryptoAmount } from '../../utils/format.js';
+import { formatCryptoAmount, formatUsd } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
 import { bonusService } from '../../services/bonus.service.js';
 import { t } from '../../i18n/index.js';
 import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
-import { createDepositBonusSelector } from './deposit.bonus-selector.js';
+import { createDepositBonusCard } from './deposit.bonus-card.js';
+import { createBonusInfoView } from './deposit.bonus-info.js';
 import { Button } from '../../components/base/Button.js';
 import { Card } from '../../components/base/Card.js';
 import { SkeletonDepositAddress } from '../../components/base/Skeleton.js';
 import { QrLightbox } from '../../components/base/QrLightbox.js';
 import { Toast } from '../../components/base/Toast.js';
-import { CoinSelector } from '../../components/shared/CoinSelector.js';
-import { NetworkSelector } from '../../components/shared/NetworkSelector.js';
+import { createCoinNetworkPair } from '../../components/shared/CoinNetworkPair.js';
+import { MethodSelector } from '../../components/shared/MethodSelector.js';
 
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
 const ICON_QR = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><path d="M14 14h3v3h-3zM17 17h3v3h-3z"/></svg>';
 
 /**
- * @param {Array<object>} networks
- * @returns {Array<object>}
- */
-function resolveNetworkOptions(networks) {
-  return networks.map((option) => ({
-    ...option,
-    label: t(option.labelKey),
-    networkLabel: t(option.networkKey),
-  }));
-}
-
-/**
  * @param {object} [options]
- * @param {function} [options.getCoinId]
- * @param {function} [options.getNetworkId]
- * @param {function} [options.onCoinSelect]
- * @param {function} [options.onNetworkSelect]
- * @returns {{ element: HTMLElement, setCoinId: (coinId: string) => void, setNetworkId: (networkId: string) => void }}
+ * @returns {{ element: HTMLElement, setCoinId: Function, setNetworkId: Function, destroy: Function }}
  */
 export function createDepositView(options = {}) {
   const {
@@ -55,101 +41,110 @@ export function createDepositView(options = {}) {
   } = options;
 
   const state = {
+    method: 'crypto',
+    panel: 'main',
     deposit: null,
+    minimum: null,
+    minimumUsd: null,
     loading: true,
     error: null,
     status: 'pending',
     completionHandled: false,
+    bonusInfo: null,
   };
 
+  let loadGeneration = 0;
   let stopPolling = null;
   /** @type {{ element: HTMLElement, open: () => void, close: () => Promise<void> }|null} */
   let qrLightbox = null;
+  /** @type {{ element: HTMLElement, destroy?: () => void }|null} */
+  let bonusCard = null;
+  /** @type {{ element: HTMLElement, destroy?: () => void }|null} */
+  let bonusInfoView = null;
+  /** @type {{ element: HTMLElement, setCoinId: Function, setNetworkId: Function, destroy: Function }|null} */
+  let coinNetworkPair = null;
 
-  const coinGridMount = createElement('div');
-  const networkMount = createElement('div');
+  const methodMount = createElement('div', { className: 'wallet-view__method-slot' });
+  const mainMount = createElement('div', { className: 'wallet-view__main' });
+  const panelMount = createElement('div', { className: 'wallet-view__panel-slot' });
+
+  const pairMount = createElement('div', { className: 'wallet-view__pair-slot' });
   const addressMount = createElement('div');
   const infoMount = createElement('div');
   const statusMount = createElement('div');
+  const bonusMount = createElement('div', { className: 'wallet-view__bonus-slot' });
 
   function currentContext() {
     return getCoinNetwork(getCoinId(), getNetworkId());
   }
 
-  function updateCoinGrid() {
-    coinGridMount.replaceChildren(
-      CoinSelector({
-        activeId: getCoinId(),
-        onSelect: (coinId) => {
-          if (getCoinId() === coinId) return;
-          if (onCoinSelect) onCoinSelect(coinId);
+  function formatMinimumLabel() {
+    const ctx = currentContext();
+    const coinLabel = ctx?.coin.symbol
+      || (ctx?.coin?.labelKey ? t(ctx.coin.labelKey) : null)
+      || 'USDT';
+
+    if (state.minimumUsd != null) {
+      return formatUsd(state.minimumUsd);
+    }
+    if (state.minimum != null) {
+      return formatCryptoAmount(state.minimum, { symbol: coinLabel });
+    }
+    return null;
+  }
+
+  function updateMethodSelector() {
+    methodMount.replaceChildren(
+      MethodSelector({
+        activeId: state.method,
+        onSelect: (methodId) => {
+          if (state.method === methodId) return;
+          state.method = methodId;
+          updateMethodSelector();
+          renderMain();
+          if (methodId === 'crypto') void loadDeposit();
         },
       }),
     );
   }
 
-  function updateNetwork() {
-    const ctx = currentContext();
-
-    if (!ctx) {
-      networkMount.replaceChildren();
-      return;
-    }
-
-    const multiNetwork = ctx.networks.length > 1;
-
-    networkMount.replaceChildren(
-      NetworkSelector({
-        networkLabel: t(ctx.network.networkKey),
-        label: t(ctx.network.labelKey),
-        iconSrc: ctx.network.icon,
-        className: 'wallet-view__network',
-        options: resolveNetworkOptions(ctx.networks),
-        activeId: ctx.network.id,
-        onSelect: multiNetwork
-          ? (networkId) => {
-            if (getNetworkId() === networkId) return;
-            if (onNetworkSelect) onNetworkSelect(networkId);
-          }
-          : undefined,
-        disabled: !multiNetwork,
-      }),
-    );
+  function mountCoinNetworkPair() {
+    coinNetworkPair?.destroy?.();
+    coinNetworkPair = createCoinNetworkPair({
+      coinId: getCoinId(),
+      networkId: getNetworkId(),
+      onCoinSelect: (coinId) => {
+        if (getCoinId() === coinId) return;
+        onCoinSelect?.(coinId);
+      },
+      onNetworkSelect: (networkId) => {
+        if (getNetworkId() === networkId) return;
+        onNetworkSelect?.(networkId);
+      },
+    });
+    pairMount.replaceChildren(coinNetworkPair.element);
   }
 
   function renderAddressLoading() {
     addressMount.replaceChildren(SkeletonDepositAddress());
+    statusMount.replaceChildren();
   }
 
   function renderAddressError() {
     addressMount.replaceChildren(
       createElement('div', {
         className: 'wallet-view__address-error',
-        children: [
-          createElement('p', {
-            className: 'wallet-view__address-error-text',
-            text: state.error || t('wallet.deposit.error.load'),
-          }),
-          Button({
-            label: t('common.retry'),
-            variant: 'secondary',
-            size: 'sm',
-            onClick: loadDeposit,
-          }),
-        ],
+        text: state.error || t('wallet.deposit.error.retry'),
       }),
     );
+    statusMount.replaceChildren();
   }
 
   function renderAddressCard() {
     const ctx = currentContext();
-
-    if (!ctx || !state.deposit?.address) {
-      return;
-    }
+    if (!ctx || !state.deposit?.address) return;
 
     const address = state.deposit.address;
-
     addressMount.replaceChildren(
       Card({
         variant: 'default',
@@ -194,14 +189,7 @@ export function createDepositView(options = {}) {
   }
 
   function updateInfo() {
-    const ctx = currentContext();
-    const minimum = state.deposit?.minimum;
-    const coinLabel = ctx?.coin.symbol
-      || (ctx?.coin?.labelKey ? t(ctx.coin.labelKey) : null)
-      || 'USDT';
-    const formattedMin = minimum != null
-      ? formatCryptoAmount(minimum, { symbol: coinLabel })
-      : null;
+    const formattedMin = formatMinimumLabel();
 
     infoMount.replaceChildren(
       createElement('p', {
@@ -221,8 +209,11 @@ export function createDepositView(options = {}) {
   }
 
   function updateStatus() {
+    if (!state.deposit?.address) {
+      statusMount.replaceChildren();
+      return;
+    }
     const label = getDepositStatusLabel(state.status) || getDepositStatusLabel('pending');
-
     statusMount.replaceChildren(
       createElement('p', {
         className: 'wallet-view__status',
@@ -249,10 +240,9 @@ export function createDepositView(options = {}) {
         state.status = status;
         updateStatus();
       },
-      onComplete: async () => {
+      onComplete: async (depositData) => {
         if (state.completionHandled) return;
         state.completionHandled = true;
-
         state.status = 'completed';
         updateStatus();
         stopStatusPolling();
@@ -264,63 +254,95 @@ export function createDepositView(options = {}) {
             bonusService.fetchActiveBonuses().catch(() => []),
           ]);
         } catch {
-          // Balance/bonus refresh failures should not block completion UX.
+          // non-blocking
         }
 
         Toast({ message: t('wallet.deposit.toast.completed'), type: 'success', duration: 3000 });
+        if (depositData?.bonus_skipped_reason === 'active_welcome') {
+          Toast({
+            message: t('wallet.deposit.bonusSkippedActive'),
+            type: 'info',
+            duration: 5500,
+          });
+        }
+      },
+      onBelowMinimum: () => {
+        if (state.completionHandled) return;
+        state.completionHandled = true;
+        state.status = 'below_minimum';
+        updateStatus();
+        stopStatusPolling();
+        Toast({
+          message: t('wallet.deposit.belowMinimumToast'),
+          type: 'warning',
+          duration: 4500,
+        });
       },
     });
   }
 
   async function loadDeposit() {
+    const generation = ++loadGeneration;
     const ctx = currentContext();
+
+    stopStatusPolling();
+    state.deposit = null;
+    state.status = 'pending';
+    state.completionHandled = false;
+    state.error = null;
+    state.minimum = null;
+    state.minimumUsd = null;
 
     if (!ctx) {
       state.loading = false;
       state.error = t('wallet.deposit.error.unsupported');
       renderAddressError();
+      updateInfo();
       return;
     }
 
-    stopStatusPolling();
     state.loading = true;
-    state.error = null;
-    state.deposit = null;
-    state.status = 'pending';
     renderAddressLoading();
     updateInfo();
     updateStatus();
 
     try {
       const data = await walletService.createDeposit(ctx.network.ticker);
-      state.deposit = data;
-      state.status = 'pending';
-      renderAddressCard();
+      if (generation !== loadGeneration) return;
 
-      if (data.deposit_id) {
-        startStatusPolling(data.deposit_id);
-      }
+      state.deposit = data;
+      state.minimum = data?.minimum ?? null;
+      state.minimumUsd = data?.minimum_usd ?? null;
+      state.status = 'pending';
+      state.error = null;
+      state.loading = false;
+      renderAddressCard();
+      updateInfo();
+      updateStatus();
+      if (data.deposit_id) startStatusPolling(data.deposit_id);
     } catch (error) {
+      if (generation !== loadGeneration) return;
+
+      state.loading = false;
+      state.deposit = null;
       if (error?.status === 404 || error?.status === 501) {
         state.error = t('wallet.deposit.error.unavailable');
-      } else if (error?.status === 400) {
-        state.error = t('wallet.deposit.error.network');
       } else if (error?.status === 502) {
         state.error = t('wallet.deposit.error.addressUnavailable');
+      } else if (error?.status === 400) {
+        state.error = t('wallet.deposit.error.network');
       } else {
         state.error = t('wallet.deposit.error.retry');
       }
       renderAddressError();
-    } finally {
-      state.loading = false;
       updateInfo();
       updateStatus();
+      Toast({ message: state.error, type: 'error', duration: 3000 });
     }
   }
 
   function copyAddress(address) {
     if (!address) return;
-
     navigator.clipboard.writeText(address)
       .then(() => {
         Toast({ message: t('wallet.deposit.toast.addressCopied'), type: 'success', duration: 2000 });
@@ -332,7 +354,6 @@ export function createDepositView(options = {}) {
 
   function closeQrLightbox() {
     if (!qrLightbox) return Promise.resolve();
-
     const active = qrLightbox;
     qrLightbox = null;
     return active.close();
@@ -341,7 +362,6 @@ export function createDepositView(options = {}) {
   function showQrCode() {
     const qr = state.deposit?.qr_code;
     const address = state.deposit?.address;
-
     if (!qr && !address) {
       Toast({ message: t('wallet.deposit.toast.qrUnavailable'), type: 'info', duration: 2500 });
       return;
@@ -360,60 +380,128 @@ export function createDepositView(options = {}) {
           qrLightbox = null;
         },
       });
-
       document.body.appendChild(qrLightbox.element);
       qrLightbox.open();
     });
   }
 
-  function setCoinId(coinId) {
-    void coinId;
-    updateCoinGrid();
-    updateNetwork();
-    loadDeposit();
+  function openBonusInfo(payload) {
+    state.panel = 'bonus-info';
+    state.bonusInfo = payload;
+    renderPanel();
   }
 
-  function setNetworkId(networkId) {
-    void networkId;
-    updateNetwork();
-    loadDeposit();
+  function closeBonusInfo() {
+    state.panel = 'main';
+    state.bonusInfo = null;
+    bonusInfoView?.destroy?.();
+    bonusInfoView = null;
+    renderPanel();
   }
 
-  updateCoinGrid();
-  updateNetwork();
-  renderAddressLoading();
-  updateInfo();
-  updateStatus();
-  loadDeposit();
+  function mountBonusCard() {
+    bonusCard?.destroy?.();
+    bonusCard = createDepositBonusCard({
+      onLearnMore: openBonusInfo,
+    });
+    bonusMount.replaceChildren(bonusCard.element);
+  }
 
-  const bonusSelector = createDepositBonusSelector();
-  const bonusMount = createElement('div', {
-    className: 'wallet-view__bonus-slot',
-    children: [bonusSelector.element],
-  });
+  function renderBankComingSoon() {
+    mainMount.replaceChildren(
+      createElement('div', {
+        className: 'wallet-view__coming-soon',
+        children: [
+          createElement('p', {
+            className: 'wallet-view__coming-soon-title',
+            text: t('wallet.method.comingSoon'),
+          }),
+          createElement('p', {
+            className: 'wallet-view__coming-soon-text',
+            text: t('wallet.method.comingSoonHint'),
+          }),
+        ],
+      }),
+    );
+  }
 
-  const element = createElement('div', {
-    className: 'wallet-view wallet-view--deposit',
-    attrs: { 'data-view': 'deposit' },
-    children: [
-      coinGridMount,
-      networkMount,
+  function renderCryptoMain() {
+    mainMount.replaceChildren(
+      pairMount,
       addressMount,
       infoMount,
       statusMount,
       bonusMount,
-    ],
+    );
+  }
+
+  function renderMain() {
+    if (state.method === 'bank') {
+      renderBankComingSoon();
+      return;
+    }
+    renderCryptoMain();
+  }
+
+  function renderPanel() {
+    const showingInfo = state.panel === 'bonus-info';
+    methodMount.hidden = showingInfo;
+    mainMount.hidden = showingInfo;
+    panelMount.hidden = !showingInfo;
+    element.classList.toggle('wallet-view--subpage', showingInfo);
+
+    if (!showingInfo) {
+      panelMount.replaceChildren();
+      return;
+    }
+
+    bonusInfoView?.destroy?.();
+    bonusInfoView = createBonusInfoView({
+      offer: state.bonusInfo?.offer,
+      mode: state.bonusInfo?.mode || 'available',
+      rules: state.bonusInfo?.rules || null,
+      onBack: closeBonusInfo,
+    });
+    panelMount.replaceChildren(bonusInfoView.element);
+  }
+
+  function setCoinId(coinId) {
+    coinNetworkPair?.setCoinId(coinId);
+    coinNetworkPair?.setNetworkId(getNetworkId());
+    if (state.method === 'crypto') void loadDeposit();
+  }
+
+  function setNetworkId(networkId) {
+    coinNetworkPair?.setNetworkId(networkId);
+    if (state.method === 'crypto') void loadDeposit();
+  }
+
+  updateMethodSelector();
+  mountCoinNetworkPair();
+  mountBonusCard();
+  renderMain();
+  void loadDeposit();
+
+  const element = createElement('div', {
+    className: 'wallet-view wallet-view--deposit',
+    attrs: { 'data-view': 'deposit' },
+    children: [methodMount, mainMount, panelMount],
   });
+
+  renderPanel();
 
   return {
     element,
     setCoinId,
     setNetworkId,
     destroy() {
+      loadGeneration += 1;
       state.completionHandled = true;
       stopStatusPolling();
       void closeQrLightbox();
-      bonusSelector.destroy?.();
+      coinNetworkPair?.destroy?.();
+      bonusCard?.destroy?.();
+      bonusInfoView?.destroy?.();
     },
   };
 }

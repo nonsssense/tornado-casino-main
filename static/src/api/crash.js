@@ -31,9 +31,12 @@ export async function placeCrashBet(payload) {
   });
 }
 
-export async function cashoutCrash() {
+/**
+ * @param {{ bet_id: number }} payload
+ */
+export async function cashoutCrash(payload) {
   return request('/crash/cashout', {
     method: 'POST',
-    body: JSON.stringify({}),
+    body: JSON.stringify(payload),
   });
 }

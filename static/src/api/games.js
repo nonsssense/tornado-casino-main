@@ -4,6 +4,7 @@
  * Responsibility:
  * - POST /api/games/rolldice
  * - POST /api/games/plinco
+ * - POST /api/games/plinco/batch
  *
  * Returns backend-calculated results only — never compute outcomes on the frontend.
  */
@@ -19,6 +20,13 @@ export async function rollDice(payload) {
 
 export async function playPlinko(payload) {
   return request('/api/games/plinco', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function playPlinkoBatch(payload) {
+  return request('/api/games/plinco/batch', {
     method: 'POST',
     body: JSON.stringify(payload),
   });

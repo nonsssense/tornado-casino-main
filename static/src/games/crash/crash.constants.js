@@ -14,16 +14,17 @@
 export const CRASH_GROWTH_RATE = 0.00062204;
 export const CRASH_GROWTH_POWER = 0.75;
 
-/** Bet amount bounds for local +/- controls. */
+/** Bet amount bounds for local +/- controls (mirror backend config). */
 export const CRASH_BET_LIMITS = {
   min: 0.1,
-  max: 1000,
+  max: 4.9,
+  totalMax: 5,
   step: 0.1,
   default: 1,
 };
 
 /** Quick-select amounts shown under the Bet Amount steppers. */
-export const CRASH_QUICK_BETS = [0.1, 0.2, 0.5, 1, 2, 5];
+export const CRASH_QUICK_BETS = [0.1, 0.2, 0.5, 1, 2, 4];
 
 /** Match backend CrashGameLoop.BETTING_TIME for progress denominator. */
 export const CRASH_BETTING_DURATION_SEC = 8;

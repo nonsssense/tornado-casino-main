@@ -6,9 +6,11 @@ Tables (schema owned externally — do not alter here):
   - bets (outcome updates only; Bet.createBet still used for INSERT)
 
 Lifecycle:
+  round open -> INSERT crash (multiplier unrevealed placeholder)
   place bet  -> INSERT crash_stats (bet_result/result NULL)
   cashout    -> UPDATE crash_stats to Win
   round lose -> UPDATE crash_stats to Lose
+  round end  -> UPDATE crash with revealed multipier_result
 
 Missing crash_stats on settle is a bug — no INSERT fallback.
 """
@@ -19,6 +21,17 @@ import sqlalchemy as sa
 
 from database.db_config import bet_table, engine, metadata, users_table
 from log_manager import log
+
+
+def format_crash_player_name(user_id, first_name=None):
+    """Return a Telegram first name or a stable anonymous player label."""
+    normalized_first_name = str(first_name or "").strip()
+    if normalized_first_name:
+        return normalized_first_name
+
+    short_id = str(abs(int(user_id)) % 10_000).zfill(4)
+    return f"Player {short_id}"
+
 
 crash_table = sa.Table(
     "crash",
@@ -49,6 +62,10 @@ crash_stats_table = sa.Table(
 )
 
 
+# Placeholder until ROUND_END — real crash points are always >= 100 (1.00x).
+_UNREVEALED_MULTIPLIER = 0
+
+
 class CrashDatabase:
     """SQL-only access for Crash persistence."""
 
@@ -57,11 +74,14 @@ class CrashDatabase:
         game_seed_used,
         hash_server_seed_used,
         nonce_used,
-        multipier_result,
-        instant_crash,
         conn=None,
     ):
-        """Insert generated round into `crash`. Returns crash id."""
+        """Insert an unrevealed round row so bets can reference crash_id.
+
+        The final multiplier stays in memory until reveal_crash_round runs at
+        ROUND_END. multipier_result=0 / instant_crash=False are placeholders
+        only — never treat them as a public result.
+        """
 
         def _run(connection):
             stmt = (
@@ -70,18 +90,55 @@ class CrashDatabase:
                     game_seed_used=game_seed_used,
                     hash_server_seed_used=hash_server_seed_used,
                     nonce_used=nonce_used,
-                    multipier_result=multipier_result,
-                    instant_crash=instant_crash,
+                    multipier_result=_UNREVEALED_MULTIPLIER,
+                    instant_crash=False,
                     created_at=datetime.now(),
                 )
                 .returning(crash_table.c.id)
             )
             crash_id = connection.execute(stmt).scalar_one()
-            log.info(
-                f"Crash INSERT completed | crash_id={crash_id} | "
-                f"multipier={multipier_result} | instant_crash={instant_crash}"
-            )
+            log.info(f"Crash INSERT (unrevealed) | crash_id={crash_id}")
             return crash_id
+
+        if conn is not None:
+            return _run(conn)
+        with engine.begin() as connection:
+            return _run(connection)
+
+    @staticmethod
+    def reveal_crash_round(crash_id, multipier_result, instant_crash, conn=None):
+        """Persist the final multiplier once the round has crashed."""
+
+        multipier_int = int(multipier_result)
+        if multipier_int <= _UNREVEALED_MULTIPLIER:
+            raise ValueError(
+                f"Invalid revealed crash multiplier | crash_id={crash_id} | "
+                f"multipier={multipier_int}"
+            )
+
+        def _run(connection):
+            stmt = (
+                sa.update(crash_table)
+                .where(
+                    crash_table.c.id == int(crash_id),
+                    crash_table.c.multipier_result == _UNREVEALED_MULTIPLIER,
+                )
+                .values(
+                    multipier_result=multipier_int,
+                    instant_crash=bool(instant_crash),
+                )
+            )
+            result = connection.execute(stmt)
+            if result.rowcount != 1:
+                raise RuntimeError(
+                    f"crash reveal UPDATE failed | crash_id={crash_id} | "
+                    f"rowcount={result.rowcount}"
+                )
+            log.info(
+                f"Crash REVEAL completed | crash_id={crash_id} | "
+                f"multipier={multipier_int} | instant_crash={instant_crash}"
+            )
+            return result.rowcount
 
         if conn is not None:
             return _run(conn)
@@ -213,13 +270,18 @@ class CrashDatabase:
 
     @staticmethod
     def get_recent_multipliers(limit=10, conn=None):
-        """Return latest crash multipliers as floats (newest first)."""
+        """Return latest revealed crash multipliers as floats (newest first).
+
+        Unrevealed in-progress rounds (multipier_result placeholder) are
+        excluded so mid-round joiners cannot learn the future crash point.
+        """
 
         limit = max(1, min(int(limit), 50))
 
         def _run(connection):
             stmt = (
                 sa.select(crash_table.c.multipier_result)
+                .where(crash_table.c.multipier_result > _UNREVEALED_MULTIPLIER)
                 .order_by(crash_table.c.id.desc())
                 .limit(limit)
             )
@@ -234,7 +296,7 @@ class CrashDatabase:
 
     @staticmethod
     def get_user_display_names(user_ids, conn=None):
-        """Map user_id -> telegram username (or first_name fallback)."""
+        """Map user_id -> Telegram first name or stable anonymous label."""
 
         ids = [int(uid) for uid in user_ids if uid is not None]
         if not ids:
@@ -243,20 +305,15 @@ class CrashDatabase:
         def _run(connection):
             stmt = sa.select(
                 users_table.c.id,
-                users_table.c.username,
                 users_table.c.first_name,
             ).where(users_table.c.id.in_(ids))
             result = {}
             for row in connection.execute(stmt).mappings():
-                username = row.get("username")
-                first_name = row.get("first_name")
-                if username:
-                    label = f"@{username}"
-                elif first_name:
-                    label = first_name
-                else:
-                    label = f"Player {row['id']}"
-                result[int(row["id"])] = label
+                user_id = int(row["id"])
+                result[user_id] = format_crash_player_name(
+                    user_id,
+                    row.get("first_name"),
+                )
             return result
 
         if conn is not None:

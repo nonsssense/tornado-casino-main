@@ -6,7 +6,11 @@ import { createElement } from '../../utils/dom.js';
 import { gameService } from '../../services/game.service.js';
 import { balanceTypeService } from '../../services/balance-type.service.js';
 import { balanceService } from '../../services/balance.service.js';
+import { settingsService } from '../../services/settings.service.js';
 import { Toast, showGameWinToast } from '../../components/base/Toast.js';
+import { triggerWinHaptic } from '../../app/telegram.js';
+import { soundManager } from '../../services/sound.service.js';
+import { createGameSettingsPanel } from '../shared/game-settings-panel.js';
 import { createDiceWheel } from './dice.wheel.js';
 import { createDiceControls } from './dice.controls.js';
 import { animateDiceRoll, cancelDiceRollAnimation } from './dice.animation.js';
@@ -24,6 +28,9 @@ let wheel = null;
 
 /** @type {ReturnType<typeof createDiceControls>|null} */
 let controls = null;
+
+/** @type {ReturnType<typeof createGameSettingsPanel>|null} */
+let settingsPanel = null;
 
 let isPlaying = false;
 
@@ -45,14 +52,28 @@ async function handlePlay() {
 
   const { limit, over, bid } = controls.getState();
 
-  if (!Number.isFinite(bid) || bid <= 0) {
+  if (
+    !Number.isFinite(bid)
+    || bid < DICE_BET_LIMITS.min
+    || bid > DICE_BET_LIMITS.max
+  ) {
     Toast({ message: t('game.validation.bet'), type: 'warning', duration: 2500 });
     return;
   }
 
   isPlaying = true;
   controls.setLoading(true);
+  if (settingsPanel?.button) settingsPanel.button.disabled = true;
+  settingsPanel?.close?.();
+  soundManager.unlock();
   wheel.setRolling();
+
+  let balanceReady = false;
+  const revealBalance = () => {
+    if (!balanceReady) return;
+    balanceReady = false;
+    balanceService.publishStaged();
+  };
 
   try {
     const payload = {
@@ -63,24 +84,37 @@ async function handlePlay() {
     };
 
     const result = await gameService.playDice(payload);
-    if (!isPlaying || !wheel || !controls) return;
+    balanceReady = true;
+    if (!isPlaying || !wheel || !controls || document.visibilityState === 'hidden') {
+      revealBalance();
+      return;
+    }
+    balanceService.presentConfirmedDebit(bid, result.balance_type);
 
     const roll = typeof result.roll === 'number' ? result.roll : null;
 
     if (roll !== null) {
       await animateDiceRoll(roll, wheel);
-      if (!isPlaying || !wheel) return;
+      if (!isPlaying || !wheel) {
+        revealBalance();
+        return;
+      }
       wheel.showResult(roll);
+      wheel.highlightSector(roll >= limit ? 'over' : 'under');
     } else {
       wheel.showResult('?');
     }
 
     const won = Boolean(result.result_of_game ?? result.result);
 
+    // Win SFX + haptic + toast fire together with the finalized result UI.
+    // Do not wait for balance publish / other DOM updates first.
     if (won) {
+      soundManager.play('diceWin');
+      triggerWinHaptic();
       showGameWinToast({
         gameName: t('games.dice.name'),
-        amount: Number(result.payout) || 0,
+        amount: Number(result.gross_payout) || 0,
         duration: 4200,
       });
     } else {
@@ -92,7 +126,10 @@ async function handlePlay() {
         duration: 2800,
       });
     }
+
+    revealBalance();
   } catch (error) {
+    revealBalance();
     if (wheel) {
       wheel.resetResult();
     }
@@ -104,6 +141,7 @@ async function handlePlay() {
   } finally {
     isPlaying = false;
     controls?.setLoading(false);
+    if (settingsPanel?.button) settingsPanel.button.disabled = false;
     wheel?.setIdle();
   }
 }
@@ -113,7 +151,7 @@ export const DiceGame = {
    * @param {HTMLElement} container
    */
   mount(container) {
-    if (mountContainer === container && boardMount?.isConnected && wheel && controls) {
+    if (mountContainer === container && boardMount?.isConnected && wheel && controls && settingsPanel) {
       return;
     }
 
@@ -128,9 +166,23 @@ export const DiceGame = {
       onPlay: handlePlay,
     });
 
+    settingsPanel?.destroy?.();
+    settingsPanel = createGameSettingsPanel({
+      id: 'dice-game-settings-panel',
+    });
+
+    void settingsService.load().then(() => {
+      settingsPanel?.sync?.();
+    }).catch(() => {
+      // Defaults already applied locally.
+    });
+
+    void soundManager.preload();
+
     const balances = balanceService.getBalances();
-    if (balances?.real) {
-      gameState.bid = Math.min(gameState.bid, balances.real) || gameState.bid;
+    const playable = Number(balances?.available ?? ((balances?.real || 0) + (balances?.bonus || 0)));
+    if (playable > 0) {
+      gameState.bid = Math.min(gameState.bid, playable) || gameState.bid;
     }
 
     const stage = createElement('div', {
@@ -145,6 +197,8 @@ export const DiceGame = {
           children: [wheel.element],
         }),
         controls.sliderPanel,
+        settingsPanel.button,
+        settingsPanel.element,
       ],
     });
 
@@ -183,9 +237,11 @@ export const DiceGame = {
   unmount(options = {}) {
     const { keepDom = false } = options;
 
+    balanceService.publishStaged();
     cancelDiceRollAnimation();
     isPlaying = false;
     controls?.setLoading(false);
+    if (settingsPanel?.button) settingsPanel.button.disabled = false;
     wheel?.setIdle?.();
 
     if (keepDom && boardMount?.isConnected) {
@@ -198,6 +254,8 @@ export const DiceGame = {
     boardMount = null;
     wheel = null;
     controls = null;
+    settingsPanel?.destroy?.();
+    settingsPanel = null;
 
     if (container) {
       container.replaceChildren();

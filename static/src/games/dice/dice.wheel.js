@@ -1,9 +1,9 @@
 /**
- * Dice probability wheel — premium purple / magenta sectors, outer pointer, center hub.
+ * Dice probability wheel — green/yellow sectors, minimal pointer, center hub.
  */
 
 import { createElement } from '../../utils/dom.js';
-import { getWheelSectors, rollToDegrees } from './dice.utils.js';
+import { getDisplayStats, rollToDegrees } from './dice.utils.js';
 import { t } from '../../i18n/index.js';
 
 /**
@@ -39,6 +39,34 @@ export function createDiceWheel(options = {}) {
     attrs: { 'aria-hidden': 'true' },
   });
 
+  function createSectorLabel(side, label) {
+    return {
+      root: createElement('div', {
+        className: `dice-wheel__sector-label dice-wheel__sector-label--${side}`,
+      }),
+      title: createElement('span', {
+        className: 'dice-wheel__sector-title',
+        text: label,
+      }),
+      multiplier: createElement('span', {
+        className: 'dice-wheel__sector-multiplier',
+      }),
+      chance: createElement('span', {
+        className: 'dice-wheel__sector-chance',
+      }),
+    };
+  }
+
+  const underLabel = createSectorLabel('under', t('dice.wheel.less'));
+  const overLabel = createSectorLabel('over', t('dice.wheel.more'));
+  underLabel.root.append(underLabel.title, underLabel.multiplier, underLabel.chance);
+  overLabel.root.append(overLabel.title, overLabel.multiplier, overLabel.chance);
+
+  const sectorLabels = createElement('div', {
+    className: 'dice-wheel__sector-labels',
+    children: [underLabel.root, overLabel.root],
+  });
+
   const pointer = createElement('div', {
     className: 'dice-wheel__pointer',
     attrs: { 'aria-hidden': 'true' },
@@ -47,7 +75,7 @@ export function createDiceWheel(options = {}) {
 
   const resultValue = createElement('span', {
     className: 'dice-wheel__result-value',
-    text: t('common.emDash'),
+    text: '0',
     attrs: { 'aria-live': 'polite' },
   });
 
@@ -74,17 +102,31 @@ export function createDiceWheel(options = {}) {
   const root = createElement('div', {
     className: 'dice-wheel',
     attrs: { 'data-game': 'dice-wheel' },
-    children: [groundSpill, disc, pointer, hub],
+    children: [groundSpill, disc, sectorLabels, pointer, hub],
   });
 
-  function applySectors() {
-    const { winPercent, losePercent } = getWheelSectors(state.limit, state.over);
-    const winDeg = (winPercent / 100) * 360;
-    const loseDeg = (losePercent / 100) * 360;
+  function positionSectorLabel(label, angleDeg) {
+    const radians = angleDeg * (Math.PI / 180);
+    const radius = 29;
+    label.style.left = `${50 + Math.sin(radians) * radius}%`;
+    label.style.top = `${50 - Math.cos(radians) * radius}%`;
+  }
 
-    root.style.setProperty('--dice-win-deg', `${winDeg}deg`);
-    root.style.setProperty('--dice-lose-deg', `${loseDeg}deg`);
+  function applySectors() {
+    const underStats = getDisplayStats(0, state.limit, false);
+    const overStats = getDisplayStats(0, state.limit, true);
+    const underDeg = (underStats.chance / 100) * 360;
+
+    root.style.setProperty('--dice-under-deg', `${underDeg}deg`);
     root.dataset.over = state.over ? 'true' : 'false';
+
+    underLabel.multiplier.textContent = `${underStats.multiplier.toFixed(2)}×`;
+    underLabel.chance.textContent = `${underStats.chance}%`;
+    overLabel.multiplier.textContent = `${overStats.multiplier.toFixed(2)}×`;
+    overLabel.chance.textContent = `${overStats.chance}%`;
+
+    positionSectorLabel(underLabel.root, 180 + underDeg / 2);
+    positionSectorLabel(overLabel.root, 180 + underDeg + (360 - underDeg) / 2);
   }
 
   function setPointerRotation(deg, animate = false) {
@@ -96,7 +138,7 @@ export function createDiceWheel(options = {}) {
   }
 
   function setResultDisplay(value, { pulse = false } = {}) {
-    resultValue.textContent = value === null || value === undefined ? t('common.emDash') : String(value);
+    resultValue.textContent = value === null || value === undefined ? '0' : String(value);
     hub.classList.toggle('dice-wheel__hub--pulse', pulse);
     if (pulse) {
       window.setTimeout(() => hub.classList.remove('dice-wheel__hub--pulse'), 600);
@@ -104,7 +146,7 @@ export function createDiceWheel(options = {}) {
   }
 
   applySectors();
-  setPointerRotation(0, false);
+  setPointerRotation(180, false);
 
   return {
     element: root,
@@ -120,7 +162,9 @@ export function createDiceWheel(options = {}) {
     setRolling() {
       state.isSpinning = true;
       root.classList.add('dice-wheel--spinning');
-      setResultDisplay('…');
+      root.classList.remove('dice-wheel--sector-highlight');
+      root.removeAttribute('data-highlight');
+      setResultDisplay(state.roll ?? 0);
     },
 
     setIdle() {
@@ -128,13 +172,35 @@ export function createDiceWheel(options = {}) {
       root.classList.remove('dice-wheel--spinning');
     },
 
-    showResult(roll) {
-      state.roll = roll;
-      setResultDisplay(roll, { pulse: true });
+    showResult(value) {
+      state.roll = value;
+      setResultDisplay(value, { pulse: true });
+    },
+
+    setSpinRoll(value) {
+      const roll = Number(value);
+      const displayedRoll = Number.isFinite(roll)
+        ? Math.min(99, Math.max(0, Math.floor(roll)))
+        : 0;
+      setResultDisplay(displayedRoll);
+    },
+
+    highlightSector(side) {
+      if (side !== 'under' && side !== 'over') return;
+      root.dataset.highlight = side;
+      root.classList.remove('dice-wheel--sector-highlight');
+      void root.offsetWidth;
+      root.classList.add('dice-wheel--sector-highlight');
+      root.addEventListener('animationend', (event) => {
+        if (event.animationName !== 'dice-sector-highlight') return;
+        root.classList.remove('dice-wheel--sector-highlight');
+        root.removeAttribute('data-highlight');
+      }, { once: true });
     },
 
     resetResult() {
       state.roll = null;
+      setPointerRotation(180, false);
       setResultDisplay(null);
     },
 

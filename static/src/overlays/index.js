@@ -4,12 +4,15 @@
  * Responsibility:
  * - Open/close overlays without route navigation.
  * - Preserve underlying page context (continuous flow principle).
- * - Bottom navigation stays in the shell footer at all times.
+ * - Bottom navigation stays in the shell footer for overlay screens
+ *   (visibility is owned by the router screenType of the underlying page).
  *
  * Wallet / Profile / Balance overlay modules are lazy-loaded on first open.
  */
 
 import { OVERLAY_NAMES } from '../utils/constants.js';
+import { ROUTE_NAMES } from '../router/route-names.js';
+import { referralService } from '../services/referral.service.js';
 
 /** @type {object|null} */
 let shell = null;
@@ -17,7 +20,10 @@ let shell = null;
 /** @type {{ close: () => Promise<void>, footer?: HTMLElement }|null} */
 let activeOverlay = null;
 
-/** @type {'wallet'|'profile'|'balance'|null} */
+/** @type {{ close: () => Promise<void> }|null} */
+let stackedOverlay = null;
+
+/** @type {'wallet'|'profile'|'balance'|'referrals'|null} */
 let activeOverlayKind = null;
 
 /** @type {string|null} */
@@ -29,6 +35,9 @@ let onNavRestore = null;
 /** @type {function|null} */
 let onNavNavigate = null;
 
+/** @type {((routeName: string) => void | Promise<void>)|null} */
+let onRouteNavigate = null;
+
 /** @type {string|null} */
 let closeRestoreNavId = null;
 
@@ -36,11 +45,13 @@ let closeRestoreNavId = null;
  * @param {object} appShell
  * @param {function} restoreNavCallback
  * @param {function} navigateCallback
+ * @param {((routeName: string) => void | Promise<void>)} [routeNavigateCallback]
  */
-export function initOverlayManager(appShell, restoreNavCallback, navigateCallback) {
+export function initOverlayManager(appShell, restoreNavCallback, navigateCallback, routeNavigateCallback) {
   shell = appShell;
   onNavRestore = restoreNavCallback;
   onNavNavigate = navigateCallback;
+  onRouteNavigate = typeof routeNavigateCallback === 'function' ? routeNavigateCallback : null;
 }
 
 function getOverlayRoot() {
@@ -60,6 +71,7 @@ function restoreNavHighlight() {
 
 function teardownOverlay() {
   const root = getOverlayRoot();
+  stackedOverlay = null;
   activeOverlay = null;
   activeOverlayKind = null;
 
@@ -79,8 +91,16 @@ function teardownOverlay() {
   }
 }
 
+function teardownStackedOverlay() {
+  stackedOverlay = null;
+  const root = getOverlayRoot();
+  if (!activeOverlay && root) {
+    root.setAttribute('aria-hidden', 'true');
+  }
+}
+
 /**
- * @param {'wallet'|'profile'|'balance'} kind
+ * @param {'wallet'|'profile'|'balance'|'referrals'} kind
  * @param {(options: object) => object | Promise<object>} createOverlay
  * @param {object} props
  */
@@ -94,7 +114,13 @@ function mountOverlay(kind, createOverlay, props = {}) {
     navIdBeforeOverlay = props.previousNavId ?? 'casino';
 
     if (props.highlightNav) {
-      highlightNav(kind === 'balance' ? 'wallet' : kind);
+      const navHighlight =
+        kind === 'balance'
+          ? 'wallet'
+          : kind === 'referrals'
+            ? 'referrals'
+            : kind;
+      highlightNav(navHighlight);
     }
 
     const overlay = await createOverlay({
@@ -187,12 +213,93 @@ export const overlayManager = {
       return createProfileOverlay({
         onClose: options.onClose,
         onBeforeRemove: options.onBeforeRemove,
-        // onMenuAction: wire profile menu items here when flows are ready.
+        onStatusInfo: () => {
+          this.openReferralStatusInfo();
+        },
+        onMenuAction: (actionId) => {
+          if (actionId === 'bonuses') {
+            void this.close().then(() => {
+              if (onRouteNavigate) {
+                void onRouteNavigate(ROUTE_NAMES.BONUSES);
+              }
+            });
+            return;
+          }
+          if (actionId === 'referrals') {
+            this.openReferrals({
+              previousNavId: props.previousNavId ?? navIdBeforeOverlay ?? 'casino',
+              highlightNav: true,
+            });
+          }
+        },
       });
     }, props);
   },
 
+  openReferrals(props = {}) {
+    mountOverlay('referrals', async (options) => {
+      const { createReferralsOverlay } = await import('./referrals.overlay.js');
+      return createReferralsOverlay({
+        onClose: options.onClose,
+        onBeforeRemove: options.onBeforeRemove,
+      });
+    }, props);
+  },
+
+  /**
+   * Shared Referral Status Details sheet.
+   * Stacks above an open overlay when needed (e.g. Referrals → Learn More).
+   * @param {object} [props]
+   */
+  openReferralStatusInfo(props = {}) {
+    const launch = async () => {
+      const root = getOverlayRoot();
+      if (!root) return;
+
+      if (stackedOverlay) {
+        await stackedOverlay.close();
+        stackedOverlay = null;
+      }
+
+      const { createReferralStatusOverlay } = await import('./referral-status.overlay.js');
+      let summary = props.summary || null;
+      if (!summary) {
+        try {
+          summary = await referralService.fetchSummary();
+        } catch {
+          summary = referralService.getSummary();
+        }
+      }
+
+      const overlay = createReferralStatusOverlay({
+        summary,
+        onClose: teardownStackedOverlay,
+        manageBodyScroll: !activeOverlay,
+      });
+
+      overlay.element.classList.add('bottom-sheet--stacked');
+      stackedOverlay = overlay;
+      root.setAttribute('aria-hidden', 'false');
+      root.appendChild(overlay.element);
+      overlay.open();
+    };
+
+    void launch();
+  },
+
   close(options = {}) {
+    if (stackedOverlay) {
+      const stacked = stackedOverlay;
+      stackedOverlay = null;
+      return stacked.close().then(() => {
+        if (!activeOverlay) return undefined;
+        if (options.restoreNavId !== undefined) {
+          closeRestoreNavId = options.restoreNavId;
+        }
+        return activeOverlay.close();
+      });
+    }
+
     if (!activeOverlay) return Promise.resolve();
 
     if (options.restoreNavId !== undefined) {

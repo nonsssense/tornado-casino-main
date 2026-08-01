@@ -27,6 +27,13 @@ let reconnectTimer = 0;
 let shouldReconnect = false;
 
 /**
+ * Bumped on every connect/disconnect so superseded sockets cannot schedule
+ * ghost reconnects or deliver events after intentional teardown.
+ * @type {number}
+ */
+let connectGeneration = 0;
+
+/**
  * @param {unknown} error
  * @returns {string}
  */
@@ -87,6 +94,30 @@ function buildWebSocketUrl() {
   return `${protocol}//${window.location.host}/crash/ws`;
 }
 
+function clearReconnectTimer() {
+  if (reconnectTimer) {
+    window.clearTimeout(reconnectTimer);
+    reconnectTimer = 0;
+  }
+}
+
+/**
+ * Close the active socket without flipping reconnect policy.
+ * Invalidates the previous generation so its close handler is inert.
+ */
+function closeActiveSocket() {
+  clearReconnectTimer();
+  connectGeneration += 1;
+  if (!socket) return;
+  const active = socket;
+  socket = null;
+  try {
+    active.close();
+  } catch {
+    // ignore
+  }
+}
+
 export const crashService = {
   /**
    * @returns {Promise<object>}
@@ -125,17 +156,20 @@ export const crashService = {
   async placeBet(amount) {
     try {
       const result = await placeCrashBet({ amount });
-      await balanceService.fetchBalances();
+      void balanceService.fetchBalances().catch(() => {});
       return result;
     } catch (error) {
       throw new Error(getCrashErrorMessage(error));
     }
   },
 
-  async cashout() {
+  /**
+   * @param {number|string} betId
+   */
+  async cashout(betId) {
     try {
-      const result = await cashoutCrash();
-      await balanceService.fetchBalances();
+      const result = await cashoutCrash({ bet_id: Number(betId) });
+      void balanceService.fetchBalances().catch(() => {});
       return result;
     } catch (error) {
       throw new Error(getCrashErrorMessage(error));
@@ -151,17 +185,21 @@ export const crashService = {
    * }} handlers
    */
   connect(handlers = {}) {
-    this.disconnect();
+    closeActiveSocket();
     shouldReconnect = true;
 
+    const myGeneration = connectGeneration;
     const url = buildWebSocketUrl();
-    socket = new WebSocket(url);
+    const nextSocket = new WebSocket(url);
+    socket = nextSocket;
 
-    socket.addEventListener('open', () => {
+    nextSocket.addEventListener('open', () => {
+      if (myGeneration !== connectGeneration || socket !== nextSocket) return;
       handlers.onOpen?.();
     });
 
-    socket.addEventListener('message', (event) => {
+    nextSocket.addEventListener('message', (event) => {
+      if (myGeneration !== connectGeneration || socket !== nextSocket) return;
       try {
         const payload = JSON.parse(event.data);
         if (!payload || typeof payload !== 'object') return;
@@ -171,37 +209,34 @@ export const crashService = {
       }
     });
 
-    socket.addEventListener('close', () => {
+    nextSocket.addEventListener('close', () => {
+      if (myGeneration !== connectGeneration) return;
+      if (socket === nextSocket) socket = null;
       handlers.onClose?.();
       if (!shouldReconnect) return;
+      clearReconnectTimer();
       reconnectTimer = window.setTimeout(() => {
-        if (shouldReconnect) {
-          this.connect(handlers);
-        }
+        reconnectTimer = 0;
+        if (!shouldReconnect || myGeneration !== connectGeneration) return;
+        this.connect(handlers);
       }, 1500);
     });
 
-    socket.addEventListener('error', (error) => {
+    nextSocket.addEventListener('error', (error) => {
+      if (myGeneration !== connectGeneration || socket !== nextSocket) return;
       handlers.onError?.(error);
     });
   },
 
   disconnect() {
     shouldReconnect = false;
+    closeActiveSocket();
+  },
 
-    if (reconnectTimer) {
-      window.clearTimeout(reconnectTimer);
-      reconnectTimer = 0;
-    }
-
-    if (socket) {
-      const active = socket;
-      socket = null;
-      try {
-        active.close();
-      } catch {
-        // ignore
-      }
-    }
+  /**
+   * @returns {boolean}
+   */
+  isConnected() {
+    return Boolean(socket && socket.readyState === WebSocket.OPEN);
   },
 };

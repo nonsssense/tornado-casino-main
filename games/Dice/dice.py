@@ -7,7 +7,7 @@ from log_manager import log
 
 def getChance(limit, over):
     if over:
-        return 99 - limit
+        return 100 - limit
     return limit
 
 
@@ -22,30 +22,19 @@ def get_payout(won, bid, factor: float):
     return -bid
 
 
-def resolve_roll(limit: int, over: bool, roll_result: int) -> bool:
+def resolve_roll(limit: int, over: bool, roll: int) -> bool:
     """Existing over/under comparison — unchanged."""
     if over:
-        return limit < roll_result
-    return limit > roll_result
+        return roll >= limit
+    return roll < limit
 
 
 def roll_from_provably_fair(server_seed: str, client_seed: str, nonce: int) -> int:
-    """
-    Map existing ProvablyFair.getHmac digest to a Dice roll 0–99.
-
-    Does not modify ProvablyFair. Uses getHmac exactly as Crash does; only the
-    mapping from digest bytes → 0..99 is Dice-specific.
-    """
     digest = ProvablyFair.getHmac(server_seed, client_seed, nonce)
     return int.from_bytes(digest[:4], "big") % 100
 
 
 def evaluate_dice(bid, limit, over, server_seed, client_seed, nonce):
-    """
-    Pure Dice evaluation: PF roll + existing chance / factor / payout math.
-
-    Returns everything needed to persist the `dice` row and settle the bet.
-    """
     roll_result = roll_from_provably_fair(server_seed, client_seed, nonce)
     won = resolve_roll(limit, over, roll_result)
     chance = getChance(limit, over)

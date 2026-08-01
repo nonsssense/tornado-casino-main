@@ -5,17 +5,30 @@ from __future__ import annotations
 import asyncio
 import math
 import time
+from typing import TypedDict
 
 from fastapi import HTTPException
 
 from database.bet import Bet
-from database.crash import CrashDatabase
+from database.bonus import BonusManager
+from database.crash import CrashDatabase, format_crash_player_name
 from database.db_config import engine
 from database.transactions import TransactionManager
-from database.wallet import BALANCE_REAL, WalletManager
+from database.wallet import (
+    BALANCE_REAL,
+    BALANCE_BONUS,
+    WalletManager,
+    lock_wallet,
+    allocate_cash_first_stake,
+    split_payout_pro_rata,
+    balance_type_for_parts,
+)
 from exceptions import notEnoughBalance
+from games.bet_limits import validate_crash_bet
 from games.provably_fair import ProvablyFair
+from promo.promo_manager import PromotionManager
 from log_manager import log
+import sqlalchemy as sa
 
 
 # Soft growth curve shared with the frontend animation.
@@ -24,6 +37,17 @@ from log_manager import log
 # Provably Fair crash points are independent of this curve.
 GROWTH_RATE = 0.00062204
 GROWTH_POWER = 0.75
+
+
+class ActiveCrashBet(TypedDict):
+    user_id: int
+    crash_id: int
+    amount: float
+    bet_tx_id: int
+    bet_id: int
+    crash_stats_id: int
+    wallet_id: int
+    placed_at: float
 
 
 class CrashManager:
@@ -107,8 +131,14 @@ class CrashGameLoop:
         self.round_start_time = None
         self.betting_ends_at = None
 
-        # user_id -> bet payload (includes bet_id + crash_stats_id)
-        self.active_bets = {}
+        # Canonical runtime storage is bet_id -> bet payload.
+        self.active_bets: dict[int, ActiveCrashBet] = {}
+        # Secondary ownership index used for per-user limits and compatibility APIs.
+        self.user_bets: dict[int, set[int]] = {}
+        # Current-round settlements (cashed out / lost) for reconnect snapshots.
+        # Cleared on each ROUND_OPEN. Not durable across process restart.
+        self.round_settlements: dict[int, dict] = {}
+        self.phase_ends_at = None
         self._lock = asyncio.Lock()
         self._running = False
 
@@ -146,20 +176,28 @@ class CrashGameLoop:
     # ------------------------------------------------------------------
 
     def get_state(self, viewer_user_id=None) -> dict:
+        now = time.time()
         payload = {
             "state": self.state,
             "round_id": self.current_round,
             "crash_id": self.crash_id,
+            "server_time": now,
             "time_left": None,
             "start_time": None,
+            "phase_ends_at": None,
             "crash_multiplier": None,
             "server_seed_hash": self.manager.server_seed_hash,
             "active_bets": self._serialize_active_bets(),
+            "active_bet_count": len(self.active_bets),
+            "my_bets": [],
             "my_bet": None,
+            "my_settled": [],
+            "can_cashout": False,
         }
 
         if self.state == self.STATE_BETTING and self.betting_ends_at is not None:
-            payload["time_left"] = max(0.0, self.betting_ends_at - time.time())
+            payload["time_left"] = max(0.0, self.betting_ends_at - now)
+            payload["phase_ends_at"] = self.betting_ends_at
 
         if self.state == self.STATE_FLYING:
             payload["start_time"] = self.round_start_time
@@ -167,67 +205,178 @@ class CrashGameLoop:
         if self.state == self.STATE_CRASHED:
             payload["crash_multiplier"] = self.current_crash
             payload["start_time"] = self.round_start_time
+            if self.phase_ends_at is not None:
+                payload["phase_ends_at"] = self.phase_ends_at
 
         if viewer_user_id is not None:
-            mine = self.active_bets.get(viewer_user_id)
-            if mine is not None:
-                payload["my_bet"] = {
-                    "amount": mine["amount"],
-                    "bet_id": mine["bet_id"],
-                }
+            mine_ids = self._get_user_bet_ids(viewer_user_id)
+            my_bets = []
+            for bet_id in mine_ids:
+                mine = self.active_bets[bet_id]
+                my_bets.append(
+                    {
+                        "amount": mine["amount"],
+                        "bet_id": mine["bet_id"],
+                    }
+                )
+            payload["my_bets"] = my_bets
+            # Temporary compatibility for clients that still consume one bet.
+            payload["my_bet"] = my_bets[0] if my_bets else None
+            payload["my_settled"] = self._serialize_my_settled(viewer_user_id)
+            payload["can_cashout"] = (
+                self.state == self.STATE_FLYING and len(my_bets) > 0
+            )
 
         return payload
+
+    def _serialize_my_settled(self, viewer_user_id: int) -> list:
+        rows = []
+        for bet_id in sorted(self.round_settlements):
+            row = self.round_settlements[bet_id]
+            if row.get("user_id") != viewer_user_id:
+                continue
+            rows.append(
+                {
+                    "bet_id": row["bet_id"],
+                    "amount": row["amount"],
+                    "status": row["status"],
+                    "multiplier": row.get("multiplier"),
+                    "payout": row.get("payout", 0),
+                    "profit": row.get("profit", 0),
+                }
+            )
+        return rows
+
+    def _record_settlement(
+        self,
+        *,
+        bet_id: int,
+        user_id: int,
+        amount: float,
+        status: str,
+        multiplier: float | None,
+        payout: float,
+        profit: float,
+    ) -> None:
+        self.round_settlements[bet_id] = {
+            "bet_id": bet_id,
+            "user_id": user_id,
+            "amount": float(amount),
+            "status": status,
+            "multiplier": multiplier,
+            "payout": float(payout),
+            "profit": float(profit),
+        }
 
     def _serialize_active_bets(self) -> list:
         if not self.active_bets:
             return []
 
-        names = CrashDatabase.get_user_display_names(self.active_bets.keys())
+        user_ids = {bet["user_id"] for bet in self.active_bets.values()}
+        names = CrashDatabase.get_user_display_names(user_ids)
         rows = []
-        for user_id, bet in self.active_bets.items():
+        for bet_id, bet in sorted(self.active_bets.items()):
+            user_id = bet["user_id"]
             rows.append(
                 {
                     "user_id": user_id,
-                    "username": names.get(user_id, f"Player {user_id}"),
+                    "username": names.get(
+                        user_id,
+                        format_crash_player_name(user_id),
+                    ),
                     "amount": bet["amount"],
-                    "bet_id": bet["bet_id"],
+                    "bet_id": bet_id,
                 }
             )
         return rows
+
+    def _get_user_bet_ids(self, user_id: int) -> tuple[int, ...]:
+        """Return this user's active bet IDs in deterministic order."""
+        return tuple(
+            bet_id
+            for bet_id in sorted(self.user_bets.get(user_id, set()))
+            if bet_id in self.active_bets
+        )
+
+    def _remove_active_bet(self, bet_id: int) -> ActiveCrashBet | None:
+        """Remove a bet from canonical storage and its ownership index."""
+        bet = self.active_bets.pop(bet_id, None)
+        if bet is None:
+            return None
+
+        user_id = bet["user_id"]
+        owned_bets = self.user_bets.get(user_id)
+        if owned_bets is not None:
+            owned_bets.discard(bet_id)
+            if not owned_bets:
+                self.user_bets.pop(user_id, None)
+
+        return bet
 
     # ------------------------------------------------------------------
     # Betting / cashout (called from router)
     # ------------------------------------------------------------------
 
     async def place_bet(self, user_id: int, amount: float) -> dict:
-        if amount <= 0:
-            raise HTTPException(status_code=400, detail="Bet amount must be positive")
-
         async with self._lock:
             if self.state != self.STATE_BETTING:
                 raise HTTPException(status_code=409, detail="Bets are closed")
 
             if self.crash_id is None:
                 raise HTTPException(status_code=409, detail="Round not ready")
+            crash_id = self.crash_id
 
-            if user_id in self.active_bets:
-                raise HTTPException(status_code=409, detail="Already have an active bet")
+            user_bet_ids = self._get_user_bet_ids(user_id)
+            if len(user_bet_ids) >= 2:
+                raise HTTPException(
+                    status_code=409,
+                    detail="Maximum of two active bets reached",
+                )
+
+            existing_total = sum(
+                float(self.active_bets[bet_id]["amount"]) for bet_id in user_bet_ids
+            )
+            amount = validate_crash_bet(amount, existing_total=existing_total)
 
             wallet = WalletManager(user_id)
             wallet_id = wallet.ensureWallet()
 
             with engine.begin() as conn:
-                if not wallet.hasEnoughBalance(
-                    wallet_id, amount, BALANCE_REAL, conn=conn
-                ):
+                locked = lock_wallet(conn, user_id, wallet_id)
+                if locked is None:
                     raise notEnoughBalance()
 
-                bet_tx_id = self._debit_real(
-                    conn, wallet, user_id, wallet_id, amount, "crash bet"
+                real_bal = float(locked["real_balance"] or 0)
+                bonus_bal = float(locked.get("bonus_balance") or 0)
+                try:
+                    real_part, bonus_part = allocate_cash_first_stake(
+                        real_bal, bonus_bal, amount
+                    )
+                except Exception:
+                    raise notEnoughBalance() from None
+
+                if bonus_part > 0:
+                    try:
+                        BonusManager(user_id).validateBonusBet(
+                            amount, "crash", conn=conn
+                        )
+                    except ValueError as exc:
+                        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+                bet_tx_id, balance_type = self._debit_split(
+                    conn, wallet, user_id, wallet_id, real_part, bonus_part, "crash bet"
                 )
 
-                bet_row = Bet(user_id, bet_tx_id, BALANCE_REAL)
-                bet_id = bet_row.createBet(conn, "crash", amount, "Pending", 0)
+                bet_row = Bet(user_id, bet_tx_id, balance_type)
+                bet_id = bet_row.createBet(
+                    conn,
+                    "crash",
+                    amount,
+                    "Pending",
+                    0,
+                    real_part=real_part,
+                    bonus_part=bonus_part,
+                )
 
                 crash_stats_id = CrashDatabase.insert_active_bet(
                     crash_id=self.crash_id,
@@ -236,18 +385,26 @@ class CrashGameLoop:
                     conn=conn,
                 )
 
-            self.active_bets[user_id] = {
+            self.active_bets[bet_id] = {
                 "user_id": user_id,
+                "crash_id": crash_id,
                 "amount": float(amount),
+                "real_part": float(real_part),
+                "bonus_part": float(bonus_part),
+                "balance_type": balance_type,
                 "bet_tx_id": bet_tx_id,
                 "bet_id": bet_id,
                 "crash_stats_id": crash_stats_id,
                 "wallet_id": wallet_id,
                 "placed_at": time.time(),
             }
+            self.user_bets.setdefault(user_id, set()).add(bet_id)
 
             names = CrashDatabase.get_user_display_names([user_id])
-            username = names.get(user_id, f"Player {user_id}")
+            username = names.get(
+                user_id,
+                format_crash_player_name(user_id),
+            )
 
             log.info(
                 f"Crash bet placed | round={self.current_round} | "
@@ -262,6 +419,7 @@ class CrashGameLoop:
                     "username": username,
                     "bet": float(amount),
                     "bet_id": bet_id,
+                    "active_bet_count": len(self.active_bets),
                 }
             )
 
@@ -273,68 +431,135 @@ class CrashGameLoop:
                 "username": username,
             }
 
-    async def cashout(self, user_id: int) -> dict:
+    async def cashout(self, bet_id: int, user_id: int) -> dict:
+        """Cash out one specific bet while verifying ownership."""
         async with self._lock:
-            if self.state != self.STATE_FLYING:
-                raise HTTPException(status_code=409, detail="Round is not flying")
-
-            bet = self.active_bets.get(user_id)
-            if bet is None:
-                raise HTTPException(status_code=404, detail="No active bet")
-
-            if self.round_start_time is None or self.current_crash is None:
-                raise HTTPException(status_code=409, detail="Round not ready")
-
-            current_multiplier = self.get_current_multiplier()
-            if current_multiplier >= self.current_crash:
-                raise HTTPException(status_code=409, detail="Already crashed")
-
-            amount = bet["amount"]
-            payout = round(amount * current_multiplier, 2)
-            profit = round(payout - amount, 2)
-
-            wallet = WalletManager(user_id)
-            with engine.begin() as conn:
-                win_tx_id = self._credit_real(
-                    conn, wallet, user_id, bet["wallet_id"], payout, "crash win"
-                )
-                CrashDatabase.update_bet_outcome(
-                    bet_id=bet["bet_id"],
-                    result="Win",
-                    profit=profit,
-                    win_transaction_id=win_tx_id,
-                    conn=conn,
-                )
-                CrashDatabase.cashout_bet(
-                    crash_stats_id=bet["crash_stats_id"],
-                    profit=profit,
-                    conn=conn,
-                )
-
-            del self.active_bets[user_id]
-
-            event = {
-                "event": "PLAYER_CASHOUT",
-                "user_id": user_id,
-                "bet": amount,
-                "multiplier": current_multiplier,
-                "profit": profit,
-            }
-            await self._broadcast(event)
-
-            log.info(
-                f"Crash cashout | round={self.current_round} | user_id={user_id} | "
-                f"multiplier={current_multiplier} | profit={profit}"
+            return await self._cashout_bet_locked(
+                bet_id=bet_id,
+                expected_user_id=user_id,
             )
 
-            return {
-                "round_id": self.current_round,
-                "user_id": user_id,
-                "bet": amount,
-                "multiplier": current_multiplier,
-                "payout": payout,
-                "profit": profit,
-            }
+    async def _cashout_bet_locked(
+        self,
+        bet_id: int,
+        expected_user_id: int,
+    ) -> dict:
+        if self.state != self.STATE_FLYING:
+            raise HTTPException(status_code=409, detail="Round is not flying")
+
+        bet = self.active_bets.get(bet_id)
+        if bet is None:
+            raise HTTPException(status_code=404, detail="No active bet")
+
+        user_id = bet["user_id"]
+        if user_id != expected_user_id:
+            raise HTTPException(status_code=404, detail="No active bet")
+
+        if bet["crash_id"] != self.crash_id:
+            raise HTTPException(
+                status_code=409,
+                detail="Bet does not belong to the current round",
+            )
+
+        if self.round_start_time is None or self.current_crash is None:
+            raise HTTPException(status_code=409, detail="Round not ready")
+
+        current_multiplier = self.get_current_multiplier()
+        if current_multiplier >= self.current_crash:
+            raise HTTPException(status_code=409, detail="Already crashed")
+
+        amount = bet["amount"]
+        real_part = float(bet.get("real_part") or amount)
+        bonus_part = float(bet.get("bonus_part") or 0)
+        balance_type = bet.get("balance_type") or BALANCE_REAL
+        payout = round(amount * current_multiplier, 2)
+        profit = round(payout - amount, 2)
+
+        wallet = WalletManager(user_id)
+        with engine.begin() as conn:
+            if lock_wallet(conn, user_id, bet["wallet_id"]) is None:
+                raise HTTPException(status_code=409, detail="Wallet not found")
+            real_credit, bonus_credit = split_payout_pro_rata(
+                payout, real_part, bonus_part
+            )
+            win_tx_id = self._credit_split(
+                conn,
+                wallet,
+                user_id,
+                bet["wallet_id"],
+                real_credit,
+                bonus_credit,
+                "crash win",
+                stake=amount,
+                bonus_part=bonus_part,
+            )
+            CrashDatabase.update_bet_outcome(
+                bet_id=bet_id,
+                result="Win",
+                profit=profit,
+                win_transaction_id=win_tx_id,
+                conn=conn,
+            )
+            CrashDatabase.cashout_bet(
+                crash_stats_id=bet["crash_stats_id"],
+                profit=profit,
+                conn=conn,
+            )
+            PromotionManager(user_id).on_bet_settled(
+                user_id=user_id,
+                wallet_id=bet["wallet_id"],
+                stake=amount,
+                balance_type=balance_type,
+                game="crash",
+                conn=conn,
+                real_part=real_part,
+                bonus_part=bonus_part,
+            )
+
+        self._remove_active_bet(bet_id)
+        self._record_settlement(
+            bet_id=bet_id,
+            user_id=user_id,
+            amount=amount,
+            status="cashed_out",
+            multiplier=current_multiplier,
+            payout=payout,
+            profit=profit,
+        )
+
+        names = CrashDatabase.get_user_display_names([user_id])
+        username = names.get(
+            user_id,
+            format_crash_player_name(user_id),
+        )
+
+        event = {
+            "event": "PLAYER_CASHOUT",
+            "user_id": user_id,
+            "username": username,
+            "bet_id": bet_id,
+            "bet": amount,
+            "multiplier": current_multiplier,
+            "profit": profit,
+            "payout": payout,
+            "active_bet_count": len(self.active_bets),
+        }
+        await self._broadcast(event)
+
+        log.info(
+            f"Crash cashout | round={self.current_round} | user_id={user_id} | "
+            f"bet_id={bet_id} | multiplier={current_multiplier} | profit={profit}"
+        )
+
+        return {
+            "round_id": self.current_round,
+            "user_id": user_id,
+            "bet_id": bet_id,
+            "bet": amount,
+            "multiplier": current_multiplier,
+            "payout": payout,
+            "profit": profit,
+        }
 
     # ------------------------------------------------------------------
     # Main loop
@@ -346,6 +571,18 @@ class CrashGameLoop:
         self._running = True
         log.info("Crash game loop started")
 
+        # Single-worker guard: advisory lock held for process lifetime.
+        # A second worker will fail to acquire and refuse to run the loop.
+        if not self._acquire_singleton_lock():
+            log.error(
+                "Crash loop refused: another worker holds the crash singleton lock. "
+                "Run Crash with exactly one process/worker."
+            )
+            self._running = False
+            return
+
+        self.recover_unsettled_bets_on_boot()
+
         while True:
             try:
                 await self._run_round()
@@ -353,32 +590,132 @@ class CrashGameLoop:
                 log.exception("Crash game loop round failed; restarting after delay")
                 await asyncio.sleep(1)
 
+    def _acquire_singleton_lock(self) -> bool:
+        """PostgreSQL session-level advisory lock held for process lifetime."""
+        try:
+            raw = engine.raw_connection()
+            cur = raw.cursor()
+            cur.execute("SELECT pg_try_advisory_lock(%s)", (87421001,))
+            got = cur.fetchone()[0]
+            if not got:
+                cur.close()
+                raw.close()
+                return False
+            self._lock_conn = raw
+            self._lock_cur = cur
+            log.info("Crash singleton advisory lock acquired")
+            return True
+        except Exception:
+            log.exception("Crash singleton advisory lock failed")
+            return False
+
+    def recover_unsettled_bets_on_boot(self):
+        """
+        After restart, refund any crash bets still Pending / unresolved in DB.
+
+        Architecture limit remains: in-memory active_bets cannot survive restart;
+        this recovery prevents permanently lost debits.
+        """
+        from database.crash.crash_db import crash_stats_table
+        from database.db_config import bet_table
+
+        try:
+            with engine.begin() as conn:
+                rows = conn.execute(
+                    sa.select(
+                        crash_stats_table.c.id,
+                        crash_stats_table.c.bet_id,
+                        crash_stats_table.c.user_id,
+                        bet_table.c.bet_amount,
+                    )
+                    .select_from(
+                        crash_stats_table.join(
+                            bet_table, bet_table.c.id == crash_stats_table.c.bet_id
+                        )
+                    )
+                    .where(
+                        crash_stats_table.c.bet_result.is_(None),
+                        bet_table.c.result == "Pending",
+                        bet_table.c.game == "crash",
+                    )
+                ).mappings().all()
+
+                for row in rows:
+                    user_id = row["user_id"]
+                    amount = float(row["bet_amount"])
+                    bet_id = row["bet_id"]
+                    stats_id = row["id"]
+                    wallet = WalletManager(user_id)
+                    wallet_id = wallet.ensureWallet()
+                    if lock_wallet(conn, user_id, wallet_id) is None:
+                        log.error(
+                            f"Crash recovery skip — wallet missing | user_id={user_id}"
+                        )
+                        continue
+                    balances = wallet.apply_balance_deltas(
+                        conn, wallet_id, real_delta=amount
+                    )
+                    TransactionManager(
+                        user_id=user_id,
+                        wallet_id=wallet_id,
+                        balance_type=BALANCE_REAL,
+                        transaction_type="crash restart refund",
+                        amount=amount,
+                        balance_after=balances["real_balance"],
+                        status="Done",
+                        reference_id=str(bet_id),
+                    ).postTransaction(conn)
+                    CrashDatabase.update_bet_outcome(
+                        bet_id=bet_id,
+                        result="Refund",
+                        profit=0,
+                        conn=conn,
+                    )
+                    conn.execute(
+                        sa.update(crash_stats_table)
+                        .where(
+                            crash_stats_table.c.id == stats_id,
+                            crash_stats_table.c.bet_result.is_(None),
+                        )
+                        .values(bet_result="Refund", result=0)
+                    )
+                    log.warning(
+                        f"Crash boot refund | user_id={user_id} | bet_id={bet_id} | "
+                        f"amount={amount}"
+                    )
+        except Exception:
+            log.exception("Crash unsettled-bet recovery failed")
+
     async def _run_round(self):
         # -------------------- BETTING (crash_id ready for stats INSERT) --------------------
         async with self._lock:
             if self.active_bets:
+                unresolved_user_ids = sorted(
+                    {bet["user_id"] for bet in self.active_bets.values()}
+                )
                 log.error(
                     f"Starting round with unresolved active bets | "
                     f"count={len(self.active_bets)} | "
-                    f"user_ids={list(self.active_bets.keys())}"
+                    f"bet_ids={list(self.active_bets.keys())} | "
+                    f"user_ids={unresolved_user_ids}"
                 )
 
             self.current_round += 1
             self.state = self.STATE_BETTING
             self.round_start_time = None
+            self.round_settlements.clear()
             self.betting_ends_at = time.time() + self.BETTING_TIME
+            self.phase_ends_at = self.betting_ends_at
 
-            # Generate + persist round up front so place_bet can INSERT crash_stats.
-            # Multiplier is never broadcast until ROUND_END.
+            # Generate crash point in memory only. Persist an unrevealed crash
+            # row so place_bet can INSERT crash_stats — the multiplier must not
+            # be readable (history API / DB public reads) until ROUND_END.
             crash_multiplier = self.manager.returnGameResult()
             self.current_crash = crash_multiplier
-            multipier_int = int(round(crash_multiplier * 100))
             self.crash_id = CrashDatabase.insert_crash_round(
                 game_seed_used=self.manager.game_seed,
                 hash_server_seed_used=self.manager.server_seed_hash,
                 nonce_used=self.manager.last_nonce_used,
-                multipier_result=multipier_int,
-                instant_crash=self.manager.last_instant_crash,
             )
 
             round_id = self.current_round
@@ -389,6 +726,7 @@ class CrashGameLoop:
                 "event": "ROUND_OPEN",
                 "round_id": round_id,
                 "time_left": time_left,
+                "active_bet_count": len(self.active_bets),
             }
         )
 
@@ -398,6 +736,7 @@ class CrashGameLoop:
         async with self._lock:
             self.state = self.STATE_FLYING
             self.round_start_time = time.time()
+            self.phase_ends_at = None
             start_time = self.round_start_time
             crash_delay = self.time_to_crash(self.current_crash)
             crash_time = self.round_start_time + crash_delay
@@ -416,13 +755,30 @@ class CrashGameLoop:
         # -------------------- CRASHED --------------------
         async with self._lock:
             self.state = self.STATE_CRASHED
+            self.phase_ends_at = time.time() + self.ROUND_END_DELAY
             await self._resolve_lost_bets()
             final_crash = self.current_crash
+            multipier_int = int(round(final_crash * 100))
+            try:
+                # Persist only after the round has crashed so /history cannot
+                # expose the future multiplier to mid-round joiners.
+                CrashDatabase.reveal_crash_round(
+                    crash_id=self.crash_id,
+                    multipier_result=multipier_int,
+                    instant_crash=self.manager.last_instant_crash,
+                )
+            except Exception:
+                log.exception(
+                    f"Failed to reveal crash round in DB | crash_id={self.crash_id} | "
+                    f"multipier={multipier_int}"
+                )
 
         await self._broadcast(
             {
                 "event": "ROUND_END",
+                "round_id": round_id,
                 "crash_multiplier": final_crash,
+                "active_bet_count": len(self.active_bets),
             }
         )
 
@@ -435,14 +791,18 @@ class CrashGameLoop:
         Only successfully settled bets are removed from active_bets.
         Failures stay in memory for visibility / later retry — never discarded.
         """
-        failed = []
+        failed_bet_ids: list[int] = []
 
-        for user_id, bet in list(self.active_bets.items()):
+        for bet_id, bet in list(self.active_bets.items()):
+            user_id = bet["user_id"]
             amount = bet["amount"]
+            real_part = float(bet.get("real_part") or amount)
+            bonus_part = float(bet.get("bonus_part") or 0)
+            balance_type = bet.get("balance_type") or BALANCE_REAL
             try:
                 with engine.begin() as conn:
                     CrashDatabase.update_bet_outcome(
-                        bet_id=bet["bet_id"],
+                        bet_id=bet_id,
                         result="Lose",
                         profit=-amount,
                         conn=conn,
@@ -452,25 +812,45 @@ class CrashGameLoop:
                         bet_amount=amount,
                         conn=conn,
                     )
-                del self.active_bets[user_id]
+                    PromotionManager(user_id).on_bet_settled(
+                        user_id=user_id,
+                        wallet_id=bet["wallet_id"],
+                        stake=amount,
+                        balance_type=balance_type,
+                        game="crash",
+                        conn=conn,
+                        real_part=real_part,
+                        bonus_part=bonus_part,
+                    )
+                self._remove_active_bet(bet_id)
+                self._record_settlement(
+                    bet_id=bet_id,
+                    user_id=user_id,
+                    amount=amount,
+                    status="lost",
+                    multiplier=self.current_crash,
+                    payout=0,
+                    profit=-amount,
+                )
             except Exception:
-                failed.append(user_id)
+                failed_bet_ids.append(bet_id)
                 log.exception(
                     f"Failed to settle lost crash bet | crash_id={self.crash_id} | "
-                    f"user_id={user_id} | bet_id={bet.get('bet_id')} | "
+                    f"user_id={user_id} | bet_id={bet_id} | "
                     f"crash_stats_id={bet.get('crash_stats_id')}"
                 )
 
-        if failed:
+        if failed_bet_ids:
             log.error(
                 f"Unresolved crash bets remain in active_bets | "
-                f"crash_id={self.crash_id} | failed_user_ids={failed} | "
-                f"remaining={list(self.active_bets.keys())}"
+                f"crash_id={self.crash_id} | failed_bet_ids={failed_bet_ids} | "
+                f"remaining_bet_ids={list(self.active_bets.keys())}"
             )
         elif self.active_bets:
             log.error(
                 f"active_bets not empty after resolve with no recorded failures | "
-                f"crash_id={self.crash_id} | remaining={list(self.active_bets.keys())}"
+                f"crash_id={self.crash_id} | "
+                f"remaining_bet_ids={list(self.active_bets.keys())}"
             )
 
     async def _broadcast(self, message: dict):
@@ -479,35 +859,117 @@ class CrashGameLoop:
         await self.ws_manager.broadcast(message)
 
     # ------------------------------------------------------------------
-    # REAL-balance wallet helpers only
+    # Wallet helpers — cash-first split (Welcome Bonus MVP)
     # ------------------------------------------------------------------
 
+    def _debit_split(
+        self, conn, wallet, user_id, wallet_id, real_part, bonus_part, tx_type
+    ):
+        balance_type = balance_type_for_parts(real_part, bonus_part)
+        primary_tx_id = None
+        if real_part > 0:
+            balances = wallet.apply_balance_deltas(
+                conn, wallet_id, real_delta=-float(real_part)
+            )
+            primary_tx_id = TransactionManager(
+                user_id=user_id,
+                wallet_id=wallet_id,
+                balance_type=BALANCE_REAL,
+                transaction_type=tx_type,
+                amount=-float(real_part),
+                balance_after=balances["real_balance"],
+            ).postTransaction(conn)
+        if bonus_part > 0:
+            balances = wallet.apply_balance_deltas(
+                conn, wallet_id, bonus_delta=-float(bonus_part)
+            )
+            tx_id = TransactionManager(
+                user_id=user_id,
+                wallet_id=wallet_id,
+                balance_type=BALANCE_BONUS,
+                transaction_type=tx_type,
+                amount=-float(bonus_part),
+                balance_after=balances["bonus_balance"],
+            ).postTransaction(conn)
+            if primary_tx_id is None:
+                primary_tx_id = tx_id
+        return primary_tx_id, balance_type
+
+    def _credit_split(
+        self,
+        conn,
+        wallet,
+        user_id,
+        wallet_id,
+        real_credit,
+        bonus_credit,
+        tx_type,
+        stake=None,
+        bonus_part=None,
+    ):
+        win_tx_id = None
+        credited_real = float(real_credit or 0)
+        credited_bonus = float(bonus_credit or 0)
+        if credited_bonus > 0:
+            credited_bonus = BonusManager(user_id).capBonusWin(
+                stake if stake is not None else credited_bonus,
+                credited_bonus,
+                conn=conn,
+                bonus_part=bonus_part if bonus_part is not None else credited_bonus,
+            )
+        if credited_real > 0:
+            balances = wallet.apply_balance_deltas(
+                conn, wallet_id, real_delta=credited_real
+            )
+            win_tx_id = TransactionManager(
+                user_id=user_id,
+                wallet_id=wallet_id,
+                balance_type=BALANCE_REAL,
+                transaction_type=tx_type,
+                amount=credited_real,
+                balance_after=balances["real_balance"],
+            ).postTransaction(conn)
+        if credited_bonus > 0:
+            balances = wallet.apply_balance_deltas(
+                conn, wallet_id, bonus_delta=credited_bonus
+            )
+            tx_id = TransactionManager(
+                user_id=user_id,
+                wallet_id=wallet_id,
+                balance_type=BALANCE_BONUS,
+                transaction_type=tx_type,
+                amount=credited_bonus,
+                balance_after=balances["bonus_balance"],
+            ).postTransaction(conn)
+            if win_tx_id is None:
+                win_tx_id = tx_id
+        return win_tx_id
+
     def _debit_real(self, conn, wallet, user_id, wallet_id, amount, tx_type):
-        balance = wallet.getRealBalance(wallet_id, conn=conn)
-        if balance < amount:
-            raise notEnoughBalance()
-        balance_after = balance - amount
-        wallet.updateRealBalance(conn, balance_after)
+        # Legacy helper kept for boot-refund path (REAL-only restores).
+        balances = wallet.apply_balance_deltas(
+            conn, wallet_id, real_delta=-float(amount)
+        )
         return TransactionManager(
             user_id=user_id,
             wallet_id=wallet_id,
             balance_type=BALANCE_REAL,
             transaction_type=tx_type,
-            amount=-amount,
-            balance_after=balance_after,
+            amount=-float(amount),
+            balance_after=balances["real_balance"],
         ).postTransaction(conn)
 
     def _credit_real(self, conn, wallet, user_id, wallet_id, amount, tx_type):
-        balance = wallet.getRealBalance(wallet_id, conn=conn)
-        balance_after = balance + amount
-        wallet.updateRealBalance(conn, balance_after)
+        balances = wallet.apply_balance_deltas(
+            conn, wallet_id, real_delta=float(amount)
+        )
         return TransactionManager(
             user_id=user_id,
             wallet_id=wallet_id,
             balance_type=BALANCE_REAL,
             transaction_type=tx_type,
-            amount=amount,
-            balance_after=balance_after,
+            amount=float(amount),
+            balance_after=balances["real_balance"],
         ).postTransaction(conn)
 
 

@@ -1,42 +1,29 @@
 /**
- * Withdraw view — withdraw panel content for the wallet modal.
+ * Withdraw view — crypto withdraw + bank coming-soon.
+ * Matches Deposit layout language: method split, currency/network pair, premium fields.
  */
 
 import { createElement } from '../../utils/dom.js';
 import { WITHDRAW_ADDRESS_PLACEHOLDER } from '../../utils/wallet.constants.js';
-import { formatCryptoAmount } from '../../utils/format.js';
+import { formatUsd } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
 import { t } from '../../i18n/index.js';
-import { getCoinNetwork, getCoinSymbol, getDefaultNetworkId } from './wallet.utils.js';
+import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
 import { Button } from '../../components/base/Button.js';
 import { Input } from '../../components/base/Input.js';
 import { Toast } from '../../components/base/Toast.js';
-import { CoinSelector } from '../../components/shared/CoinSelector.js';
-import { NetworkSelector } from '../../components/shared/NetworkSelector.js';
 import { AmountInput, updateAmountInputCurrency } from '../../components/shared/AmountInput.js';
+import { MethodSelector } from '../../components/shared/MethodSelector.js';
+import { createCoinNetworkPair } from '../../components/shared/CoinNetworkPair.js';
 
 const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
-/**
- * @param {Array<object>} networks
- * @returns {Array<object>}
- */
-function resolveNetworkOptions(networks) {
-  return networks.map((option) => ({
-    ...option,
-    label: t(option.labelKey),
-    networkLabel: t(option.networkKey),
-  }));
-}
+const PERCENT_SHORTCUTS = [25, 50, 75, 100];
 
 /**
  * @param {object} [options]
- * @param {function} [options.getCoinId]
- * @param {function} [options.getNetworkId]
- * @param {function} [options.onCoinSelect]
- * @param {function} [options.onNetworkSelect]
- * @returns {{ element: HTMLElement, setCoinId: (coinId: string) => void, setNetworkId: (networkId: string) => void }}
+ * @returns {{ element: HTMLElement, setCoinId: Function, setNetworkId: Function, destroy: Function }}
  */
 export function createWithdrawView(options = {}) {
   const {
@@ -47,16 +34,23 @@ export function createWithdrawView(options = {}) {
   } = options;
 
   const state = {
+    method: 'crypto',
     amount: '',
     address: '',
     amountError: '',
-    minimum: null,
+    minimumUsd: null,
     submitting: false,
+    activePercent: null,
   };
 
-  const coinGridMount = createElement('div');
-  const networkMount = createElement('div');
+  /** @type {{ element: HTMLElement, setCoinId: Function, setNetworkId: Function, destroy: Function }|null} */
+  let coinNetworkPair = null;
+
+  const methodMount = createElement('div', { className: 'wallet-view__method-slot' });
+  const mainMount = createElement('div', { className: 'wallet-view__main' });
+  const pairMount = createElement('div', { className: 'wallet-view__pair-slot' });
   const amountMount = createElement('div');
+  const percentMount = createElement('div', { className: 'wallet-view__percent-row' });
   const addressMount = createElement('div');
   const infoMount = createElement('div');
   const actionMount = createElement('div');
@@ -78,44 +72,82 @@ export function createWithdrawView(options = {}) {
     return getCoinNetwork(getCoinId(), getNetworkId());
   }
 
-  function updateCoinGrid() {
-    coinGridMount.replaceChildren(
-      CoinSelector({
-        activeId: getCoinId(),
-        onSelect: (coinId) => {
-          if (getCoinId() === coinId) return;
-          if (onCoinSelect) onCoinSelect(coinId);
+  function updateMethodSelector() {
+    methodMount.replaceChildren(
+      MethodSelector({
+        activeId: state.method,
+        onSelect: (methodId) => {
+          if (state.method === methodId) return;
+          state.method = methodId;
+          updateMethodSelector();
+          renderMain();
         },
       }),
     );
   }
 
-  function updateNetwork() {
-    const ctx = currentContext();
+  function mountCoinNetworkPair() {
+    coinNetworkPair?.destroy?.();
+    coinNetworkPair = createCoinNetworkPair({
+      coinId: getCoinId(),
+      networkId: getNetworkId(),
+      onCoinSelect: (coinId) => {
+        if (getCoinId() === coinId) return;
+        onCoinSelect?.(coinId);
+      },
+      onNetworkSelect: (networkId) => {
+        if (getNetworkId() === networkId) return;
+        onNetworkSelect?.(networkId);
+      },
+    });
+    pairMount.replaceChildren(coinNetworkPair.element);
+  }
 
-    if (!ctx) {
-      networkMount.replaceChildren();
-      return;
+  async function getWithdrawableBalance() {
+    const balances = await balanceService.fetchBalances();
+    return Number(balances.withdrawable ?? balances.real ?? 0);
+  }
+
+  function formatAmountValue(value) {
+    if (!Number.isFinite(value) || value <= 0) return '0';
+    const rounded = Math.round(value * 100) / 100;
+    return String(rounded);
+  }
+
+  async function applyPercent(percent) {
+    try {
+      const available = await getWithdrawableBalance();
+      const next = formatAmountValue((available * percent) / 100);
+      state.amount = next;
+      state.activePercent = percent;
+      state.amountError = '';
+      renderAmountField();
+      renderPercentShortcuts();
+      updateSubmitButton();
+    } catch {
+      Toast({
+        message: t('wallet.withdraw.error.generic'),
+        type: 'error',
+        duration: 2500,
+      });
     }
+  }
 
-    const multiNetwork = ctx.networks.length > 1;
-
-    networkMount.replaceChildren(
-      NetworkSelector({
-        networkLabel: t(ctx.network.networkKey),
-        label: t(ctx.network.labelKey),
-        iconSrc: ctx.network.icon,
-        className: 'wallet-view__network',
-        options: resolveNetworkOptions(ctx.networks),
-        activeId: ctx.network.id,
-        onSelect: multiNetwork
-          ? (networkId) => {
-            if (getNetworkId() === networkId) return;
-            if (onNetworkSelect) onNetworkSelect(networkId);
-          }
-          : undefined,
-        disabled: !multiNetwork,
-      }),
+  function renderPercentShortcuts() {
+    percentMount.replaceChildren(
+      ...PERCENT_SHORTCUTS.map((percent) =>
+        createElement('button', {
+          className: [
+            'wallet-view__percent-btn',
+            state.activePercent === percent ? 'wallet-view__percent-btn--active' : '',
+          ].filter(Boolean).join(' '),
+          attrs: {
+            type: 'button',
+            onClick: () => void applyPercent(percent),
+          },
+          text: `${percent}%`,
+        }),
+      ),
     );
   }
 
@@ -129,17 +161,31 @@ export function createWithdrawView(options = {}) {
       className: 'wallet-view__amount',
       onInput: (event) => {
         state.amount = event.target.value;
+        state.activePercent = null;
         amountFieldRoot?.classList.toggle('amount-input--has-value', Boolean(state.amount));
+        renderPercentShortcuts();
         if (state.amountError) {
           state.amountError = '';
           renderAmountField();
         }
+        updateSubmitButton();
       },
       onMaxClick: async () => {
-        const balances = await balanceService.fetchBalances();
-        state.amount = String(balances.real);
-        state.amountError = '';
-        renderAmountField();
+        try {
+          const available = await getWithdrawableBalance();
+          state.amount = formatAmountValue(available);
+          state.activePercent = 100;
+          state.amountError = '';
+          renderAmountField();
+          renderPercentShortcuts();
+          updateSubmitButton();
+        } catch {
+          Toast({
+            message: t('wallet.withdraw.error.generic'),
+            type: 'error',
+            duration: 2500,
+          });
+        }
       },
     });
 
@@ -152,7 +198,7 @@ export function createWithdrawView(options = {}) {
     const field = Input({
       name: 'withdraw-address',
       multiline: true,
-      rows: 4,
+      rows: 3,
       mono: true,
       placeholder: WITHDRAW_ADDRESS_PLACEHOLDER(),
       value: state.address,
@@ -167,15 +213,24 @@ export function createWithdrawView(options = {}) {
     addressInput = field.querySelector('.wallet-view__address-input')
       || field.querySelector('.input');
 
-    addressMount.replaceChildren(field);
+    addressMount.replaceChildren(
+      createElement('div', {
+        className: 'wallet-view__field-block',
+        children: [
+          createElement('label', {
+            className: 'wallet-view__field-label',
+            text: t('wallet.withdraw.addressLabel'),
+          }),
+          field,
+        ],
+      }),
+    );
     updateSubmitButton();
   }
 
   function updateMinAmount() {
-    const ctx = currentContext();
-    const coinLabel = ctx?.coin.symbol || getCoinSymbol(getCoinId()) || 'USDT';
-    const formattedMin = state.minimum != null
-      ? formatCryptoAmount(state.minimum, { symbol: coinLabel })
+    const formattedMin = state.minimumUsd != null
+      ? formatUsd(state.minimumUsd)
       : null;
 
     infoMount.replaceChildren(
@@ -216,11 +271,15 @@ export function createWithdrawView(options = {}) {
   }
 
   async function loadWithdrawInfo() {
-    const ctx = currentContext();
-    if (!ctx) return;
-
-    // TODO: fetch minimum withdraw amount from backend when endpoint is documented
-    state.minimum = null;
+    state.minimumUsd = null;
+    updateMinAmount();
+    try {
+      const data = await walletService.getWithdrawMinimum();
+      const minUsd = Number(data?.minimum_usd);
+      state.minimumUsd = Number.isFinite(minUsd) ? minUsd : null;
+    } catch {
+      state.minimumUsd = null;
+    }
     updateMinAmount();
   }
 
@@ -237,6 +296,18 @@ export function createWithdrawView(options = {}) {
       return;
     }
 
+    if (
+      state.minimumUsd != null
+      && amount + 1e-9 < Number(state.minimumUsd)
+    ) {
+      state.amountError = t('wallet.withdraw.validation.belowMinimum', {
+        amount: formatUsd(state.minimumUsd),
+      });
+      renderAmountField();
+      return;
+    }
+
+    state.amountError = '';
     state.submitting = true;
     updateSubmitButton();
 
@@ -250,15 +321,25 @@ export function createWithdrawView(options = {}) {
       Toast({ message: t('wallet.withdraw.toast.success'), type: 'success', duration: 2500 });
       state.address = '';
       state.amount = '';
+      state.activePercent = null;
       if (addressInput) addressInput.value = '';
       if (amountInput) amountInput.value = '';
       renderAmountField();
+      renderPercentShortcuts();
+      renderAddressField();
       await balanceService.fetchBalances();
     } catch (error) {
       const detail = error?.data?.detail;
       let message = t('wallet.withdraw.error.generic');
 
-      if (typeof detail === 'string') {
+      if (detail && typeof detail === 'object' && detail.code === 'below_minimum') {
+        const minUsd = Number(detail.minimum_usd);
+        message = Number.isFinite(minUsd)
+          ? t('wallet.withdraw.validation.belowMinimum', { amount: formatUsd(minUsd) })
+          : (detail.message || message);
+        state.amountError = message;
+        renderAmountField();
+      } else if (typeof detail === 'string') {
         message = detail;
       } else if (error?.status === 404 || error?.status === 501) {
         message = t('wallet.withdraw.error.unavailable');
@@ -273,39 +354,76 @@ export function createWithdrawView(options = {}) {
     }
   }
 
+  function renderBankComingSoon() {
+    mainMount.replaceChildren(
+      createElement('div', {
+        className: 'wallet-view__coming-soon',
+        children: [
+          createElement('p', {
+            className: 'wallet-view__coming-soon-title',
+            text: t('wallet.method.comingSoon'),
+          }),
+          createElement('p', {
+            className: 'wallet-view__coming-soon-text',
+            text: t('wallet.method.comingSoonHint'),
+          }),
+        ],
+      }),
+    );
+  }
+
+  function renderCryptoMain() {
+    mainMount.replaceChildren(
+      pairMount,
+      amountMount,
+      percentMount,
+      addressMount,
+      infoMount,
+      actionMount,
+    );
+  }
+
+  function renderMain() {
+    if (state.method === 'bank') {
+      renderBankComingSoon();
+      return;
+    }
+    renderCryptoMain();
+  }
+
   function setCoinId(coinId) {
-    void coinId;
-    updateCoinGrid();
-    updateNetwork();
+    coinNetworkPair?.setCoinId(coinId);
+    coinNetworkPair?.setNetworkId(getNetworkId());
     loadWithdrawInfo();
     updateAmountCurrency();
   }
 
   function setNetworkId(networkId) {
-    void networkId;
-    updateNetwork();
+    coinNetworkPair?.setNetworkId(networkId);
     loadWithdrawInfo();
   }
 
-  updateCoinGrid();
-  updateNetwork();
+  updateMethodSelector();
+  mountCoinNetworkPair();
   renderAmountField();
+  renderPercentShortcuts();
   renderAddressField();
   loadWithdrawInfo();
   updateMinAmount();
+  renderMain();
 
   const element = createElement('div', {
     className: 'wallet-view wallet-view--withdraw',
     attrs: { 'data-view': 'withdraw' },
-    children: [
-      coinGridMount,
-      networkMount,
-      amountMount,
-      addressMount,
-      infoMount,
-      actionMount,
-    ],
+    children: [methodMount, mainMount],
   });
 
-  return { element, setCoinId, setNetworkId };
+  return {
+    element,
+    setCoinId,
+    setNetworkId,
+    destroy() {
+      coinNetworkPair?.destroy?.();
+    },
+  };
 }

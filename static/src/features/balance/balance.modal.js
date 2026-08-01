@@ -106,15 +106,68 @@ export function createBalanceModal(options = {}) {
 
   const amountValue = createValueMount(!hasBalance);
   const bonusValue = createValueMount(!hasBalance);
+  const withdrawableValue = createValueMount(!hasBalance);
+  const wagerValue = createValueMount(!hasBalance);
+  const welcomeMount = createElement('p', {
+    className: 'balance-modal__welcome',
+    text: hasBalance
+      ? (cached?.hasActiveWelcome
+        ? t('balance.welcome.active')
+        : t('balance.welcome.none'))
+      : t('common.emDash'),
+  });
+
+  function formatWelcome(activeWelcome) {
+    if (!activeWelcome) {
+      welcomeMount.textContent = t('balance.welcome.none');
+      return;
+    }
+    const parts = [t('balance.welcome.active')];
+    if (activeWelcome.progress_percent != null) {
+      parts.push(t('balance.welcome.progress', {
+        percent: activeWelcome.progress_percent,
+      }));
+    }
+    if (activeWelcome.expires_at) {
+      const date = String(activeWelcome.expires_at).slice(0, 10);
+      parts.push(t('balance.welcome.expires', { date }));
+    }
+    welcomeMount.textContent = parts.join(' · ');
+  }
+
+  function formatWager(activeWelcome) {
+    if (!activeWelcome) {
+      hydrateValueMount(wagerValue, formatUsd(0));
+      return;
+    }
+    hydrateValueMount(
+      wagerValue,
+      formatUsd(Number(activeWelcome.wager_remaining ?? 0)),
+    );
+  }
 
   if (hasBalance) {
     hydrateValueMount(amountValue, formatUsd(cached.real));
     hydrateValueMount(bonusValue, formatUsd(cached.bonus));
+    hydrateValueMount(
+      withdrawableValue,
+      formatUsd(cached.withdrawable ?? cached.real),
+    );
+    formatWager(cached.activeWelcome);
+    formatWelcome(cached.activeWelcome);
   }
 
-  const unsubscribe = balanceService.subscribe(({ formattedReal, formattedBonus }) => {
+  const unsubscribe = balanceService.subscribe(({
+    formattedReal,
+    formattedBonus,
+    formattedWithdrawable,
+    activeWelcome,
+  }) => {
     hydrateValueMount(amountValue, formattedReal);
     hydrateValueMount(bonusValue, formattedBonus);
+    hydrateValueMount(withdrawableValue, formattedWithdrawable);
+    formatWager(activeWelcome);
+    formatWelcome(activeWelcome);
   });
 
   const element = createElement('div', {
@@ -132,8 +185,17 @@ export function createBalanceModal(options = {}) {
             title: t('balance.bonus.title'),
             valueEl: bonusValue,
           }),
+          createBalanceCard({
+            title: t('balance.withdrawable.title'),
+            valueEl: withdrawableValue,
+          }),
+          createBalanceCard({
+            title: t('balance.wagerRemaining.title'),
+            valueEl: wagerValue,
+          }),
         ],
       }),
+      welcomeMount,
       createElement('div', {
         className: 'balance-modal__actions',
         children: [

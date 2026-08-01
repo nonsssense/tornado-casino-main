@@ -87,9 +87,38 @@ html.bottom-sheet-open .t-app__page {
   opacity: 0.96;
   transition:
     transform var(--duration-sheet) var(--ease-sheet),
-    opacity calc(var(--duration-sheet) - 40ms) var(--ease-out);
+    opacity calc(var(--duration-sheet) - 40ms) var(--ease-out),
+    max-width 220ms ease,
+    box-shadow 220ms ease;
   will-change: transform, opacity;
   backface-visibility: hidden;
+}
+
+/* Wallet reference sizing — applied to all primary app sheets */
+.bottom-sheet:has(> .bottom-sheet__panel--wallet) {
+  padding-left: 0.25rem;
+  padding-right: 0.25rem;
+}
+
+.bottom-sheet__panel--wallet {
+  max-width: var(--max-width-mobile);
+  border-radius: 1.35rem 1.35rem 0 0;
+  border-color: rgba(252, 211, 18, 0.16);
+  box-shadow:
+    0 0 0 1px rgba(252, 211, 18, 0.08) inset,
+    0 0 22px rgba(252, 211, 18, 0.16),
+    0 0 44px rgba(252, 211, 18, 0.1),
+    0 0 72px rgba(252, 211, 18, 0.06),
+    0 24px 64px rgba(0, 0, 0, 0.5);
+}
+
+.bottom-sheet__panel--wallet .bottom-sheet__scroll {
+  padding-left: var(--space-3);
+  padding-right: var(--space-3);
+}
+
+.bottom-sheet--stacked {
+  z-index: calc(var(--z-modal) + 2);
 }
 
 .bottom-sheet__panel--size-standard {
@@ -168,7 +197,7 @@ html.bottom-sheet-open .t-app__page {
   padding:
     var(--space-2)
     var(--space-3)
-    calc(var(--space-4) + env(safe-area-inset-bottom, 0px));
+    calc(var(--space-4) + var(--app-safe-area-inset-bottom));
   background: transparent;
 }
 
@@ -179,6 +208,8 @@ html.bottom-sheet-open .t-app__page {
 
 .bottom-sheet__panel--wallet,
 .bottom-sheet__panel--profile,
-.bottom-sheet__panel--balance {
+.bottom-sheet__panel--balance,
+.bottom-sheet__panel--referrals,
+.bottom-sheet__panel--referral-status {
   background-color: #0a0a0a;
 }

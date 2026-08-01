@@ -6,6 +6,7 @@ import { createElement } from '../../utils/dom.js';
 import { CRASH_BET_LIMITS, CRASH_QUICK_BETS } from './crash.constants.js';
 import { clampBetAmount } from './crash.utils.js';
 import { t } from '../../i18n/index.js';
+import { hideTelegramKeyboard } from '../../app/telegram.js';
 
 /**
  * @param {number} value
@@ -28,7 +29,12 @@ function roundCents(value) {
  * }}
  */
 export function createBetAmount(options = {}) {
-  const limits = CRASH_BET_LIMITS;
+  const limits = {
+    min: CRASH_BET_LIMITS.min,
+    max: options.max ?? CRASH_BET_LIMITS.max,
+    step: CRASH_BET_LIMITS.step,
+    default: CRASH_BET_LIMITS.default,
+  };
   let amount = clampBetAmount(options.amount ?? limits.default, limits);
   let disabled = Boolean(options.disabled);
   let onChange = options.onChange;
@@ -56,6 +62,7 @@ export function createBetAmount(options = {}) {
         event.target.value = String(amount);
         syncQuickBets();
         onChange?.(amount);
+        hideTelegramKeyboard();
       },
     },
   });
@@ -161,6 +168,15 @@ export function createBetAmount(options = {}) {
     getAmount: () => amount,
     setAmount(next) {
       amount = clampBetAmount(next, limits);
+      input.value = String(amount);
+      syncQuickBets();
+    },
+    setMax(nextMax) {
+      const parsed = Number(nextMax);
+      limits.max = Number.isFinite(parsed)
+        ? Math.max(limits.min, Math.round(parsed * 100) / 100)
+        : CRASH_BET_LIMITS.max;
+      amount = clampBetAmount(amount, limits);
       input.value = String(amount);
       syncQuickBets();
     },

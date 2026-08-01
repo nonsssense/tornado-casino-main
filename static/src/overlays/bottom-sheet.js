@@ -22,6 +22,7 @@ const DIRECTION_LOCK_PX = 8;
  * @param {string} [options.ariaLabel]
  * @param {string} [options.panelClass]
  * @param {'standard'|'balance'} [options.size]
+ * @param {boolean} [options.manageBodyScroll=true] - set false when stacking above another sheet
  * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function BottomSheet(options = {}) {
@@ -33,6 +34,7 @@ export function BottomSheet(options = {}) {
     ariaLabel = t('common.dialog'),
     panelClass = '',
     size = 'standard',
+    manageBodyScroll = true,
   } = options;
 
   let isClosing = false;
@@ -106,10 +108,12 @@ export function BottomSheet(options = {}) {
   });
 
   function lockScroll() {
+    if (!manageBodyScroll) return;
     document.documentElement.classList.add('bottom-sheet-open');
   }
 
   function unlockScroll() {
+    if (!manageBodyScroll) return;
     document.documentElement.classList.remove('bottom-sheet-open');
   }
 

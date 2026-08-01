@@ -14,14 +14,14 @@ import '../../styles/pages/profile.css';
  * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
  */
 export function createProfileOverlay(options = {}) {
-  const { onClose, onBeforeRemove, onMenuAction } = options;
+  const { onClose, onBeforeRemove, onMenuAction, onStatusInfo } = options;
 
-  const content = createProfileModal({ onMenuAction });
+  const content = createProfileModal({ onMenuAction, onStatusInfo });
 
   return BottomSheet({
     content,
     ariaLabel: t('profile.overlay.title'),
-    panelClass: 'bottom-sheet__panel--profile',
+    panelClass: 'bottom-sheet__panel--wallet bottom-sheet__panel--profile',
     onClose,
     onBeforeRemove,
   });

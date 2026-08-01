@@ -33,11 +33,19 @@ export function createWalletModal(options = {}) {
   let activeTab = initialTab;
 
   const tabsMount = createElement('div');
+  const titleEl = createElement('h2', {
+    className: 'wallet-modal__page-title',
+    text: t(`wallet.pages.${initialTab}`),
+  });
 
   const walletModal = createElement('div', {
     className: 'wallet-modal',
     attrs: { role: 'tabpanel' },
   });
+
+  function updatePageTitle() {
+    titleEl.textContent = t(`wallet.pages.${activeTab}`);
+  }
 
   function getCoinId() {
     return shared.coinId;
@@ -123,6 +131,7 @@ export function createWalletModal(options = {}) {
     });
 
     walletModal.setAttribute('data-active-view', activeTab);
+    updatePageTitle();
   }
 
   function switchTab(tabId) {
@@ -140,6 +149,7 @@ export function createWalletModal(options = {}) {
   }
 
   const initialController = getController(activeTab);
+  walletModal.appendChild(titleEl);
   if (initialController) {
     walletModal.appendChild(initialController.element);
   }

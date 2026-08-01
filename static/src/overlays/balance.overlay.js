@@ -37,7 +37,7 @@ export function createBalanceOverlay(options = {}) {
   return BottomSheet({
     content: modal.element,
     ariaLabel: t('balance.overlay.title'),
-    panelClass: 'bottom-sheet__panel--balance',
+    panelClass: 'bottom-sheet__panel--wallet bottom-sheet__panel--balance',
     size: 'balance',
     onBeforeRemove,
     onClose: () => {

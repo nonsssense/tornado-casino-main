@@ -8,6 +8,7 @@
 
 export { request } from './request.js';
 export { authenticate } from './auth.js';
+export { dismissWelcome } from './welcome.js';
 export { rollDice, playPlinko } from './games.js';
 export {
   fetchCrashState,
@@ -15,5 +16,9 @@ export {
   placeCrashBet,
   cashoutCrash,
 } from './crash.js';
-export { createDeposit, fetchBalance, fetchDepositStatus, fetchHistory, submitWithdraw } from './wallet.js';
+export { createDeposit, fetchBalance, fetchDepositMinimum, fetchDepositStatus, fetchHistory, submitWithdraw } from './wallet.js';
 export { fetchBonusOffers, fetchActiveBonuses, selectBonusOffer } from './bonus.js';
+export { fetchBonusCatalog, fetchBonusCatalogItem } from './bonus-catalog.js';
+export { fetchCampaigns, fetchCampaignDetail } from './campaigns.js';
+export { fetchReferralSummary, fetchReferralStatus, claimReferralEarnings } from './referrals.js';
+export { fetchSettings, updateSettings } from './settings.js';

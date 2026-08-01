@@ -23,6 +23,16 @@ function easeOutCubic(t) {
 }
 
 /**
+ * Convert the pointer's current angle back into its represented roll.
+ * @param {number} degrees
+ * @returns {number}
+ */
+function rotationToRoll(degrees) {
+  const sectorDegrees = ((degrees - 180) % 360 + 360) % 360;
+  return Math.min(99, Math.floor((sectorDegrees / 360) * 100));
+}
+
+/**
  * Stop any in-flight roll animation.
  */
 export function cancelDiceRollAnimation() {
@@ -69,11 +79,13 @@ export function animateDiceRoll(roll, wheel) {
       const current = startDeg + (totalRotation - startDeg) * eased;
 
       wheel.pointer.style.transform = `rotate(${current}deg)`;
+      wheel.setSpinRoll?.(rotationToRoll(current));
 
       if (progress < 1) {
         activeRaf = requestAnimationFrame(frame);
       } else {
         wheel.setPointerDegrees(totalRotation % 360, false);
+        wheel.setSpinRoll?.(roll);
         resolve();
       }
     }

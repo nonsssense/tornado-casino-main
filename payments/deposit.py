@@ -1,14 +1,15 @@
 import httpx
-from config import BLOCKBEE_API_KEY, DOMEN as DOMAIN
+from config import BLOCKBEE_API_KEY, DOMEN as DOMAIN, DEPOSIT_MIN_USD
 from database.transactions import TransactionManager
-from database.wallet import WalletManager, BALANCE_REAL
+from database.wallet import WalletManager, BALANCE_REAL, lock_wallet
 from database.bonus import BonusManager
+from promo.promo_manager import PromotionManager
 from database.db_config import deposit_table, transaction_table, engine
 import sqlalchemy as sa
 from datetime import datetime
 from log_manager import log
 from database.event_treck import Event
-from payments.convert import crypto_to_usd
+from payments.convert import crypto_to_usd, usd_to_crypto
 
 SUPPORTED_BLOCKBEE_TICKERS = frozenset({
     "btc",
@@ -23,6 +24,39 @@ SUPPORTED_BLOCKBEE_TICKERS = frozenset({
     "bep20/usdc",
     "sol/usdc",
 })
+
+_deposit_schema_ready = False
+
+
+def ensure_deposit_schema():
+    """Add bonus grant result columns for deposit status UX (idempotent)."""
+    global _deposit_schema_ready
+    if _deposit_schema_ready:
+        return
+    with engine.begin() as conn:
+        for col, typ in (
+            ("bonus_granted", "BOOLEAN"),
+            ("bonus_skipped_reason", "VARCHAR(64)"),
+        ):
+            conn.execute(
+                sa.text(
+                    f"ALTER TABLE deposit ADD COLUMN IF NOT EXISTS {col} {typ}"
+                )
+            )
+    for col, typ in (
+        ("bonus_granted", sa.Boolean),
+        ("bonus_skipped_reason", sa.String(64)),
+    ):
+        try:
+            deposit_table.append_column(
+                sa.Column(col, typ, nullable=True),
+                replace_existing=True,
+            )
+        except Exception:
+            pass
+    _deposit_schema_ready = True
+    log.info("Deposit schema ensured (bonus_granted + bonus_skipped_reason)")
+
 
 LEGACY_TICKER_ALIASES = {
     "USDT_TRC20": "trc20/usdt",
@@ -113,6 +147,36 @@ class BlockBeeClient:
                 f"Failed to create BlockBee payment address | user_id={user_id} | "
                 f"deposit_id={deposit_id} | ticker={ticker}"
             )
+            raise
+
+    async def get_ticker_info(self, ticker: str):
+        """Fetch BlockBee ticker info (minimums) without creating a payment address."""
+        blockbee_ticker = normalize_blockbee_ticker(ticker)
+        url = f"{self.BASE_URL}/{blockbee_ticker}/info/"
+        params = {"apikey": BLOCKBEE_API_KEY}
+
+        log.info(f"Fetching BlockBee ticker info | ticker={blockbee_ticker}")
+
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, params=params, timeout=30)
+            response.raise_for_status()
+            data = response.json()
+
+            if data.get("status") != "success":
+                raise ValueError(data.get("error") or "BlockBee info returned non-success status")
+
+            minimum = float(data.get("minimum_transaction_coin") or 0)
+            log.info(
+                f"BlockBee ticker info | ticker={blockbee_ticker} | "
+                f"minimum_transaction_coin={minimum}"
+            )
+            return {
+                "ticker": blockbee_ticker,
+                "minimum": minimum,
+            }
+        except Exception:
+            log.exception(f"Failed to fetch BlockBee ticker info | ticker={ticker}")
             raise
 
     def create_callback(
@@ -229,6 +293,53 @@ def coins_match(stored_ticker: str, webhook_coin: str) -> bool:
     received = webhook_coin.strip().lower()
 
     return stored == received or stored.replace("/", "_") == received
+
+
+def resolve_effective_deposit_minimum(ticker: str, blockbee_minimum) -> dict:
+    """Effective deposit minimum = max(product USD floor, BlockBee minimum).
+
+    Returns coin + USD fields so UI and create validation share one rule.
+    """
+    bb_min_coin = float(blockbee_minimum or 0)
+    product_min_usd = float(DEPOSIT_MIN_USD)
+
+    try:
+        product_min_coin, _ = usd_to_crypto(ticker, product_min_usd)
+    except Exception:
+        log.exception(
+            f"Failed to convert product deposit min to crypto | ticker={ticker} | "
+            f"min_usd={product_min_usd}"
+        )
+        product_min_coin = product_min_usd
+
+    try:
+        bb_min_usd, _ = crypto_to_usd(ticker, bb_min_coin) if bb_min_coin > 0 else (0.0, 0.0)
+    except Exception:
+        log.exception(
+            f"Failed to convert BlockBee min to USD | ticker={ticker} | "
+            f"bb_min={bb_min_coin}"
+        )
+        bb_min_usd = 0.0
+
+    if bb_min_usd + 1e-9 >= product_min_usd:
+        effective_coin = bb_min_coin
+        effective_usd = round(bb_min_usd, 2)
+    else:
+        effective_coin = float(product_min_coin)
+        effective_usd = round(product_min_usd, 2)
+
+    return {
+        "minimum": effective_coin,
+        "minimum_usd": effective_usd,
+        "blockbee_minimum": bb_min_coin,
+        "blockbee_minimum_usd": round(bb_min_usd, 2),
+        "product_minimum_usd": product_min_usd,
+    }
+
+
+# Back-compat alias used by older call sites.
+def resolve_product_deposit_minimum(ticker: str, blockbee_minimum) -> float:
+    return float(resolve_effective_deposit_minimum(ticker, blockbee_minimum)["minimum"])
 
 
 class DepositManager:
@@ -365,14 +476,48 @@ class DepositManager:
                     self.finishDeposit(locked, webhook, existing_tx, conn)
                     return
 
-            # Convert only after idempotency gates so retries never re-price twice.
+            # Defensive safety net only — create path must already enforce effective min.
             coin_for_convert = locked.get("coin") or coin
             usd_amount, convert_rate = crypto_to_usd(coin_for_convert, crypto_amount)
 
+            stored_min_coin = float(locked.get("minimum") or 0)
+            product_min_usd = float(DEPOSIT_MIN_USD)
+            below_stored = stored_min_coin > 0 and crypto_amount + 1e-12 < stored_min_coin
+            below_product = usd_amount + 1e-9 < product_min_usd
+
+            if below_stored or below_product:
+                log.warning(
+                    f"Deposit below minimum (webhook safety) | user_id={self.user_id} | "
+                    f"deposit_id={locked['id']} | usd_amount={usd_amount} | "
+                    f"crypto_amount={crypto_amount} | stored_min={stored_min_coin} | "
+                    f"product_min_usd={product_min_usd} | coin={coin_for_convert}"
+                )
+                self.finishDeposit(
+                    locked,
+                    webhook,
+                    None,
+                    conn,
+                    crypto_amount=crypto_amount,
+                    usd_amount=usd_amount,
+                    convert_rate=convert_rate,
+                    status="Below minimum",
+                )
+                return
+
+            # P0: lock wallet in the same TX before any credit (deposit lock already held).
             wallet = WalletManager(locked["user_id"])
-            real_balance = wallet.getRealBalance(locked["wallet_id"], conn=conn)
-            balance_after = real_balance + usd_amount
-            wallet.updateRealBalance(conn, balance_after)
+            wallet_row = lock_wallet(conn, locked["user_id"], locked["wallet_id"])
+            if wallet_row is None:
+                log.error(
+                    f"Wallet missing on deposit complete | user_id={locked['user_id']} | "
+                    f"wallet_id={locked['wallet_id']}"
+                )
+                return
+
+            balances = wallet.apply_balance_deltas(
+                conn, locked["wallet_id"], real_delta=usd_amount
+            )
+            balance_after = balances["real_balance"]
 
             transaction = TransactionManager(
                 user_id=locked["user_id"],
@@ -392,15 +537,19 @@ class DepositManager:
                 f"convert_rate={convert_rate} | usd_amount={usd_amount}"
             )
 
-            # Grant before marking Completed so deposit_index = completed_before + 1.
-            bonus_manager = BonusManager(locked["user_id"])
-            deposit_index = bonus_manager.countCompletedDeposits(conn=conn) + 1
-            bonus_manager.grantDepositBonus(
-                locked["wallet_id"],
-                usd_amount,
+            # Commercial side effects go through PromotionManager (bonus + referral FTD).
+            # Wallet row remains locked for the rest of this transaction.
+            ensure_deposit_schema()
+            deposit_index = BonusManager(locked["user_id"]).countCompletedDeposits(
+                conn=conn
+            ) + 1
+            grant_result = PromotionManager(locked["user_id"]).on_deposit_confirmed(
+                user_id=locked["user_id"],
+                wallet_id=locked["wallet_id"],
+                amount_usd=usd_amount,
                 deposit_index=deposit_index,
                 conn=conn,
-            )
+            ) or {}
 
             self.finishDeposit(
                 locked,
@@ -410,6 +559,8 @@ class DepositManager:
                 crypto_amount=crypto_amount,
                 usd_amount=usd_amount,
                 convert_rate=convert_rate,
+                bonus_granted=bool(grant_result.get("granted")),
+                bonus_skipped_reason=grant_result.get("skipped_reason"),
             )
 
     def finishDeposit(
@@ -421,30 +572,38 @@ class DepositManager:
         crypto_amount=None,
         usd_amount=None,
         convert_rate=None,
+        status="Completed",
+        bonus_granted=None,
+        bonus_skipped_reason=None,
     ):
         log.info(
             f"Finalizing deposit | user_id={deposit['user_id']} | deposit_id={deposit['id']} | "
-            f"transaction_id={transaction_id}"
+            f"transaction_id={transaction_id} | status={status}"
         )
         if crypto_amount is None:
             crypto_amount = webhook.get("value_forwarded_coin")
 
         values = {
-            "transaction_id": transaction_id,
             "address_in": webhook["address_in"],
             "received_amount": crypto_amount,
             "uuid": webhook["uuid"],
             "txid_in": webhook["txid_in"],
             "txid_out": webhook["txid_out"],
             "confirmations": webhook["confirmations"],
-            "status": "Completed",
+            "status": status,
             "fee_coin": webhook["fee_coin"],
             "confirmed_at": datetime.now(),
         }
+        if transaction_id is not None:
+            values["transaction_id"] = transaction_id
         if usd_amount is not None:
             values["usd_amount"] = usd_amount
         if convert_rate is not None:
             values["convert_rate"] = convert_rate
+        if bonus_granted is not None:
+            values["bonus_granted"] = bool(bonus_granted)
+        if bonus_skipped_reason is not None:
+            values["bonus_skipped_reason"] = str(bonus_skipped_reason)
 
         update_stmt = (
             sa.update(deposit_table)
@@ -453,10 +612,11 @@ class DepositManager:
         )
         conn.execute(update_stmt)
         log.info(
-            f"Deposit UPDATE to completed | user_id={deposit['user_id']} | "
+            f"Deposit UPDATE finalized | user_id={deposit['user_id']} | "
             f"deposit_id={deposit['id']} | transaction_id={transaction_id} | "
-            f"coin={deposit.get('coin')} | received_amount={crypto_amount} | "
-            f"convert_rate={convert_rate} | usd_amount={usd_amount}"
+            f"status={status} | coin={deposit.get('coin')} | "
+            f"received_amount={crypto_amount} | convert_rate={convert_rate} | "
+            f"usd_amount={usd_amount}"
         )
 
 
@@ -468,7 +628,8 @@ class DepositManager:
 
         event = Event(user_id=self.user_id, event_type=status)
         with engine.begin() as conn:
-            event.postEvent()
+            # Deposit window open is already a tracked user_events type.
+            event.postEvent(touch_session=False)
             deposit_id = self.findOpenDeposit(wallet_id, ticker)
             if deposit_id is not None:
                 log.info(
@@ -492,7 +653,7 @@ class DepositManager:
             f"minimum={minimum}"
         )
         if minimum is not None:
-            minimum = int(float(minimum))
+            minimum = float(minimum)
         with engine.begin() as conn:
             update_stmt = sa.update(deposit_table).where(deposit_table.c.id==deposit_id).values(address_in=address, minimum=minimum)
             conn.execute(update_stmt)

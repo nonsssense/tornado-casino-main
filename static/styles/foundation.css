@@ -24,5 +24,7 @@
 @import url('./components/bottom-nav.css');
 @import url('./components/bottom-sheet.css');
 @import url('./components/modal-panel.css');
+@import url('./components/game-settings-panel.css');
+@import url('./components/support-modal.css');
 @import url('./pages/home.css');
 @import url('./pages/game.css');

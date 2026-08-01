@@ -1,6 +1,5 @@
 /**
- * BottomNavigation — primary app navigation bar.
- * UI only — navigation actions are placeholders until router is wired.
+ * BottomNavigation — primary app navigation bar (single instance in the shell).
  */
 
 import { createElement } from '../../utils/dom.js';

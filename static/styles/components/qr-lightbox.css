@@ -34,8 +34,8 @@
 
 .qr-lightbox__close {
   position: absolute;
-  top: max(var(--space-4), env(safe-area-inset-top, 0px));
-  right: max(var(--space-4), env(safe-area-inset-right, 0px));
+  top: max(var(--space-4), var(--app-safe-area-inset-top));
+  right: max(var(--space-4), var(--app-safe-area-inset-right));
   z-index: 1;
   display: flex;
   align-items: center;

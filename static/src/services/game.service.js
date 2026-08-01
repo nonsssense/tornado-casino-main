@@ -4,10 +4,10 @@
  * Responsibility:
  * - Coordinate bet submission and result handling for Dice and Plinko.
  * - Trigger animations with backend-returned data only.
- * - Refresh balance after each round via balance.service.js.
+ * - Stage the refreshed balance until the game animation reveals the result.
  */
 
-import { rollDice, playPlinko } from '../api/games.js';
+import { rollDice, playPlinko, playPlinkoBatch } from '../api/games.js';
 import { balanceService } from './balance.service.js';
 import { t } from '../i18n/index.js';
 
@@ -40,7 +40,7 @@ export const gameService = {
   async playDice(payload) {
     try {
       const result = await rollDice(payload);
-      await balanceService.fetchBalances();
+      await balanceService.fetchBalances({ notify: false, stage: true });
       return result;
     } catch (error) {
       throw new Error(getGameErrorMessage(error));
@@ -53,8 +53,32 @@ export const gameService = {
   async playPlinko(payload) {
     try {
       const result = await playPlinko(payload);
-      await balanceService.fetchBalances();
+      await balanceService.fetchBalances({ notify: false, stage: true });
       return result;
+    } catch (error) {
+      throw new Error(getGameErrorMessage(error));
+    }
+  },
+
+  /**
+   * @param {{ bid: number, count: number, risk_mode: string, rows: number }} payload
+   */
+  async playPlinkoBatch(payload) {
+    try {
+      const response = await playPlinkoBatch(payload);
+      const results = Array.isArray(response?.results) ? response.results : [];
+      if (results.length !== payload.count) {
+        throw new Error(t('games.error.generic'));
+      }
+
+      const sequenceReady = balanceService.beginSettlementSequence(
+        response.balance_after_debit,
+        response.balances,
+      );
+      if (!sequenceReady) {
+        throw new Error(t('games.error.generic'));
+      }
+      return response;
     } catch (error) {
       throw new Error(getGameErrorMessage(error));
     }

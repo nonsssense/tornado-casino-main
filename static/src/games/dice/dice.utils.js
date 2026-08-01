@@ -3,7 +3,20 @@
  * Payouts and outcomes always come from the backend.
  */
 
+import { DICE_TARGET_LIMITS } from './dice.constants.js';
+
 const HOUSE_EDGE = 97.5;
+
+/**
+ * @param {number} limit
+ * @returns {number}
+ */
+export function clampDiceTarget(limit) {
+  return Math.min(
+    DICE_TARGET_LIMITS.max,
+    Math.max(DICE_TARGET_LIMITS.min, Math.round(Number(limit) || DICE_TARGET_LIMITS.min)),
+  );
+}
 
 /**
  * @param {number} limit
@@ -11,8 +24,8 @@ const HOUSE_EDGE = 97.5;
  * @returns {number} Win chance percent (0–99)
  */
 export function getWinChance(limit, over) {
-  const clamped = Math.min(98, Math.max(1, Math.round(limit)));
-  return over ? 99 - clamped : clamped;
+  const clamped = clampDiceTarget(limit);
+  return over ? 100 - clamped : clamped;
 }
 
 /**
@@ -46,8 +59,8 @@ export function getDisplayStats(bid, limit, over) {
  * @param {boolean} over
  */
 export function getWheelSectors(limit, over) {
-  const clamped = Math.min(98, Math.max(1, Math.round(limit)));
-  const winCount = over ? 99 - clamped : clamped;
+  const clamped = clampDiceTarget(limit);
+  const winCount = over ? 100 - clamped : clamped;
   const loseCount = 100 - winCount;
 
   return {
@@ -55,15 +68,15 @@ export function getWheelSectors(limit, over) {
     loseCount,
     winPercent: winCount,
     losePercent: loseCount,
-    splitRatio: over ? (clamped + 0.5) / 100 : clamped / 100,
+    splitRatio: clamped / 100,
   };
 }
 
 /**
  * @param {number} roll - Backend roll 0–99
- * @returns {number} CSS rotation degrees (0 at top, clockwise)
+ * @returns {number} CSS rotation degrees (roll 0 at the wheel's 180° sector origin)
  */
 export function rollToDegrees(roll) {
   const value = Math.min(99, Math.max(0, Math.round(roll)));
-  return (value / 100) * 360;
+  return 180 + (value / 100) * 360;
 }

@@ -22,7 +22,7 @@ export function createPlinkoController() {
     policy: defineRoutePolicy({
       retainController: true,
       retainDom: true,
-      immersive: true,
+      screenType: 'standalone',
       showRouteSkeleton: true,
     }),
     createRoot() {

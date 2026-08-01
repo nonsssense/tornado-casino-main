@@ -1,9 +1,66 @@
-"""SQL layer for the existing `plinco` table — insert only, no schema redesign."""
+"""SQL layer for Plinko rounds and durable batch idempotency."""
 
+import json
 import sqlalchemy as sa
 
 from database.db_config import engine, plinco_table
 from log_manager import log
+
+_batch_schema_ready = False
+
+
+def ensure_plinko_batch_schema():
+    """Create the minimal durable response store required for safe retries."""
+    global _batch_schema_ready
+    if _batch_schema_ready:
+        return
+
+    with engine.begin() as conn:
+        conn.execute(
+            sa.text(
+                """
+                CREATE TABLE IF NOT EXISTS plinco_batches (
+                    id BIGSERIAL PRIMARY KEY,
+                    user_id INTEGER NOT NULL,
+                    idempotency_key VARCHAR(64) NOT NULL,
+                    response_json JSONB NOT NULL,
+                    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+                    CONSTRAINT uq_plinco_batch_user_key
+                        UNIQUE (user_id, idempotency_key)
+                )
+                """
+            )
+        )
+    _batch_schema_ready = True
+    log.info("Plinco batch idempotency schema ensured")
+
+
+def get_plinko_batch_response(conn, user_id, idempotency_key):
+    row = conn.execute(
+        sa.text(
+            "SELECT response_json FROM plinco_batches "
+            "WHERE user_id = :user_id AND idempotency_key = :idempotency_key"
+        ),
+        {"user_id": user_id, "idempotency_key": idempotency_key},
+    ).scalar_one_or_none()
+    if row is None:
+        return None
+    return json.loads(row) if isinstance(row, str) else row
+
+
+def insert_plinko_batch_response(conn, user_id, idempotency_key, response):
+    conn.execute(
+        sa.text(
+            "INSERT INTO plinco_batches "
+            "(user_id, idempotency_key, response_json) "
+            "VALUES (:user_id, :idempotency_key, CAST(:response_json AS JSONB))"
+        ),
+        {
+            "user_id": user_id,
+            "idempotency_key": idempotency_key,
+            "response_json": json.dumps(response),
+        },
+    )
 
 
 def insert_plinco_round(

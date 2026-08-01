@@ -147,10 +147,13 @@ const PNG_SOURCES = [
   'tether.png',
   'tornado no background main.png',
   'tornado support main.png',
+  'tornado full name logo 1.png',
   'tron icon.png',
   'usdc icon.png',
   'personal_info_profile_page.png',
   'profile_page_bonuses_page.png',
+  'welcome_message_banner 1.png',
+  'welcome_message_bonus_banner 1.png',
 ];
 
 async function main() {

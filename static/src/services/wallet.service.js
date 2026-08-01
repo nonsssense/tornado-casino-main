@@ -11,13 +11,16 @@ import {
   createDeposit,
   submitWithdraw,
   fetchDepositStatus,
+  fetchDepositMinimum,
+  fetchWithdrawMinimum,
   fetchHistory,
 } from '../api/wallet.js';
 
 /**
  * @typedef {object} DepositResponse
  * @property {string} address
- * @property {string} minimum
+ * @property {string|number} minimum
+ * @property {number} [minimum_usd]
  * @property {string} [qr_code]
  * @property {string} ticker
  * @property {number} deposit_id
@@ -27,12 +30,29 @@ const POLL_INTERVAL_MS = 5000;
 
 export const walletService = {
   /**
+   * Resolve effective deposit minimum without creating a payment.
+   * @param {string} ticker
+   */
+  async getDepositMinimum(ticker) {
+    return fetchDepositMinimum(ticker);
+  },
+
+  /**
    * Create a deposit and fetch payment address from backend.
-   * @param {string} ticker - e.g. USDT_TRC20
+   * Amount is optional — when omitted, address is returned immediately.
+   * @param {string} ticker
+   * @param {number} [amountUsd]
    * @returns {Promise<DepositResponse>}
    */
-  async createDeposit(ticker) {
-    return createDeposit(ticker);
+  async createDeposit(ticker, amountUsd) {
+    return createDeposit(ticker, amountUsd);
+  },
+
+  /**
+   * Resolve configured withdrawal minimum (USD).
+   */
+  async getWithdrawMinimum() {
+    return fetchWithdrawMinimum();
   },
 
   /**
@@ -71,12 +91,33 @@ export const walletService = {
 
         const status = data?.status || 'pending';
 
-        if (onStatus) onStatus(status);
+        if (onStatus) onStatus(status, data);
 
         if (status === 'completed') {
           completed = true;
           stopped = true;
-          if (onComplete) onComplete();
+          try {
+            const { balanceService } = await import('./balance.service.js');
+            const { campaignService } = await import('./campaign.service.js');
+            const { referralService } = await import('./referral.service.js');
+            await Promise.allSettled([
+              balanceService.fetchBalances({ notify: true }),
+              campaignService.fetchBoard({ notify: true }),
+              referralService.fetchSummary({ notify: true }),
+            ]);
+          } catch {
+            // best-effort refresh
+          }
+          if (onComplete) onComplete(data);
+          return;
+        }
+
+        if (status === 'below_minimum') {
+          completed = true;
+          stopped = true;
+          if (typeof callbacks.onBelowMinimum === 'function') {
+            callbacks.onBelowMinimum(data);
+          }
           return;
         }
       } catch {
@@ -96,10 +137,19 @@ export const walletService = {
   },
 
   /**
-   * @returns {Promise<Array<{ id: number, type: string, amount: number, status: string, balance_after: number }>>}
+   * @param {string} [category]
+   * @returns {Promise<{ items: Array<object>, transactions: Array<object>, category: string, categories: string[] }>}
    */
-  async fetchHistory() {
-    const data = await fetchHistory();
-    return data?.transactions ?? [];
+  async fetchHistory(category = 'all') {
+    const data = await fetchHistory(category);
+    const items = Array.isArray(data?.items)
+      ? data.items
+      : (Array.isArray(data?.transactions) ? data.transactions : []);
+    return {
+      items,
+      transactions: Array.isArray(data?.transactions) ? data.transactions : items,
+      category: data?.category || category || 'all',
+      categories: Array.isArray(data?.categories) ? data.categories : [],
+    };
   },
 };

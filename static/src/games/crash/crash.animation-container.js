@@ -7,6 +7,7 @@ import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
 import { formatMultiplier, getPayoutTierKey } from './crash.utils.js';
 import { createFlightEngine } from './crash.flight-engine.js';
+import { createActivityHud } from './crash.activity-hud.js';
 import { t } from '../../i18n/index.js';
 
 const MULT_FONT_MAX_PX = 72;
@@ -50,11 +51,13 @@ function remainingFraction(remainingSec, durationSec) {
  *   setMultiplier: (value: number|null) => void,
  *   setCrashed: (value: number|null) => void,
  *   setStatus: (text: string) => void,
+ *   activityHud: ReturnType<typeof createActivityHud>,
  *   destroy: () => void,
  * }}
  */
 export function createAnimationContainer(options = {}) {
   const label = options.label ?? '';
+  const activityHud = createActivityHud();
 
   const multiplierEl = createElement('p', {
     className: 'crash-animation__multiplier crash-animation__multiplier--orange',
@@ -127,7 +130,7 @@ export function createAnimationContainer(options = {}) {
     children: [
       createElement('div', {
         className: 'crash-animation__frame',
-        children: [mountPoint, multiplierSlot, waitingEl],
+        children: [mountPoint, multiplierSlot, waitingEl, activityHud.element],
       }),
     ],
   });
@@ -286,6 +289,7 @@ export function createAnimationContainer(options = {}) {
   return {
     element,
     mountPoint,
+    activityHud,
 
     /**
      * Legacy string placeholder — prefer setWaiting.
@@ -414,6 +418,7 @@ export function createAnimationContainer(options = {}) {
 
     destroy() {
       clearMultTimers();
+      activityHud.destroy();
       flight.destroy();
     },
   };

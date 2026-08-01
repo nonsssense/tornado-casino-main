@@ -5,10 +5,14 @@
  */
 
 /**
+ * @typedef {'app'|'standalone'} ScreenType
+ */
+
+/**
  * @typedef {object} RoutePolicy
  * @property {boolean} retainController
  * @property {boolean} retainDom
- * @property {boolean} immersive
+ * @property {ScreenType} screenType
  * @property {boolean} [showRouteSkeleton]
  */
 
@@ -45,7 +49,7 @@ export function defineRoutePolicy(overrides = {}) {
   return {
     retainController: true,
     retainDom: true,
-    immersive: false,
+    screenType: 'app',
     showRouteSkeleton: false,
     ...overrides,
   };

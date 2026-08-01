@@ -6,7 +6,12 @@
 .home-page {
   display: flex;
   flex-direction: column;
-  padding-bottom: calc(var(--bottom-nav-height) + var(--space-6));
+  padding-bottom: calc(
+    var(--bottom-nav-height)
+    + var(--bottom-nav-float-gap)
+    + var(--app-safe-area-inset-bottom)
+    + var(--space-6)
+  );
   background: var(--color-bg-primary);
 }
 

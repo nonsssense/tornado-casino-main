@@ -4,13 +4,15 @@
 
 import { createElement } from '../../utils/dom.js';
 import { Button } from '../../components/base/Button.js';
-import { getDisplayStats } from './dice.utils.js';
+import { clampDiceTarget, getDisplayStats } from './dice.utils.js';
 import { formatUsd } from '../../utils/format.js';
-import { DICE_BET_LIMITS, DICE_QUICK_BETS } from './dice.constants.js';
+import {
+  DICE_BET_LIMITS,
+  DICE_QUICK_BETS,
+  DICE_TARGET_LIMITS,
+} from './dice.constants.js';
 import { t } from '../../i18n/index.js';
-
-const LIMIT_MIN = 1;
-const LIMIT_MAX = 98;
+import { hideTelegramKeyboard } from '../../app/telegram.js';
 
 /**
  * @param {object} options
@@ -24,7 +26,7 @@ const LIMIT_MAX = 98;
  */
 export function createDiceControls(options) {
   const state = {
-    limit: options.limit ?? 50,
+    limit: clampDiceTarget(options.limit ?? 50),
     over: options.over ?? true,
     bid: options.bid ?? DICE_BET_LIMITS.min,
     disabled: options.disabled ?? false,
@@ -38,13 +40,13 @@ export function createDiceControls(options) {
     className: 'dice-controls__slider',
     attrs: {
       type: 'range',
-      min: String(LIMIT_MIN),
-      max: String(LIMIT_MAX),
+      min: String(DICE_TARGET_LIMITS.min),
+      max: String(DICE_TARGET_LIMITS.max),
       step: '1',
       value: String(state.limit),
       'aria-label': t('dice.targetAria'),
       onInput: (event) => {
-        state.limit = Number(event.target.value);
+        state.limit = clampDiceTarget(event.target.value);
         sync();
       },
     },
@@ -113,6 +115,7 @@ export function createDiceControls(options) {
         state.bid = clampBid(Number.isFinite(parsed) ? parsed : DICE_BET_LIMITS.min);
         event.target.value = String(state.bid);
         sync();
+        hideTelegramKeyboard();
       },
     },
   });
@@ -155,7 +158,6 @@ export function createDiceControls(options) {
   function createDirectionCard(kind, isOver) {
     const chanceEl = createElement('span', { className: 'dice-direction__chance-value' });
     const multiplierEl = createElement('span', { className: 'dice-direction__multiplier-value' });
-    const profitEl = createElement('span', { className: 'dice-direction__profit-value' });
 
     const card = createElement('button', {
       className: `dice-direction dice-direction--${kind}`,
@@ -181,21 +183,19 @@ export function createDiceControls(options) {
               attrs: { 'data-chance-label': t('dice.meta.chance') },
               children: [chanceEl],
             }),
-            createElement('span', {
-              className: 'dice-direction__profit',
-              attrs: { 'data-profit-label': t('dice.meta.profit') },
-              children: [profitEl],
-            }),
           ],
         }),
       ],
     });
 
-    return { card, chanceEl, multiplierEl, profitEl, isOver };
+    return { card, chanceEl, multiplierEl, isOver };
   }
 
   function updateSliderFill() {
-    const pct = ((state.limit - LIMIT_MIN) / (LIMIT_MAX - LIMIT_MIN)) * 100;
+    const pct = (
+      (state.limit - DICE_TARGET_LIMITS.min)
+      / (DICE_TARGET_LIMITS.max - DICE_TARGET_LIMITS.min)
+    ) * 100;
     sliderPanel.style.setProperty('--dice-slider-pct', `${pct}%`);
   }
 
@@ -223,7 +223,6 @@ export function createDiceControls(options) {
       const stats = getDisplayStats(state.bid, state.limit, entry.isOver);
       entry.chanceEl.textContent = `${stats.chance}%`;
       entry.multiplierEl.textContent = `${stats.multiplier.toFixed(2)}×`;
-      entry.profitEl.textContent = formatUsd(stats.profit);
     });
 
     updatePayoutPreview();

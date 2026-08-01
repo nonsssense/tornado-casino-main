@@ -28,8 +28,8 @@
   display: flex;
   flex-direction: column;
   flex: 1;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-4) calc(var(--space-6) + env(safe-area-inset-bottom, 0px));
+  gap: var(--space-2);
+  padding: var(--space-1) var(--space-2) calc(var(--space-6) + var(--app-safe-area-inset-bottom));
   min-height: 100%;
 }
 
@@ -38,13 +38,209 @@
 .plinko-stage {
   display: flex;
   justify-content: center;
-  padding-top: var(--space-2);
+  width: 100%;
+  min-height: 0;
 }
 
 .plinko-board {
   position: relative;
-  width: min(100%, 22rem);
+  width: min(100%, 28rem);
   isolation: isolate;
+}
+
+/* Compact settings live on the board without affecting its geometry. */
+.plinko-board__game-controls {
+  position: absolute;
+  z-index: 6;
+  top: var(--space-3);
+  right: var(--space-3);
+  left: var(--space-3);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  pointer-events: none;
+}
+
+.plinko-board__game-controls-end {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  pointer-events: auto;
+}
+
+.plinko-board-control-wrap {
+  position: relative;
+  pointer-events: auto;
+}
+
+.plinko-board-control {
+  display: inline-flex;
+  min-width: 4.25rem;
+  min-height: 2.75rem;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  gap: 0.125rem;
+  padding: 0.375rem 0.625rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(7, 8, 7, 0.72);
+  box-shadow:
+    0 0.5rem 1.25rem rgba(0, 0, 0, 0.32),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  color: #fff;
+  font-family: var(--font-family-base);
+  text-align: left;
+  backdrop-filter: blur(0.75rem);
+  cursor: pointer;
+  pointer-events: auto;
+  transition:
+    color 150ms ease,
+    border-color 150ms ease,
+    background 150ms ease,
+    transform 150ms ease;
+}
+
+.plinko-board-control:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.plinko-board-control:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.plinko-board-control--rows {
+  min-width: 4.625rem;
+  min-height: 3rem;
+  padding: 0.4375rem 0.6875rem;
+}
+
+.plinko-board-control__label {
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 0.5625rem;
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.06em;
+  line-height: 1;
+  text-transform: uppercase;
+}
+
+.plinko-board-control__content {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.plinko-board-control__value {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  transition: color 150ms ease;
+}
+
+.plinko-board-control__chevron {
+  display: inline-grid;
+  width: 1.5rem;
+  height: 1.5rem;
+  flex: 0 0 1.5rem;
+  place-items: center;
+  margin: -0.25rem -0.375rem -0.25rem 0;
+  color: rgba(255, 255, 255, 0.5);
+  transition: transform 160ms ease;
+}
+
+.plinko-board-control__chevron::before {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-right: 1.5px solid currentColor;
+  border-bottom: 1.5px solid currentColor;
+  content: '';
+  transform: translateY(-0.125rem) rotate(45deg);
+}
+
+.plinko-board-control-wrap--open .plinko-board-control__chevron {
+  transform: rotate(180deg);
+}
+
+.plinko-board-control--risk[data-risk='low'] {
+  color: #55ff00;
+  border-color: rgba(85, 255, 0, 0.25);
+  background: rgba(25, 55, 25, 0.74);
+}
+
+.plinko-board-control--risk[data-risk='medium'] {
+  color: #ccff00;
+  border-color: rgba(204, 255, 0, 0.22);
+  background: rgba(48, 49, 22, 0.74);
+}
+
+.plinko-board-control--risk[data-risk='high'] {
+  color: #ff624b;
+  border-color: rgba(255, 34, 0, 0.28);
+  background: rgba(60, 24, 25, 0.76);
+}
+
+.plinko-rows-menu {
+  position: absolute;
+  z-index: 8;
+  top: calc(100% + 0.375rem);
+  left: 0;
+  display: grid;
+  min-width: 5rem;
+  padding: 0.25rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-md);
+  background: rgba(9, 10, 9, 0.94);
+  box-shadow: 0 0.75rem 1.75rem rgba(0, 0, 0, 0.48);
+  backdrop-filter: blur(0.875rem);
+  opacity: 0;
+  visibility: hidden;
+  transform: scale(0.95);
+  transform-origin: top left;
+  pointer-events: none;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 160ms;
+}
+
+.plinko-board-control-wrap--open .plinko-rows-menu {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1);
+  pointer-events: auto;
+  transition:
+    opacity 160ms ease,
+    transform 160ms ease,
+    visibility 0s linear 0s;
+}
+
+.plinko-rows-menu__option {
+  min-width: 4.5rem;
+  min-height: 2.125rem;
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: calc(var(--radius-md) - 2px);
+  background: transparent;
+  color: rgba(255, 255, 255, 0.62);
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    color 150ms ease,
+    background 150ms ease;
+}
+
+.plinko-rows-menu__option:hover,
+.plinko-rows-menu__option--active {
+  color: #fff;
+  background: rgba(252, 211, 18, 0.12);
+}
+
+.plinko-rows-menu__option--active {
+  color: var(--color-primary);
 }
 
 
@@ -170,21 +366,29 @@
   transform-origin: center bottom;
 }
 
-/* Land: scale up, soft glow, upward highlight sweep */
+/* Landing confirmation — brief warm lift and gold bloom */
 .plinko-board__bin-svg--active .plinko-board__bin-lift {
-  animation: plinko-bin-land-lift 0.5s cubic-bezier(0.22, 1, 0.36, 1);
+  animation: plinko-bin-land-lift 0.36s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.plinko-board__bin-svg--active .plinko-board__bin-body {
+  animation: plinko-bin-body-confirm 0.36s ease-out;
 }
 
 .plinko-board__bin-svg--active .plinko-board__bin-glow {
-  animation: plinko-bin-glow-flash 0.5s ease-out;
+  fill: rgba(252, 211, 18, 0.48) !important;
+  filter: drop-shadow(0 0 7px rgba(252, 211, 18, 0.55));
+  animation: plinko-bin-glow-flash 0.36s ease-out;
 }
 
 .plinko-board__bin-svg--active .plinko-board__bin-rise {
-  animation: plinko-bin-rise-light 0.5s ease-out;
+  fill: rgba(255, 225, 112, 0.32) !important;
+  animation: plinko-bin-rise-light 0.36s ease-out;
 }
 
 .plinko-board__bin-svg--active .plinko-board__bin-impact {
-  animation: plinko-bin-impact-soft 0.45s ease-out;
+  fill: rgba(252, 211, 18, 0.28) !important;
+  animation: plinko-bin-impact-soft 0.36s ease-out;
 }
 
 .plinko-board__bin-svg--premium .plinko-board__bin-body {
@@ -193,24 +397,34 @@
 
 @keyframes plinko-bin-land-lift {
   0% { transform: translateY(0) scale(1); }
-  30% { transform: translateY(-2px) scale(1.06); }
+  24% { transform: translateY(-1px) scale(1.04); }
+  40% { transform: translateY(-1px) scale(1.035); }
   100% { transform: translateY(0) scale(1); }
+}
+
+@keyframes plinko-bin-body-confirm {
+  0% { filter: brightness(1) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35)); }
+  22% { filter: brightness(1.12) drop-shadow(0 0 7px rgba(252, 211, 18, 0.5)); }
+  42% { filter: brightness(1.08) drop-shadow(0 0 5px rgba(252, 211, 18, 0.34)); }
+  100% { filter: brightness(1) drop-shadow(0 3px 6px rgba(0, 0, 0, 0.35)); }
 }
 
 @keyframes plinko-bin-glow-flash {
   0% { opacity: 0; }
-  25% { opacity: 0.85; }
+  18% { opacity: 0.78; }
+  36% { opacity: 0.68; }
   100% { opacity: 0; }
 }
 
 @keyframes plinko-bin-rise-light {
-  0% { opacity: 0; transform: translateY(8px); }
-  30% { opacity: 0.55; transform: translateY(0); }
-  100% { opacity: 0; transform: translateY(-14px); }
+  0% { opacity: 0; transform: translateY(3px); }
+  22% { opacity: 0.28; transform: translateY(0); }
+  100% { opacity: 0; transform: translateY(-5px); }
 }
 
 @keyframes plinko-bin-impact-soft {
-  0% { opacity: 0.35; }
+  0% { opacity: 0.22; }
+  28% { opacity: 0.16; }
   100% { opacity: 0; }
 }
 
@@ -282,92 +496,13 @@
   flex-direction: column;
   gap: var(--space-3);
   width: 100%;
-  max-width: 22rem;
+  max-width: 28rem;
   margin-inline: auto;
 }
 
 .plinko-controls--disabled {
   opacity: 0.72;
   pointer-events: none;
-}
-
-.plinko-controls__section {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.plinko-controls__label {
-  font-size: var(--font-size-xs);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.38);
-}
-
-.plinko-controls__segmented {
-  display: flex;
-  gap: 0.125rem;
-  padding: 0.1875rem;
-  border-radius: var(--radius-md);
-  background: rgba(255, 255, 255, 0.04);
-  border: 1px solid var(--plinko-surface-border);
-}
-
-.plinko-controls__segmented--rows {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-}
-
-.plinko-controls__risk-btn,
-.plinko-controls__row-btn {
-  flex: 1;
-  min-height: 2.25rem;
-  padding: 0 var(--space-2);
-  border: 1px solid transparent;
-  border-radius: calc(var(--radius-md) - 2px);
-  background: transparent;
-  color: rgba(255, 255, 255, 0.55);
-  font-family: var(--font-family-base);
-  font-size: var(--font-size-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition:
-    background var(--transition-fast),
-    color var(--transition-fast),
-    border-color var(--transition-fast);
-}
-
-.plinko-controls__risk-btn:hover,
-.plinko-controls__row-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.plinko-controls__risk-btn--active {
-  color: #fff;
-  border-color: rgba(255, 255, 255, 0.12);
-  background: rgba(255, 255, 255, 0.08);
-}
-
-.plinko-controls__risk-btn--low.plinko-controls__risk-btn--active {
-  background: rgba(85, 255, 0, 0.12);
-  border-color: rgba(85, 255, 0, 0.25);
-}
-
-.plinko-controls__risk-btn--medium.plinko-controls__risk-btn--active {
-  background: rgba(204, 255, 0, 0.1);
-  border-color: rgba(204, 255, 0, 0.22);
-}
-
-.plinko-controls__risk-btn--high.plinko-controls__risk-btn--active {
-  background: rgba(255, 34, 0, 0.12);
-  border-color: rgba(255, 34, 0, 0.28);
-}
-
-.plinko-controls__row-btn--active {
-  color: #fff;
-  background: rgba(252, 211, 18, 0.12);
-  border-color: rgba(252, 211, 18, 0.28);
 }
 
 /* Bet panel — mirrors Dice */
@@ -387,6 +522,55 @@
   letter-spacing: 0.06em;
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.42);
+}
+
+.plinko-controls__bet-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.plinko-controls__count {
+  display: inline-grid;
+  grid-template-columns: auto 1.75rem 1.5rem 1.75rem;
+  align-items: center;
+  gap: 0.2rem;
+  min-height: 1.75rem;
+  color: rgba(255, 255, 255, 0.72);
+}
+
+.plinko-controls__count-label {
+  margin-right: 0.15rem;
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+}
+
+.plinko-controls__count-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.75rem;
+  height: 1.75rem;
+  padding: 0;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.42);
+  color: #fff;
+  font: inherit;
+  line-height: 1;
+}
+
+.plinko-controls__count-button:disabled {
+  opacity: 0.35;
+}
+
+.plinko-controls__count-value {
+  text-align: center;
+  color: #fff;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 .plinko-controls__bet-input-wrap {

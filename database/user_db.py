@@ -69,3 +69,24 @@ def updateUserNonce(user_id, conn=None):
             new_conn.execute(update_stmt)
 
     log.info(f"User nonce UPDATE completed | user_id={user_id}")
+
+# Метод который обновялет запись об пригласившегося пользователя этого пользователя, что бы обновлять статистику пригласившегося при депозитах этого игрока )
+def referrerIdUpdate(user_id, referrer_id, conn):
+    # Write-once: only set referrer_id when still NULL (immutable attribution).
+    update_stmt = (
+        sa.update(users_table)
+        .where(
+            users_table.c.id == user_id,
+            users_table.c.referrer_id.is_(None),
+        )
+        .values(referrer_id=referrer_id)
+    )
+    result = conn.execute(update_stmt)
+
+    if result.rowcount == 0:
+        log.info(f'Re-referral error. referral_id found | user_id: {user_id}')
+        return False
+
+    log.info(f'Update users_table | user_id: {user_id} | refferer_id: {referrer_id}')
+    return True
+

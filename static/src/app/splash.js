@@ -1,15 +1,15 @@
 /**
- * Conditional startup splash — mobile-first 9:16 brand + bottom tornado loader.
+ * Conditional startup splash — static brand mark + opacity fade only.
  *
- * Loading animation: regional shape flow + circulating light on a single tornado.
+ * No SVG filters, no rAF loops, no rotating tornado animation.
  * Dismissal / timing APIs are unchanged.
  */
 
 const SPLASH_THRESHOLD_MS = 375;
 const SPLASH_FADE_MS = 180;
 
-const SPLASH_WORDMARK_URL = '/assets/tornado%20full%20name%20logo%201.png';
-const SPLASH_TORNADO_URL = '/assets/ava%20icon%20tornado%20main.webp';
+const SPLASH_WORDMARK_URL = '/assets/tornado%20full%20name%20logo%201.webp';
+const SPLASH_LOGO_URL = '/assets/ava%20icon%20tornado%20main.webp';
 
 /** @type {number|null} */
 let showTimer = null;
@@ -17,238 +17,25 @@ let showTimer = null;
 /** @type {HTMLElement|null} */
 let splashEl = null;
 
-/** @type {HTMLElement|null} */
-let tornadoStack = null;
-
 /** @type {number} */
 let bootStartedAt = 0;
-
-/** @type {number} */
-let motionRaf = 0;
 
 /** @type {number|null} */
 let removeTimer = null;
 
-/** @type {(() => void)|null} */
-let stopTornadoMotion = null;
-
-/**
- * Masked light layers + regional shape flow on a nearly-static silhouette.
- * @returns {HTMLElement}
- */
-function buildTornadoStack() {
+function buildLogo() {
   const wrap = document.createElement('div');
-  wrap.className = 'app-splash__tornado-wrap';
+  wrap.className = 'app-splash__logo-wrap';
 
-  const stack = document.createElement('div');
-  stack.className = 'app-splash__tornado-stack';
+  const img = document.createElement('img');
+  img.className = 'app-splash__logo';
+  img.src = SPLASH_LOGO_URL;
+  img.alt = '';
+  img.draggable = false;
+  img.decoding = 'async';
 
-  const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-  svg.setAttribute('class', 'app-splash__tornado-defs');
-  svg.setAttribute('aria-hidden', 'true');
-  svg.innerHTML = `
-    <defs>
-      <filter id="tornado-micro-warp" x="-6%" y="-6%" width="112%" height="112%" color-interpolation-filters="sRGB">
-        <feTurbulence type="fractalNoise" baseFrequency="0.028 0.12" numOctaves="3" seed="7" result="noise">
-          <animate attributeName="baseFrequency"
-            values="0.028 0.12;0.034 0.095;0.024 0.135;0.028 0.12"
-            dur="5.2s" repeatCount="indefinite" calcMode="spline"
-            keySplines="0.37 0 0.63 1;0.37 0 0.63 1;0.37 0 0.63 1"
-            keyTimes="0;0.38;0.72;1"/>
-        </feTurbulence>
-        <feDisplacementMap in="SourceGraphic" in2="noise" scale="1.35" xChannelSelector="R" yChannelSelector="G"/>
-      </filter>
-    </defs>
-  `;
-
-  const aura = document.createElement('div');
-  aura.className = 'app-splash__tornado-aura';
-
-  const mesh = document.createElement('div');
-  mesh.className = 'app-splash__tornado-mesh';
-
-  const regions = [
-    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--upper' },
-    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--mid' },
-    { className: 'app-splash__tornado app-splash__tornado--region app-splash__tornado--tail' },
-  ];
-
-  regions.forEach(({ className }) => {
-    const img = document.createElement('img');
-    img.className = className;
-    img.src = SPLASH_TORNADO_URL;
-    img.alt = '';
-    img.draggable = false;
-    img.decoding = 'async';
-    mesh.appendChild(img);
-  });
-
-  const maskStyle = (el) => {
-    el.style.webkitMaskImage = `url("${SPLASH_TORNADO_URL}")`;
-    el.style.maskImage = `url("${SPLASH_TORNADO_URL}")`;
-  };
-
-  const vortex = document.createElement('div');
-  vortex.className = 'app-splash__tornado-light app-splash__tornado-light--vortex';
-  maskStyle(vortex);
-
-  const specular = document.createElement('div');
-  specular.className = 'app-splash__tornado-light app-splash__tornado-light--specular';
-  maskStyle(specular);
-
-  const shade = document.createElement('div');
-  shade.className = 'app-splash__tornado-light app-splash__tornado-light--shade';
-  maskStyle(shade);
-
-  stack.append(svg, aura, mesh, vortex, shade, specular);
-  wrap.appendChild(stack);
-
-  tornadoStack = stack;
+  wrap.appendChild(img);
   return wrap;
-}
-
-/**
- * @param {HTMLElement} stack
- * @param {number} t
- */
-function applyTornadoLive(stack, t) {
-  const mesh = stack.querySelector('.app-splash__tornado-mesh');
-  const upper = stack.querySelector('.app-splash__tornado--upper');
-  const mid = stack.querySelector('.app-splash__tornado--mid');
-  const tail = stack.querySelector('.app-splash__tornado--tail');
-  const aura = stack.querySelector('.app-splash__tornado-aura');
-  const vortex = stack.querySelector('.app-splash__tornado-light--vortex');
-  const specular = stack.querySelector('.app-splash__tornado-light--specular');
-  const shade = stack.querySelector('.app-splash__tornado-light--shade');
-
-  if (mesh) {
-    const brightness = 1.01 + Math.sin(t * 0.85) * 0.025;
-    mesh.style.filter =
-      `url(#tornado-micro-warp) brightness(${brightness.toFixed(3)}) ` +
-      `drop-shadow(0 0 3px rgba(255, 200, 40, 0.18))`;
-  }
-
-  if (upper) {
-    const pulse = Math.sin(t * 1.05);
-    const twist = Math.sin(t * 0.92 + 0.5);
-    const sx = 1 + pulse * 0.028;
-    const sy = 1 - pulse * 0.016;
-    upper.style.transform =
-      `rotate(${(twist * 0.65).toFixed(3)}deg) scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
-  }
-
-  if (mid) {
-    const pulse = Math.sin(t * 1.18 + 1.9);
-    const flow = Math.sin(t * 1.55 + 0.7);
-    const sx = 1 + pulse * 0.032;
-    const sy = 1 - pulse * 0.02 + flow * 0.008;
-    mid.style.transform = `scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
-  }
-
-  if (tail) {
-    const pulse = Math.sin(t * 1.32 + 3.1);
-    const sway = Math.sin(t * 1.08 + 2.4);
-    const sx = 1 + pulse * 0.02;
-    const sy = 1 - pulse * 0.014;
-    tail.style.transform =
-      `translateX(${(sway * 0.7).toFixed(3)}px) rotate(${(sway * 0.85).toFixed(3)}deg) ` +
-      `scale(${sx.toFixed(4)}, ${sy.toFixed(4)})`;
-  }
-
-  if (aura) {
-    const a = t * 0.9;
-    const hx = 50 + Math.cos(a) * 6;
-    const hy = 52 + Math.sin(a) * 5;
-    const pulse = 0.14 + Math.sin(t * 1.05) * 0.03;
-    aura.style.opacity = String(Math.max(0.1, Math.min(0.2, pulse)));
-    aura.style.background =
-      `radial-gradient(ellipse 42% 48% at ${hx.toFixed(1)}% ${hy.toFixed(1)}%, ` +
-      `rgba(255, 210, 50, 0.45) 0%, rgba(255, 180, 0, 0.12) 35%, transparent 62%)`;
-  }
-
-  if (vortex) {
-    const deg = (t * 65) % 360;
-    vortex.style.background =
-      `conic-gradient(from ${deg.toFixed(1)}deg at 50% 46%, ` +
-      `transparent 0deg, ` +
-      `rgba(255, 248, 200, 0.38) 28deg, ` +
-      `rgba(255, 220, 60, 0.18) 55deg, ` +
-      `transparent 95deg, ` +
-      `rgba(40, 20, 0, 0.22) 160deg, ` +
-      `rgba(20, 10, 0, 0.28) 195deg, ` +
-      `transparent 240deg, ` +
-      `rgba(255, 230, 90, 0.32) 300deg, ` +
-      `transparent 340deg)`;
-    vortex.style.opacity = '0.85';
-  }
-
-  if (specular) {
-    const a = t * ((Math.PI * 2) / 5.5);
-    const x = 50 + Math.cos(a) * 28;
-    const y = 46 + Math.sin(a) * 26;
-    specular.style.background =
-      `radial-gradient(circle at ${x.toFixed(1)}% ${y.toFixed(1)}%, ` +
-      `rgba(255, 255, 240, 0.9) 0%, rgba(255, 235, 120, 0.4) 12%, ` +
-      `transparent 32%)`;
-    specular.style.opacity = String(0.55 + Math.sin(a + 0.4) * 0.1);
-  }
-
-  if (shade) {
-    const a = t * ((Math.PI * 2) / 5.5) + Math.PI;
-    const x = 50 + Math.cos(a) * 26;
-    const y = 48 + Math.sin(a) * 24;
-    shade.style.background =
-      `radial-gradient(ellipse 70% 55% at ${x.toFixed(1)}% ${y.toFixed(1)}%, ` +
-      `rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.18) 30%, transparent 58%)`;
-    shade.style.opacity = '0.55';
-  }
-}
-
-/**
- * @param {HTMLElement} stack
- * @returns {() => void}
- */
-function startTornadoMotion(stack) {
-  const started = performance.now();
-  let running = true;
-
-  const tick = (now) => {
-    if (!running) return;
-    applyTornadoLive(stack, (now - started) / 1000);
-    motionRaf = requestAnimationFrame(tick);
-  };
-
-  motionRaf = requestAnimationFrame(tick);
-
-  return () => {
-    running = false;
-    if (motionRaf) {
-      cancelAnimationFrame(motionRaf);
-      motionRaf = 0;
-    }
-  };
-}
-
-function clearMotion() {
-  if (stopTornadoMotion) {
-    stopTornadoMotion();
-    stopTornadoMotion = null;
-  }
-
-  if (motionRaf) {
-    cancelAnimationFrame(motionRaf);
-    motionRaf = 0;
-  }
-
-  const early = window.__tornadoSplash;
-  if (early?.raf) {
-    cancelAnimationFrame(early.raf);
-    early.raf = 0;
-  }
-  if (typeof early?.stop === 'function') {
-    early.stop();
-    early.stop = null;
-  }
 }
 
 function buildBrandBlock() {
@@ -285,7 +72,7 @@ function buildSplash() {
 
   const center = document.createElement('div');
   center.className = 'app-splash__center';
-  center.appendChild(buildTornadoStack());
+  center.appendChild(buildLogo());
 
   stage.append(center, buildBrandBlock());
   root.appendChild(stage);
@@ -300,7 +87,6 @@ function adoptEarlySplash() {
   if (!early?.el) return false;
 
   splashEl = early.el;
-  tornadoStack = early.stack || early.el.querySelector('.app-splash__tornado-stack');
   return true;
 }
 
@@ -349,13 +135,8 @@ export function startSplashWatch() {
     void splashEl.offsetWidth;
     splashEl.classList.add('app-splash--visible');
 
-    if (tornadoStack) {
-      stopTornadoMotion = startTornadoMotion(tornadoStack);
-    }
-
     if (window.__tornadoSplash) {
       window.__tornadoSplash.el = splashEl;
-      window.__tornadoSplash.stack = tornadoStack;
     }
   }, SPLASH_THRESHOLD_MS);
 }
@@ -378,8 +159,6 @@ function cancelSplashScheduling() {
     clearTimeout(removeTimer);
     removeTimer = null;
   }
-
-  clearMotion();
 }
 
 function purgeSplashDom() {
@@ -388,7 +167,6 @@ function purgeSplashDom() {
   });
 
   splashEl = null;
-  tornadoStack = null;
 
   if (window.__tornadoSplash) {
     window.__tornadoSplash.el = null;
@@ -419,8 +197,6 @@ export function dismissSplash(options = {}) {
     return;
   }
 
-  clearMotion();
-
   if (immediate) {
     purgeSplashDom();
     return;
@@ -433,7 +209,6 @@ export function dismissSplash(options = {}) {
 
   const toRemove = nodes.length ? nodes : splashEl ? [splashEl] : [];
   splashEl = null;
-  tornadoStack = null;
 
   if (window.__tornadoSplash) {
     window.__tornadoSplash.el = null;

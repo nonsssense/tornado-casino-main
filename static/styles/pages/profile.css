@@ -55,6 +55,42 @@
   word-break: break-word;
 }
 
+.profile-field__value-row {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.35rem;
+  min-width: 0;
+}
+
+.profile-field__info {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 1.125rem;
+  height: 1.125rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--color-text-muted);
+  opacity: 0.72;
+  cursor: pointer;
+}
+
+.profile-field__info svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.profile-field__info:hover,
+.profile-field__info:focus-visible {
+  opacity: 1;
+  color: var(--color-text-secondary);
+}
+
 .profile-field:first-child .profile-field__value {
   color: var(--color-text-secondary);
 }

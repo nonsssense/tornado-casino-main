@@ -11,6 +11,7 @@ import {
   createRouteController,
   defineRoutePolicy,
 } from '../router/route-controller.js';
+import { openSupportModal } from '../components/shared/SupportModal.js';
 
 const DEPOSIT_BONUS_BANNER = '/banners/deposit-bonus-banner.webp';
 const SUPPORT_ASSET = '/assets/tornado%20support%20main.webp';
@@ -190,7 +191,19 @@ function buildHomeDom() {
               }),
               createElement('button', {
                 className: 'home-page__footer-support',
-                attrs: { type: 'button', 'aria-label': t('home.support.ariaLabel') },
+                attrs: {
+                  type: 'button',
+                  'aria-label': t('home.support.ariaLabel'),
+                  onClick: () => {
+                    openSupportModal({
+                      onNavigateHome: () => {
+                        void import('../router/index.js').then(({ router }) =>
+                          router.navigate(ROUTE_NAMES.HOME),
+                        );
+                      },
+                    });
+                  },
+                },
                 children: [
                   createElement('img', {
                     className: 'home-page__footer-support-img',
@@ -249,7 +262,7 @@ export function createHomeController() {
     policy: defineRoutePolicy({
       retainController: true,
       retainDom: true,
-      immersive: false,
+      screenType: 'app',
       showRouteSkeleton: false,
     }),
     createRoot() {

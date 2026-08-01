@@ -3,17 +3,39 @@
  *
  * Responsibility:
  * - POST /api/wallet/deposit
- * - Future: withdraw, balance, history endpoints when documented.
- *
- * Never call POST /api/payment/webhook from the frontend.
+ * - GET /api/wallet/deposit/minimum
+ * - GET /api/wallet/withdraw/minimum
+ * - POST /api/wallet/withdraw
  */
 
 import { request } from './request.js';
 
-export async function createDeposit(ticker) {
+/**
+ * @param {string} ticker
+ */
+export async function fetchDepositMinimum(ticker) {
+  return request(`/api/wallet/deposit/minimum?ticker=${encodeURIComponent(ticker)}`);
+}
+
+/**
+ * Configured product withdrawal minimum (USD).
+ */
+export async function fetchWithdrawMinimum() {
+  return request('/api/wallet/withdraw/minimum');
+}
+
+/**
+ * @param {string} ticker
+ * @param {number} [amount] - optional declared USD amount (validated when provided)
+ */
+export async function createDeposit(ticker, amount) {
+  const body = { ticker };
+  if (amount != null && Number.isFinite(Number(amount))) {
+    body.amount = Number(amount);
+  }
   return request('/api/wallet/deposit', {
     method: 'POST',
-    body: JSON.stringify({ ticker }),
+    body: JSON.stringify(body),
   });
 }
 
@@ -28,8 +50,11 @@ export async function fetchDepositStatus(depositId) {
   return request(`/api/wallet/deposit/status?deposit_id=${encodeURIComponent(depositId)}`);
 }
 
-export async function fetchHistory() {
-  return request('/api/wallet/history');
+export async function fetchHistory(category = 'all') {
+  const query = category && category !== 'all'
+    ? `?category=${encodeURIComponent(category)}`
+    : '';
+  return request(`/api/wallet/history${query}`);
 }
 
 /**

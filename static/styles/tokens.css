@@ -115,16 +115,52 @@
   --max-width-mobile: 430px;
   --header-height: 3.5rem;
   --bottom-nav-height: 4rem;
+  --bottom-nav-float-gap: var(--space-4);
   --touch-target-min: 2.75rem;
+
+  /*
+   * Telegram Safe Area + Content Safe Area (Bot API 8.0+).
+   * JS syncs live values onto these vars; defaults keep env()-only layout on older clients.
+   * Merge: max(system env, Telegram safe) + Telegram content inset (fullscreen chrome).
+   */
+  --tg-safe-area-inset-top: 0px;
+  --tg-safe-area-inset-right: 0px;
+  --tg-safe-area-inset-bottom: 0px;
+  --tg-safe-area-inset-left: 0px;
+  --tg-content-safe-area-inset-top: 0px;
+  --tg-content-safe-area-inset-right: 0px;
+  --tg-content-safe-area-inset-bottom: 0px;
+  --tg-content-safe-area-inset-left: 0px;
+  --app-safe-area-inset-top: calc(
+    max(env(safe-area-inset-top, 0px), var(--tg-safe-area-inset-top, 0px))
+    + var(--tg-content-safe-area-inset-top, 0px)
+  );
+  --app-safe-area-inset-right: calc(
+    max(env(safe-area-inset-right, 0px), var(--tg-safe-area-inset-right, 0px))
+    + var(--tg-content-safe-area-inset-right, 0px)
+  );
+  --app-safe-area-inset-bottom: calc(
+    max(env(safe-area-inset-bottom, 0px), var(--tg-safe-area-inset-bottom, 0px))
+    + var(--tg-content-safe-area-inset-bottom, 0px)
+  );
+  --app-safe-area-inset-left: calc(
+    max(env(safe-area-inset-left, 0px), var(--tg-safe-area-inset-left, 0px))
+    + var(--tg-content-safe-area-inset-left, 0px)
+  );
+
+  /* Matches fixed bottom-nav footprint: pill height + float margin + safe area */
   --bottom-sheet-nav-offset: calc(
-    var(--bottom-nav-height) + var(--space-8) + env(safe-area-inset-bottom, 0px)
+    var(--bottom-nav-height)
+    + var(--bottom-nav-float-gap)
+    + var(--app-safe-area-inset-bottom)
+    + var(--space-4)
   );
   /* Home bonus banners — hero height (~1.8× previous 7rem) */
   --home-promo-min-height: 12.5rem;
 
   /* Kept for layout reference; standard sheets use a fixed ~70% viewport height */
   --bottom-sheet-top-gap: calc(
-    env(safe-area-inset-top, 0px)
+    var(--app-safe-area-inset-top)
     + 5.25rem
     + var(--home-promo-min-height)
     + 2.75rem

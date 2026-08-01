@@ -13,6 +13,8 @@
   margin-inline: auto;
   background-color: var(--color-bg-primary);
   isolation: isolate;
+  /* Disable double-tap zoom; keep pan + pinch. */
+  touch-action: manipulation;
 }
 
 .t-app__header {
@@ -34,6 +36,7 @@
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 0 var(--space-4) 0;
+  touch-action: manipulation;
   transition:
     opacity var(--transition-base),
     transform var(--transition-base);
@@ -63,6 +66,16 @@
 
 .t-app__footer .bottom-nav {
   pointer-events: auto;
+}
+
+/* Standalone full-screen routes — owned by the router via screenType.
+   Must live in always-loaded shell CSS (not page chunks) so visibility never
+   depends on which page stylesheet has been fetched.
+   Overlays do not toggle this class; bottom nav stays visible under sheets. */
+.t-app--standalone .t-app__footer,
+.t-app--game-immersive .t-app__footer,
+.t-app__footer[hidden] {
+  display: none;
 }
 
 /* Global overlay mount point */

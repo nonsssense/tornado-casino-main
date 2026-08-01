@@ -1,0 +1,120 @@
+# Example production reverse proxy for Tornado Mini App.
+# Prefer this in front of uvicorn for Brotli + gzip and static offload.
+#
+# Requires modules: ngx_http_brotli_filter / ngx_http_brotli_static (or omit brotli*).
+# Point root to the casinobot project directory (or a deploy package that includes
+# dist/, assets/, banners/, soundeffects/).
+
+upstream tornado_app {
+    server 127.0.0.1:8080;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl http2;
+    server_name example.com;
+
+    # ssl_certificate     /etc/ssl/certs/example.pem;
+    # ssl_certificate_key /etc/ssl/private/example.key;
+
+    # Prefer Brotli; gzip is the fallback for older clients.
+    brotli on;
+    brotli_comp_level 5;
+    brotli_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        image/svg+xml
+        font/woff
+        font/woff2
+        application/font-woff
+        application/font-woff2;
+
+    gzip on;
+    gzip_comp_level 5;
+    gzip_min_length 256;
+    gzip_proxied any;
+    gzip_vary on;
+    gzip_types
+        text/plain
+        text/css
+        text/javascript
+        application/javascript
+        application/json
+        image/svg+xml
+        font/woff
+        font/woff2
+        application/font-woff
+        application/font-woff2;
+
+    # Hashed Vite bundles — long cache, immutable.
+    location /app/ {
+        alias /var/www/casinobot/dist/app/;
+        expires 1y;
+        add_header Cache-Control "public, max-age=31536000, immutable";
+        access_log off;
+    }
+
+    # Unhashed media — medium cache (filenames change when assets are replaced).
+    location /assets/ {
+        alias /var/www/casinobot/assets/;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        access_log off;
+    }
+
+    location /banners/ {
+        alias /var/www/casinobot/banners/;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        access_log off;
+    }
+
+    location /soundeffects/ {
+        alias /var/www/casinobot/soundeffects/;
+        expires 7d;
+        add_header Cache-Control "public, max-age=604800";
+        access_log off;
+    }
+
+    # HTML shell must revalidate so new hashed /app/* refs are picked up.
+    location = / {
+        proxy_pass http://tornado_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+
+    # API + Crash WebSocket → uvicorn.
+    location /api/ {
+        proxy_pass http://tornado_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    location /crash/ {
+        proxy_pass http://tornado_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_read_timeout 3600s;
+    }
+
+    location / {
+        proxy_pass http://tornado_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        add_header Cache-Control "no-cache, must-revalidate";
+    }
+}
