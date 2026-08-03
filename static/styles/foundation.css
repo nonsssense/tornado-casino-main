@@ -26,5 +26,6 @@
 @import url('./components/modal-panel.css');
 @import url('./components/game-settings-panel.css');
 @import url('./components/support-modal.css');
+@import url('./components/guest.css');
 @import url('./pages/home.css');
 @import url('./pages/game.css');

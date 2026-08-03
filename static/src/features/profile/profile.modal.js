@@ -6,9 +6,11 @@ import { createElement } from '../../utils/dom.js';
 import { t } from '../../i18n/index.js';
 import { AvatarPlaceholder } from '../../components/shared/AvatarPlaceholder.js';
 import { Skeleton } from '../../components/base/Skeleton.js';
+import { Button } from '../../components/base/Button.js';
 import { PROFILE_MENU_ITEMS, PROFILE_FIELDS } from './profile.constants.js';
 import { profileService } from '../../services/profile.service.js';
 import { replaceChildrenFadeIn } from '../../utils/hydrate.js';
+import { openTelegramBot } from '../../utils/app.config.js';
 
 const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
@@ -70,54 +72,75 @@ function createProfileSkeletonCard() {
 /**
  * @param {Record<string, string>} values
  * @param {function} [onStatusInfo]
+ * @param {{ isGuest?: boolean }} [options]
  * @returns {HTMLElement}
  */
-function createProfileCard(values, onStatusInfo) {
-  return createElement('div', {
-    className: 'profile-card',
-    attrs: { 'aria-busy': 'false' },
-    children: [
-      AvatarPlaceholder({ className: 'profile-card__avatar' }),
-      createElement('div', {
-        className: 'profile-card__info',
-        children: PROFILE_FIELDS.map((field) => {
-          const valueEl = createElement('span', {
-            className: 'profile-field__value',
-            text: values[field.id] || t(field.placeholderKey),
-          });
+function createProfileCard(values, onStatusInfo, options = {}) {
+  const isGuest = Boolean(options.isGuest);
 
-          const valueRow =
-            field.id === 'status'
-              ? createElement('span', {
-                  className: 'profile-field__value-row',
-                  children: [
-                    valueEl,
-                    createElement('button', {
-                      className: 'profile-field__info',
-                      attrs: {
-                        type: 'button',
-                        'aria-label': t('referrals.statusInfo.open'),
-                        onClick: () => onStatusInfo?.(),
-                      },
-                      html: ICON_INFO,
-                    }),
-                  ],
-                })
-              : valueEl;
+  const children = [
+    AvatarPlaceholder({ className: 'profile-card__avatar' }),
+    createElement('div', {
+      className: 'profile-card__info',
+      children: PROFILE_FIELDS.map((field) => {
+        const valueEl = createElement('span', {
+          className: 'profile-field__value',
+          text: values[field.id] || t(field.placeholderKey),
+        });
 
-          return createElement('div', {
-            className: 'profile-field',
-            children: [
-              createElement('span', {
-                className: 'profile-field__label',
-                text: `${t(field.labelKey)}:`,
-              }),
-              valueRow,
-            ],
-          });
-        }),
+        const valueRow =
+          field.id === 'status' && !isGuest
+            ? createElement('span', {
+                className: 'profile-field__value-row',
+                children: [
+                  valueEl,
+                  createElement('button', {
+                    className: 'profile-field__info',
+                    attrs: {
+                      type: 'button',
+                      'aria-label': t('referrals.statusInfo.open'),
+                      onClick: () => onStatusInfo?.(),
+                    },
+                    html: ICON_INFO,
+                  }),
+                ],
+              })
+            : valueEl;
+
+        return createElement('div', {
+          className: 'profile-field',
+          children: [
+            createElement('span', {
+              className: 'profile-field__label',
+              text: `${t(field.labelKey)}:`,
+            }),
+            valueRow,
+          ],
+        });
       }),
-    ],
+    }),
+  ];
+
+  if (isGuest) {
+    children.push(
+      createElement('p', {
+        className: 'guest-profile-note',
+        text: t('guest.profile.message'),
+      }),
+      Button({
+        label: t('guest.actions.openTelegram'),
+        variant: 'primary',
+        block: true,
+        className: 'profile-card__guest-cta',
+        onClick: () => openTelegramBot(),
+      }),
+    );
+  }
+
+  return createElement('div', {
+    className: ['profile-card', isGuest ? 'profile-card--guest' : ''].filter(Boolean).join(' '),
+    attrs: { 'aria-busy': 'false' },
+    children,
   });
 }
 
@@ -197,12 +220,21 @@ export function createProfileModal(options = {}) {
             email: profile.email,
           },
           onStatusInfo,
+          { isGuest: profile.isGuest },
         ),
         150,
       );
     })
     .catch(() => {
-      replaceChildrenFadeIn(cardMount, createProfileCard({}, onStatusInfo), 150);
+      replaceChildrenFadeIn(
+        cardMount,
+        createProfileCard(
+          { nickname: t('guest.name') },
+          onStatusInfo,
+          { isGuest: true },
+        ),
+        150,
+      );
     });
 
   return modal;

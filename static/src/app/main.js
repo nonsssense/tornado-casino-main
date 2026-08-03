@@ -1,15 +1,22 @@
 /**
  * Application entry point — shell-first startup with progressive hydration.
+ * Auth runs in the background. Missing Telegram identity → Guest Mode (not an error).
  */
 
 import '../../styles/foundation.css';
-import { initAuth, getWelcomePayload, clearWelcomePayload } from '../services/auth.service.js';
+import {
+  startAuthLifecycle,
+  getWelcomePayload,
+  clearWelcomePayload,
+  handleSessionExpired,
+  isAuthenticated,
+  subscribeAuthStatus,
+  AUTH_STATUS,
+} from '../services/auth.service.js';
 import { balanceService } from '../services/balance.service.js';
 import { settingsService } from '../services/settings.service.js';
 import { mountAppShell } from './shell.js';
 import { router } from '../router/index.js';
-import { showAuthError, clearAuthError } from './auth-error.js';
-import { startSplashWatch, dismissSplash } from './splash.js';
 import { initI18n, subscribeLocale, t } from '../i18n/index.js';
 import { overlayManager } from '../overlays/index.js';
 import { notifyTelegramReady } from './telegram.js';
@@ -23,7 +30,9 @@ function balancePlaceholder() {
 
 let shellInstance = null;
 let unsubscribeBalance = null;
+let unsubscribeAuth = null;
 let localeSubscribed = false;
+let welcomeShown = false;
 
 export function initApp() {
   shellInstance = mountAppShell({
@@ -50,18 +59,8 @@ export function getAppShell() {
   return shellInstance;
 }
 
-function resetShellState() {
-  shellInstance = null;
-
-  if (unsubscribeBalance) {
-    unsubscribeBalance();
-    unsubscribeBalance = null;
-  }
-}
-
 /**
  * Mount shell immediately for perceived speed.
- * Splash stays until auth settles (success or failure).
  */
 function mountShellFirst() {
   if (!shellInstance) {
@@ -69,32 +68,7 @@ function mountShellFirst() {
   }
 }
 
-/**
- * Terminal startup outcome — auth finished.
- * Splash must never remain after this.
- * @param {'success' | 'failure'} outcome
- */
-function finishStartup(outcome) {
-  if (outcome === 'failure') {
-    dismissSplash({ immediate: true });
-    return;
-  }
-
-  dismissSplash();
-}
-
-async function hydrateAfterAuth() {
-  try {
-    await initAuth();
-  } catch {
-    finishStartup('failure');
-    resetShellState();
-    showAuthError({ onRetry: bootstrap });
-    return;
-  }
-
-  finishStartup('success');
-
+function hydrateAuthenticatedData() {
   void settingsService.load().catch(() => {
     // Settings failure should not block shell or navigation.
   });
@@ -103,29 +77,66 @@ async function hydrateAfterAuth() {
     // Balance failure should not block shell or navigation.
   });
 
-  // First-time welcome — only when backend says welcome_pending.
-  // Dynamic import keeps welcome CSS/JS out of the returning-user bundle.
-  const welcome = getWelcomePayload();
-  if (welcome?.show) {
-    clearWelcomePayload();
-    // Defer one frame so Home/shell paint under the modal.
-    requestAnimationFrame(() => {
-      void import('../features/welcome/welcome.modal.js')
-        .then(({ maybeShowWelcome }) => {
-          maybeShowWelcome(welcome, {
-            onClaim: () => {
-              overlayManager.openDeposit({ previousNavId: 'casino', highlightNav: true });
-            },
-            onLater: () => {
-              // Stay on Home — no navigation.
-            },
-          });
-        })
-        .catch(() => {
-          // Welcome is non-critical — ignore load failures.
-        });
-    });
+  maybeShowWelcome();
+}
+
+function hydrateGuestData() {
+  // Language is local. Apply sound/haptic defaults without requiring a session.
+  try {
+    settingsService.enableHapticPreferenceGate();
+  } catch {
+    // Non-critical.
   }
+
+  shellInstance?.updateBalanceAmount?.(balancePlaceholder());
+}
+
+function maybeShowWelcome() {
+  if (welcomeShown || !isAuthenticated()) return;
+  const welcome = getWelcomePayload();
+  if (!welcome?.show) return;
+
+  welcomeShown = true;
+  clearWelcomePayload();
+
+  requestAnimationFrame(() => {
+    void import('../features/welcome/welcome.modal.js')
+      .then(({ maybeShowWelcome: showWelcome }) => {
+        showWelcome(welcome, {
+          onClaim: () => {
+            overlayManager.openDeposit({ previousNavId: 'casino', highlightNav: true });
+          },
+          onLater: () => {
+            // Stay on Home — no navigation.
+          },
+        });
+      })
+      .catch(() => {
+        // Welcome is non-critical — ignore load failures.
+      });
+  });
+}
+
+async function hydrateAfterAuth() {
+  const outcome = await startAuthLifecycle();
+
+  if (outcome.status === AUTH_STATUS.AUTHENTICATED) {
+    hydrateAuthenticatedData();
+  } else {
+    hydrateGuestData();
+  }
+}
+
+function ensureAuthSubscription() {
+  if (unsubscribeAuth) return;
+  unsubscribeAuth = subscribeAuthStatus((status) => {
+    if (status === AUTH_STATUS.AUTHENTICATED) {
+      hydrateAuthenticatedData();
+      overlayManager.refreshForAuthUpgrade?.();
+    } else if (status === AUTH_STATUS.GUEST) {
+      hydrateGuestData();
+    }
+  });
 }
 
 function ensureLocaleSubscription() {
@@ -142,7 +153,6 @@ function ensureLocaleSubscription() {
 }
 
 async function bootstrap() {
-  // Module path: re-signal ready if inline early call was skipped (browser stub / race).
   notifyTelegramReady();
   initDisableDoubleTapZoom();
   initDismissKeyboardOnOutsideTap();
@@ -150,19 +160,14 @@ async function bootstrap() {
   initI18n();
   document.title = t('app.title');
   ensureLocaleSubscription();
+  ensureAuthSubscription();
 
-  clearAuthError();
-  startSplashWatch();
   mountShellFirst();
-
   await hydrateAfterAuth();
 }
 
 window.addEventListener('session:expired', () => {
-  // Auth / session failure is terminal — never leave splash covering the error UI.
-  dismissSplash({ immediate: true });
-  resetShellState();
-  showAuthError({ onRetry: bootstrap });
+  handleSessionExpired();
 });
 
 bootstrap();

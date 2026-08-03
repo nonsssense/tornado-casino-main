@@ -6,9 +6,11 @@ import { createElement } from '../../utils/dom.js';
 import { walletService } from '../../services/wallet.service.js';
 import { formatUsd } from '../../utils/format.js';
 import { t } from '../../i18n/index.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { SkeletonHistoryRows } from '../../components/base/Skeleton.js';
 import { Button } from '../../components/base/Button.js';
 import { hydrateFadeIn } from '../../utils/hydrate.js';
+import { createGuestNotice } from '../../components/shared/GuestLock.js';
 
 const HISTORY_FILTERS = [
   'all',
@@ -261,6 +263,21 @@ export function createHistoryView(options = {}) {
    */
   async function loadHistory(opts = {}) {
     const soft = Boolean(opts.soft);
+
+    if (!isAuthenticated()) {
+      state.loading = false;
+      state.error = null;
+      state.items = [];
+      hasLoadedOnce = true;
+      contentMount.replaceChildren(
+        createGuestNotice({
+          message: t('guest.history.message'),
+          className: 'wallet-history__guest',
+        }),
+      );
+      return;
+    }
+
     state.loading = true;
     state.error = null;
     if (!soft || !state.items.length) {
@@ -270,11 +287,27 @@ export function createHistoryView(options = {}) {
     try {
       const data = await walletService.fetchHistory(state.category);
       state.items = Array.isArray(data.items) ? data.items : [];
-    } catch {
+    } catch (error) {
+      if (error?.status === 401 || !isAuthenticated()) {
+        state.loading = false;
+        state.error = null;
+        state.items = [];
+        hasLoadedOnce = true;
+        contentMount.replaceChildren(
+          createGuestNotice({
+            message: t('guest.history.message'),
+            className: 'wallet-history__guest',
+          }),
+        );
+        return;
+      }
       state.error = t('wallet.history.error.retry');
     } finally {
       state.loading = false;
       hasLoadedOnce = true;
+    }
+
+    if (isAuthenticated()) {
       renderContent();
     }
   }

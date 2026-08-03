@@ -16,6 +16,7 @@ import { createDiceControls } from './dice.controls.js';
 import { animateDiceRoll, cancelDiceRollAnimation } from './dice.animation.js';
 import { DICE_BET_LIMITS } from './dice.constants.js';
 import { t } from '../../i18n/index.js';
+import { requireAuth } from '../../components/shared/GuestLoginModal.js';
 
 /** @type {HTMLElement|null} */
 let mountContainer = null;
@@ -49,6 +50,13 @@ function handleSettingsChange(next) {
 
 async function handlePlay() {
   if (isPlaying || !controls || !wheel) return;
+
+  if (!requireAuth({
+    title: t('guest.modal.title'),
+    message: t('guest.modal.message'),
+  })) {
+    return;
+  }
 
   const { limit, over, bid } = controls.getState();
 

@@ -26,6 +26,9 @@ let stackedOverlay = null;
 /** @type {'wallet'|'profile'|'balance'|'referrals'|null} */
 let activeOverlayKind = null;
 
+/** @type {object|null} */
+let lastOverlayProps = null;
+
 /** @type {string|null} */
 let navIdBeforeOverlay = null;
 
@@ -74,6 +77,7 @@ function teardownOverlay() {
   stackedOverlay = null;
   activeOverlay = null;
   activeOverlayKind = null;
+  lastOverlayProps = null;
 
   if (root) {
     root.replaceChildren();
@@ -105,13 +109,16 @@ function teardownStackedOverlay() {
  * @param {object} props
  */
 function mountOverlay(kind, createOverlay, props = {}) {
-  if (activeOverlayKind === kind) return;
+  lastOverlayProps = { ...props };
+
+  // Allow forced remount after Guest → Authenticated upgrade.
+  if (activeOverlayKind === kind && !props.forceRemount) return;
 
   const launch = async () => {
     const root = getOverlayRoot();
     if (!root) return;
 
-    navIdBeforeOverlay = props.previousNavId ?? 'casino';
+    navIdBeforeOverlay = props.previousNavId ?? navIdBeforeOverlay ?? 'casino';
 
     if (props.highlightNav) {
       const navHighlight =
@@ -316,5 +323,37 @@ export const overlayManager = {
     if (!activeOverlay) return false;
     if (kind) return activeOverlayKind === kind;
     return true;
+  },
+
+  /**
+   * Remount the open overlay after auth upgrades Guest → Authenticated.
+   * No full page reload — restricted panels unlock in place.
+   */
+  refreshForAuthUpgrade() {
+    if (!activeOverlay || !activeOverlayKind) return;
+
+    const kind = activeOverlayKind;
+    const props = {
+      ...(lastOverlayProps || {}),
+      forceRemount: true,
+      highlightNav: true,
+      previousNavId: navIdBeforeOverlay ?? lastOverlayProps?.previousNavId ?? 'casino',
+    };
+
+    if (kind === 'wallet') {
+      this.openWallet(props);
+      return;
+    }
+    if (kind === 'profile') {
+      this.openProfile(props);
+      return;
+    }
+    if (kind === 'balance') {
+      this.openBalance(props);
+      return;
+    }
+    if (kind === 'referrals') {
+      this.openReferrals(props);
+    }
   },
 };

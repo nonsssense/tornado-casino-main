@@ -9,9 +9,13 @@ import { Skeleton } from '../../components/base/Skeleton.js';
 import { Button } from '../../components/base/Button.js';
 import { Toast } from '../../components/base/Toast.js';
 import { referralService } from '../../services/referral.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { REFERRAL_ASSETS, PARTNER_CONTACT_URL } from './referrals.constants.js';
 import { createCompactReferralStatus } from './referral-status-details.js';
 import { createPartnerProgramBlock } from './referral-tiers.js';
+import { createGuestNotice } from '../../components/shared/GuestLock.js';
+import { requireAuth } from '../../components/shared/GuestLoginModal.js';
+import { openTelegramBot } from '../../utils/app.config.js';
 
 /**
  * Clipboard write that works inside Telegram Mini App WebViews.
@@ -86,6 +90,8 @@ export function createReferralsModal() {
   const contentMount = createElement('div', { className: 'referrals-content' });
 
   async function copyLink() {
+    if (!requireAuth()) return;
+
     const link = summary?.referral_link;
     if (!link) {
       Toast({ message: t('referrals.link.copyFailed'), type: 'error', duration: 2500 });
@@ -112,6 +118,7 @@ export function createReferralsModal() {
   }
 
   async function onClaim() {
+    if (!requireAuth()) return;
     try {
       await referralService.claim();
     } catch {
@@ -133,6 +140,35 @@ export function createReferralsModal() {
     });
   }
 
+  function guestSummary() {
+    return {
+      total_invites: 0,
+      qualified_ftd: 0,
+      status: '—',
+      today_income: 0,
+      lifetime_earned: 0,
+      revshare_percent: 0,
+      referral_link: '',
+      pending_earnings: 0,
+      available_earnings: 0,
+      withdrawable_earnings: 0,
+      can_claim: false,
+      tiers: [
+        { id: 'Bronze', name: 'Bronze', revshare_percent: 25, min_qualified_ftd: 0, current: true },
+        { id: 'Silver', name: 'Silver', revshare_percent: 30, min_qualified_ftd: 3, current: false },
+        { id: 'Gold', name: 'Gold', revshare_percent: 35, min_qualified_ftd: 10, current: false },
+      ],
+      friend_rewards: {
+        Bronze: { free_spins: 10, spin_value: 0.1 },
+        Silver: { free_spins: 15, spin_value: 0.1 },
+        Gold: { free_spins: 20, spin_value: 0.1 },
+      },
+      history: [],
+      affiliate: { max_revshare_percent: 70 },
+      isGuest: true,
+    };
+  }
+
   function renderMain() {
     if (!summary) {
       contentMount.replaceChildren(
@@ -142,6 +178,8 @@ export function createReferralsModal() {
       );
       return;
     }
+
+    const isGuestView = Boolean(summary.isGuest) || !isAuthenticated();
 
     const metrics = createElement('div', {
       className: 'referrals-metrics',
@@ -176,7 +214,7 @@ export function createReferralsModal() {
         metric('referrals.metrics.pending', formatUsd(summary.pending_earnings ?? 0)),
         metric('referrals.metrics.available', formatUsd(summary.available_earnings ?? 0)),
         metric('referrals.metrics.withdrawable', formatUsd(summary.withdrawable_earnings ?? 0)),
-        summary.can_claim
+        !isGuestView && summary.can_claim
           ? Button({
               label: t('referrals.actions.claim'),
               variant: 'primary',
@@ -189,6 +227,50 @@ export function createReferralsModal() {
     });
 
     const historyItems = Array.isArray(summary.history) ? summary.history.slice(0, 8) : [];
+
+    const linkBlock = createElement('div', {
+      className: ['referrals-link', isGuestView ? 'referrals-link--guest' : ''].filter(Boolean).join(' '),
+      children: [
+        createElement('span', { className: 'referrals-link__label', text: t('referrals.link.label') }),
+        createElement('div', {
+          className: 'referrals-link__row',
+          children: [
+            createElement('input', {
+              className: 'referrals-link__input',
+              attrs: {
+                type: 'text',
+                readonly: 'readonly',
+                value: isGuestView
+                  ? t('guest.referrals.linkPlaceholder')
+                  : (summary.referral_link || ''),
+                disabled: isGuestView ? 'true' : undefined,
+              },
+            }),
+            createElement('button', {
+              className: 'referrals-link__copy',
+              attrs: {
+                type: 'button',
+                'aria-label': t('referrals.link.copy'),
+                onClick: () => {
+                  if (isGuestView) {
+                    openTelegramBot();
+                    return;
+                  }
+                  void copyLink();
+                },
+              },
+              html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
+            }),
+          ],
+        }),
+        isGuestView
+          ? createGuestNotice({
+              message: t('guest.referrals.message'),
+              className: 'referrals-guest-notice',
+            })
+          : null,
+      ].filter(Boolean),
+    });
 
     contentMount.replaceChildren(
       createElement('div', {
@@ -207,34 +289,7 @@ export function createReferralsModal() {
         ],
       }),
       metrics,
-      createElement('div', {
-        className: 'referrals-link',
-        children: [
-          createElement('span', { className: 'referrals-link__label', text: t('referrals.link.label') }),
-          createElement('div', {
-            className: 'referrals-link__row',
-            children: [
-              createElement('input', {
-                className: 'referrals-link__input',
-                attrs: {
-                  type: 'text',
-                  readonly: 'readonly',
-                  value: summary.referral_link || '',
-                },
-              }),
-              createElement('button', {
-                className: 'referrals-link__copy',
-                attrs: {
-                  type: 'button',
-                  'aria-label': t('referrals.link.copy'),
-                  onClick: () => void copyLink(),
-                },
-                html: '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>',
-              }),
-            ],
-          }),
-        ],
-      }),
+      linkBlock,
       earnings,
       createCompactReferralStatus(summary, {
         onLearnMore: () => void openStatusDetails(summary),
@@ -275,38 +330,19 @@ export function createReferralsModal() {
   renderMain();
 
   const unsubscribe = referralService.subscribe((next) => {
-    summary = next;
+    summary = next ? { ...next, isGuest: false } : next;
     renderMain();
   });
 
-  void referralService.fetchSummary().catch(() => {
-    summary = {
-      total_invites: 0,
-      qualified_ftd: 0,
-      status: '—',
-      today_income: 0,
-      lifetime_earned: 0,
-      revshare_percent: 0,
-      referral_link: '',
-      pending_earnings: 0,
-      available_earnings: 0,
-      withdrawable_earnings: 0,
-      can_claim: false,
-      tiers: [
-        { id: 'Bronze', name: 'Bronze', revshare_percent: 25, min_qualified_ftd: 0, current: true },
-        { id: 'Silver', name: 'Silver', revshare_percent: 30, min_qualified_ftd: 3, current: false },
-        { id: 'Gold', name: 'Gold', revshare_percent: 35, min_qualified_ftd: 10, current: false },
-      ],
-      friend_rewards: {
-        Bronze: { free_spins: 10, spin_value: 0.1 },
-        Silver: { free_spins: 15, spin_value: 0.1 },
-        Gold: { free_spins: 20, spin_value: 0.1 },
-      },
-      history: [],
-      affiliate: { max_revshare_percent: 70 },
-    };
+  if (!isAuthenticated()) {
+    summary = guestSummary();
     renderMain();
-  });
+  } else {
+    void referralService.fetchSummary().catch(() => {
+      summary = guestSummary();
+      renderMain();
+    });
+  }
 
   return {
     element,

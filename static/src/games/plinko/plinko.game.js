@@ -22,6 +22,8 @@ import {
 } from './plinko.constants.js';
 import { formatUsd } from '../../utils/format.js';
 import { t } from '../../i18n/index.js';
+import { requireAuth } from '../../components/shared/GuestLoginModal.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 
 /** @type {HTMLElement|null} */
 let mountContainer = null;
@@ -201,6 +203,13 @@ async function handleBatchPlay({ bid, risk_mode, rows, count }) {
 async function handlePlay() {
   if (isPlaying || !controls || !board) return;
 
+  if (!requireAuth({
+    title: t('guest.modal.title'),
+    message: t('guest.modal.message'),
+  })) {
+    return;
+  }
+
   const {
     bid,
     risk_mode,
@@ -328,19 +337,24 @@ export const PlinkoGame = {
       }
       configReady = true;
     } catch (error) {
-      configReady = false;
-      container.replaceChildren(
-        createElement('p', {
-          className: 'plinko-board-wrap__error',
-          text: t('plinko.error.config'),
-        }),
-      );
-      Toast({
-        message: error.message || t('plinko.toast.configFailed'),
-        type: 'error',
-        duration: 4000,
-      });
-      return false;
+      // Guests cannot load protected config — still show the playable UI shell.
+      if (!isAuthenticated() || error?.status === 401) {
+        configReady = true;
+      } else {
+        configReady = false;
+        container.replaceChildren(
+          createElement('p', {
+            className: 'plinko-board-wrap__error',
+            text: t('plinko.error.config'),
+          }),
+        );
+        Toast({
+          message: error.message || t('plinko.toast.configFailed'),
+          type: 'error',
+          duration: 4000,
+        });
+        return false;
+      }
     }
 
     if (mountContainer === container && board?.element?.isConnected && configReady) {

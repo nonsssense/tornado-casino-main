@@ -47,17 +47,7 @@ await page.addInitScript(() => {
 });
 
 await page.goto('http://127.0.0.1:3000/', { waitUntil: 'domcontentloaded', timeout: 60000 });
-await page.waitForTimeout(4000);
-
-// Force-dismiss splash if still covering
-await page.evaluate(() => {
-  document.querySelectorAll('.app-splash').forEach((el) => {
-    el.classList.add('app-splash--dismissed');
-    el.style.display = 'none';
-  });
-});
-
-await page.waitForTimeout(1500);
+await page.waitForTimeout(5500);
 await page.screenshot({ path: 'scripts/preview-home-ui.png', fullPage: true });
 
 // Collect bottom-nav background images currently in use

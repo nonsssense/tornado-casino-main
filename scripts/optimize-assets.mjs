@@ -147,7 +147,6 @@ const PNG_SOURCES = [
   'tether.png',
   'tornado no background main.png',
   'tornado support main.png',
-  'tornado full name logo 1.png',
   'tron icon.png',
   'usdc icon.png',
   'personal_info_profile_page.png',

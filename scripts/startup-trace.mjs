@@ -44,18 +44,15 @@ page.on('response', async (res) => {
 const t0 = Date.now();
 await page.goto('http://127.0.0.1:3000/', { waitUntil: 'domcontentloaded', timeout: 60000 });
 
-// Wait up to 12s for either home or auth error or splash dismiss
+// Wait up to 12s for either home or auth error
 for (let i = 0; i < 24; i++) {
   await page.waitForTimeout(500);
   const state = await page.evaluate(() => ({
-    splashVisible: !!document.querySelector('.app-splash--visible'),
-    splashCount: document.querySelectorAll('.app-splash').length,
-    splashReady: window.__tornadoSplash?.ready ?? null,
     hasHome: !!document.querySelector('.home-page'),
     hasAuthError: !!document.querySelector('[class*="auth-error"]'),
     bodyText: (document.body?.innerText || '').slice(0, 200),
   }));
-  if (state.hasHome || state.hasAuthError || (!state.splashVisible && state.splashReady)) {
+  if (state.hasHome || state.hasAuthError) {
     break;
   }
 }
@@ -65,9 +62,6 @@ await page.waitForTimeout(1000);
 const final = await page.evaluate(() => {
   const cookies = document.cookie;
   return {
-    splashVisible: !!document.querySelector('.app-splash--visible'),
-    splashCount: document.querySelectorAll('.app-splash').length,
-    splashReady: window.__tornadoSplash?.ready ?? null,
     hasHome: !!document.querySelector('.home-page'),
     hasShell: !!document.querySelector('.app-shell, [class*="app-shell"]'),
     hasAuthError: !!document.querySelector('[class*="auth-error"]'),

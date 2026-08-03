@@ -25,7 +25,7 @@ page.on('response', (res) => {
 
 await page.goto('http://127.0.0.1:3000/', { waitUntil: 'networkidle', timeout: 60000 });
 
-// Wait for splash to settle / home UI
+// Wait for home UI
 await page.waitForTimeout(5000);
 
 // Force-load bottom-nav icon URLs from computed CSS if present

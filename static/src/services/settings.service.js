@@ -1,11 +1,13 @@
 /**
  * User settings service — loads preferences for Sound Manager and in-game settings.
  * Applies sound_enabled to soundManager and haptic_enabled to Telegram haptics.
+ * Guest Mode keeps preferences locally; server sync happens only when authenticated.
  */
 
 import { fetchSettings, updateSettings } from '../api/settings.js';
 import { soundManager } from './sound.service.js';
 import { setHapticEnabledResolver } from '../app/telegram.js';
+import { isAuthenticated } from './auth-state.js';
 
 /** @type {{ sound_enabled: boolean, haptic_enabled: boolean }} */
 let cached = {
@@ -49,6 +51,11 @@ export const settingsService = {
    * @returns {Promise<{ sound_enabled: boolean, haptic_enabled: boolean }>}
    */
   async load() {
+    if (!isAuthenticated()) {
+      applyLocalPreferences();
+      return this.getSettings();
+    }
+
     try {
       const data = await fetchSettings();
       if (data && typeof data === 'object') {
@@ -71,13 +78,34 @@ export const settingsService = {
    * @returns {Promise<{ sound_enabled: boolean, haptic_enabled: boolean }>}
    */
   async save(patch) {
-    const data = await updateSettings(patch);
     cached = {
-      sound_enabled: data?.sound_enabled !== false,
-      haptic_enabled: data?.haptic_enabled !== false,
+      sound_enabled: patch.sound_enabled !== undefined
+        ? Boolean(patch.sound_enabled)
+        : cached.sound_enabled,
+      haptic_enabled: patch.haptic_enabled !== undefined
+        ? Boolean(patch.haptic_enabled)
+        : cached.haptic_enabled,
     };
-    loaded = true;
     applyLocalPreferences();
+
+    if (!isAuthenticated()) {
+      loaded = true;
+      return this.getSettings();
+    }
+
+    try {
+      const data = await updateSettings(patch);
+      cached = {
+        sound_enabled: data?.sound_enabled !== false,
+        haptic_enabled: data?.haptic_enabled !== false,
+      };
+      loaded = true;
+      applyLocalPreferences();
+    } catch {
+      // Keep local preferences if server sync fails.
+      loaded = true;
+    }
+
     return this.getSettings();
   },
 

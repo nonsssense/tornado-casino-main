@@ -5,6 +5,7 @@
 
 import { createElement } from '../../utils/dom.js';
 import { bonusService } from '../../services/bonus.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { t } from '../../i18n/index.js';
 
 const BONUS_BANNERS = {
@@ -195,6 +196,13 @@ export function createDepositBonusCard(options = {}) {
   }
 
   async function load() {
+    if (!isAuthenticated()) {
+      state.loading = false;
+      state.error = null;
+      render();
+      return;
+    }
+
     state.loading = true;
     state.error = null;
     render();
@@ -211,8 +219,12 @@ export function createDepositBonusCard(options = {}) {
       const resolved = resolveDepositBonusCard(state);
       await ensureSelected(resolved);
       applySnapshot(bonusService.getState());
-    } catch {
-      state.error = t('wallet.bonus.error.loadFailed');
+    } catch (error) {
+      if (error?.status === 401 || !isAuthenticated()) {
+        state.error = null;
+      } else {
+        state.error = t('wallet.bonus.error.loadFailed');
+      }
     } finally {
       state.loading = false;
       render();

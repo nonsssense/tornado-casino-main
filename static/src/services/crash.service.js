@@ -130,7 +130,10 @@ export const crashService = {
       }
       return data;
     } catch (error) {
-      throw new Error(getCrashErrorMessage(error));
+      const wrapped = new Error(getCrashErrorMessage(error));
+      wrapped.status = error?.status;
+      wrapped.data = error?.data;
+      throw wrapped;
     }
   },
 

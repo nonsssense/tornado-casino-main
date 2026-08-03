@@ -12,9 +12,11 @@ import {
   bonusCatalogService,
   filterBonuses,
 } from '../../services/bonus-catalog.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { BONUS_ASSETS, BONUS_FILTERS_FALLBACK } from './bonuses.constants.js';
 import { createBonusCatalogCard } from './bonus-card.js';
 import { ROUTE_NAMES } from '../../router/route-names.js';
+import { createGuestNotice } from '../../components/shared/GuestLock.js';
 
 /**
  * @param {object} [options]
@@ -157,7 +159,14 @@ export function createBonusesModal(options = {}) {
               }),
             ],
           }))
-        : [emptyState(t('bonuses.empty.yours'))]),
+        : [
+          !isAuthenticated()
+            ? createGuestNotice({
+                message: t('guest.bonuses.message'),
+                className: 'bonuses-guest-notice',
+              })
+            : emptyState(t('bonuses.empty.yours')),
+        ]),
     );
   }
 
@@ -180,7 +189,7 @@ export function createBonusesModal(options = {}) {
     renderBoard();
   });
 
-  void bonusCatalogService.fetchCatalog().catch(() => {
+  if (!isAuthenticated()) {
     catalog = {
       hero: { banner: BONUS_ASSETS.heroFallback },
       filters: BONUS_FILTERS_FALLBACK,
@@ -188,7 +197,17 @@ export function createBonusesModal(options = {}) {
     };
     renderFilters();
     renderBoard();
-  });
+  } else {
+    void bonusCatalogService.fetchCatalog().catch(() => {
+      catalog = {
+        hero: { banner: BONUS_ASSETS.heroFallback },
+        filters: BONUS_FILTERS_FALLBACK,
+        bonuses: [],
+      };
+      renderFilters();
+      renderBoard();
+    });
+  }
 
   return {
     element,

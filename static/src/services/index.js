@@ -6,7 +6,21 @@
  * - Services may call api/ and utils/ but never render DOM directly.
  */
 
-export { initAuth, getAuthUser, getWelcomePayload, clearWelcomePayload } from './auth.service.js';
+export {
+  initAuth,
+  startAuthLifecycle,
+  getAuthUser,
+  getWelcomePayload,
+  clearWelcomePayload,
+  enterGuestMode,
+  handleSessionExpired,
+  AUTH_STATUS,
+  getAuthStatus,
+  isAuthenticated,
+  isGuest,
+  isAuthLoading,
+  subscribeAuthStatus,
+} from './auth.service.js';
 export { walletService } from './wallet.service.js';
 export { balanceService } from './balance.service.js';
 export { gameService } from './game.service.js';

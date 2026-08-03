@@ -5,7 +5,10 @@
  * - Single entry point for all fetch() calls (per project rules).
  * - Attach Content-Type, send cookies (session_token) automatically.
  * - Parse JSON/text responses and normalize errors.
+ * - 401 while Guest/Loading is expected — do not broadcast session:expired.
  */
+
+import { isAuthenticated } from '../services/auth-state.js';
 
 /**
  * @param {string} url
@@ -45,7 +48,9 @@ export async function request(url, options = {}) {
       error.data = null;
     }
 
-    if (response.status === 401) {
+    // Only signal session loss when we previously believed the user was authenticated.
+    // Guest Mode 401s are expected and must not tear down the UI.
+    if (response.status === 401 && isAuthenticated()) {
       window.dispatchEvent(new CustomEvent('session:expired', { detail: error }));
     }
 

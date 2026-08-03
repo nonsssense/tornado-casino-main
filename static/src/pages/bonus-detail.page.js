@@ -14,6 +14,7 @@ import {
   createRouteController,
   defineRoutePolicy,
 } from '../router/route-controller.js';
+import { requireAuth } from '../components/shared/GuestLoginModal.js';
 import '../../styles/pages/bonuses.css';
 
 /**
@@ -89,6 +90,7 @@ export function createBonusDetailController() {
           goToCatalog();
         },
         onAction: (selected) => {
+          if (!requireAuth({ message: t('guest.bonuses.message') })) return;
           if (selected?.button?.action === 'deposit') {
             openDeposit();
           }

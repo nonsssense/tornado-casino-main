@@ -3,18 +3,31 @@
  *
  * Responsibility:
  * - Combine server-validated Telegram user with wallet + referral status for profile UI.
+ * - Guest Mode returns a local Guest profile without calling protected APIs.
  */
 
-import { getAuthUser } from './auth.service.js';
+import { getAuthUser, isAuthenticated } from './auth.service.js';
 import { balanceService } from './balance.service.js';
 import { referralService } from './referral.service.js';
 import { t } from '../i18n/index.js';
 
 export const profileService = {
   /**
-   * @returns {Promise<{ nickname: string, status: string, userId: string, email: string, balances: { real: number, bonus: number } }>}
+   * @returns {Promise<{ nickname: string, status: string, userId: string, email: string, balances: { real: number, bonus: number }|null, isGuest: boolean }>}
    */
   async getProfile() {
+    if (!isAuthenticated()) {
+      const dash = t('common.emDash');
+      return {
+        nickname: t('guest.name'),
+        status: dash,
+        userId: dash,
+        email: dash,
+        balances: null,
+        isGuest: true,
+      };
+    }
+
     const user = getAuthUser();
     const cachedBalances = balanceService.getBalances();
     const [balances, referralStatus] = await Promise.all([
@@ -37,6 +50,7 @@ export const profileService = {
       userId: user?.id ? String(user.id) : dash,
       email: dash,
       balances,
+      isGuest: false,
     };
   },
 };

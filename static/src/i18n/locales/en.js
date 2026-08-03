@@ -29,6 +29,46 @@ export const en = {
     },
   },
 
+  guest: {
+    name: 'Guest',
+    actions: {
+      openTelegram: 'Open Telegram',
+    },
+    modal: {
+      title: 'Telegram sign-in required',
+      message: 'To place bets and use your balance, open Tornado through Telegram.',
+    },
+    notice: {
+      default: 'Sign in through Telegram to use this feature.',
+    },
+    deposit: {
+      message: 'To get a deposit address, open Tornado through Telegram.',
+    },
+    withdraw: {
+      message: 'To withdraw funds, open Tornado through Telegram.',
+    },
+    history: {
+      message: 'History is available after signing in through Telegram.',
+    },
+    profile: {
+      message: 'Sign in through Telegram to access your profile.',
+    },
+    referrals: {
+      message: 'Your referral link and earnings are available after signing in through Telegram.',
+      linkPlaceholder: 'Sign in through Telegram',
+    },
+    balance: {
+      locked: '—',
+      message: 'Balance is available after signing in through Telegram.',
+    },
+    bonuses: {
+      message: 'Bonuses are available after signing in through Telegram.',
+    },
+    crash: {
+      placeholder: 'Live Crash is available in the Telegram Mini App.',
+    },
+  },
+
   nav: {
     ariaLabel: 'Main navigation',
     wallet: 'Wallet',

@@ -7,6 +7,8 @@ import { createElement } from '../../utils/dom.js';
 import { Toast, showGameWinToast } from '../../components/base/Toast.js';
 import { triggerWinHaptic } from '../../app/telegram.js';
 import { crashService, getLiveMultiplier } from '../../services/crash.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
+import { requireAuth } from '../../components/shared/GuestLoginModal.js';
 import { createCrashHistory } from './crash.history.js';
 import { createAnimationContainer } from './crash.animation-container.js';
 import { createBetPanel } from './crash.bet-panel.js';
@@ -901,6 +903,13 @@ async function handlePanelAction(panelId) {
   const panelState = getPanelRuntime(panelId);
   if (!panel || panelState.pending) return;
 
+  if (!requireAuth({
+    title: t('guest.modal.title'),
+    message: t('guest.modal.message'),
+  })) {
+    return;
+  }
+
   if (runtime.reconnecting || runtime.awaitingSync) {
     Toast({ message: t('crash.toast.reconnecting'), type: 'warning', duration: 2200 });
     return;
@@ -1031,23 +1040,30 @@ async function bootstrap(signal) {
   } catch (error) {
     if (isStale()) return;
     freezeForReconnect();
-    animationContainer?.setPlaceholder(t('crash.error.sync'));
-    Toast({
-      message: error?.message || t('crash.toast.loadFailed'),
-      type: 'error',
-      duration: 3500,
-    });
+    // Guest Mode: browsing is allowed; never show Unauthorized/auth error toasts.
+    if (!isAuthenticated() || error?.status === 401) {
+      animationContainer?.setPlaceholder(t('guest.crash.placeholder'));
+    } else {
+      animationContainer?.setPlaceholder(t('crash.error.sync'));
+      Toast({
+        message: error?.message || t('crash.toast.loadFailed'),
+        type: 'error',
+        duration: 3500,
+      });
+    }
   }
 
   if (isStale()) return;
 
-  // 2) Live updates — snapshot on every reconnect; freeze while disconnected
-  socketHandlers = buildSocketHandlers(generation);
-  crashService.connect(socketHandlers);
+  // 2) Live updates — skip WS while guest (backend requires a session).
+  if (isAuthenticated()) {
+    socketHandlers = buildSocketHandlers(generation);
+    crashService.connect(socketHandlers);
 
-  if (typeof document !== 'undefined') {
-    document.removeEventListener('visibilitychange', onVisibilityResume);
-    document.addEventListener('visibilitychange', onVisibilityResume);
+    if (typeof document !== 'undefined') {
+      document.removeEventListener('visibilitychange', onVisibilityResume);
+      document.addEventListener('visibilitychange', onVisibilityResume);
+    }
   }
 
   if (isStale()) {
@@ -1056,7 +1072,9 @@ async function bootstrap(signal) {
   }
 
   // 3) Optional history — never blocks startup
-  void refreshHistory();
+  if (isAuthenticated()) {
+    void refreshHistory();
+  }
 }
 
 export const CrashGame = {

@@ -6,10 +6,12 @@ import { createElement } from '../../utils/dom.js';
 import { ASSETS } from '../../utils/assets.js';
 import { formatUsd } from '../../utils/format.js';
 import { balanceService } from '../../services/balance.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { t } from '../../i18n/index.js';
 import { Button } from '../../components/base/Button.js';
 import { Skeleton } from '../../components/base/Skeleton.js';
 import { hydrateFadeIn } from '../../utils/hydrate.js';
+import { createGuestNotice } from '../../components/shared/GuestLock.js';
 
 /**
  * @param {object} options
@@ -101,8 +103,9 @@ export function createBalanceModal(options = {}) {
     onWithdraw,
   } = options;
 
+  const guest = !isAuthenticated();
   const cached = balanceService.getBalances();
-  const hasBalance = Boolean(cached);
+  const hasBalance = Boolean(cached) && !guest;
 
   const amountValue = createValueMount(!hasBalance);
   const bonusValue = createValueMount(!hasBalance);
@@ -116,6 +119,14 @@ export function createBalanceModal(options = {}) {
         : t('balance.welcome.none'))
       : t('common.emDash'),
   });
+
+  if (guest) {
+    hydrateValueMount(amountValue, t('guest.balance.locked'));
+    hydrateValueMount(bonusValue, t('guest.balance.locked'));
+    hydrateValueMount(withdrawableValue, t('guest.balance.locked'));
+    hydrateValueMount(wagerValue, t('guest.balance.locked'));
+    welcomeMount.textContent = t('guest.balance.message');
+  }
 
   function formatWelcome(activeWelcome) {
     if (!activeWelcome) {
@@ -171,7 +182,7 @@ export function createBalanceModal(options = {}) {
   });
 
   const element = createElement('div', {
-    className: 'balance-modal',
+    className: ['balance-modal', guest ? 'balance-modal--guest' : ''].filter(Boolean).join(' '),
     attrs: { 'data-modal': 'balance' },
     children: [
       createElement('div', {
@@ -196,6 +207,12 @@ export function createBalanceModal(options = {}) {
         ],
       }),
       welcomeMount,
+      guest
+        ? createGuestNotice({
+            message: t('guest.balance.message'),
+            className: 'balance-modal__guest-notice',
+          })
+        : null,
       createElement('div', {
         className: 'balance-modal__actions',
         children: [
@@ -228,7 +245,7 @@ export function createBalanceModal(options = {}) {
           }),
         ],
       }),
-    ],
+    ].filter(Boolean),
   });
 
   return {

@@ -9,6 +9,7 @@
 
 import { fetchBalance } from '../api/wallet.js';
 import { formatUsd } from '../utils/format.js';
+import { isAuthenticated } from './auth-state.js';
 
 /** @type {Set<function>} */
 const listeners = new Set();
@@ -83,6 +84,10 @@ export const balanceService = {
    */
   async fetchBalances(options = {}) {
     const { notify = true, stage = false } = options;
+    if (!isAuthenticated()) {
+      // Keep header as em-dash; do not invent $0 balances for guests.
+      return cachedBalances;
+    }
     const data = await fetchBalance();
     const real = Number(data?.real_balance ?? 0);
     const bonus = Number(data?.bonus_balance ?? 0);

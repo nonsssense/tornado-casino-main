@@ -29,6 +29,46 @@ export const ru = {
     },
   },
 
+  guest: {
+    name: 'Guest',
+    actions: {
+      openTelegram: 'Открыть Telegram',
+    },
+    modal: {
+      title: 'Требуется вход через Telegram',
+      message: 'Чтобы делать ставки и пользоваться балансом, откройте Tornado через Telegram.',
+    },
+    notice: {
+      default: 'Войдите через Telegram, чтобы пользоваться этой функцией.',
+    },
+    deposit: {
+      message: 'Для получения адреса пополнения необходимо открыть Tornado через Telegram.',
+    },
+    withdraw: {
+      message: 'Для вывода средств необходимо открыть Tornado через Telegram.',
+    },
+    history: {
+      message: 'История доступна после входа через Telegram.',
+    },
+    profile: {
+      message: 'Войдите через Telegram для доступа к профилю.',
+    },
+    referrals: {
+      message: 'Реферальная ссылка и начисления доступны после входа через Telegram.',
+      linkPlaceholder: 'Войдите через Telegram',
+    },
+    balance: {
+      locked: '—',
+      message: 'Баланс доступен после входа через Telegram.',
+    },
+    bonuses: {
+      message: 'Бонусы доступны после входа через Telegram.',
+    },
+    crash: {
+      placeholder: 'Live Crash доступен в Telegram Mini App.',
+    },
+  },
+
   nav: {
     ariaLabel: 'Основная навигация',
     wallet: 'Кошелёк',

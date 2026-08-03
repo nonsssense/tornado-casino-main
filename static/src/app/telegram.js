@@ -130,7 +130,7 @@ function tryDisableVerticalSwipes(tg) {
 
 /**
  * Notify Telegram that the Mini App is ready to be shown.
- * Safe to call early (splash is already in the HTML). Idempotent. Never throws.
+ * Safe to call early. Idempotent. Never throws.
  */
 export function notifyTelegramReady() {
   if (telegramReadyNotified || window.__tornadoTelegramReady) {
@@ -428,9 +428,10 @@ function parseStartParamFromInitData(initData) {
 
 /**
  * Try to read Telegram context right now (no waiting).
+ * Used by Guest Mode late-upgrade watch.
  * @returns {object|null}
  */
-function readTelegramContextSync() {
+export function readTelegramContextSync() {
   const initData = resolveInitData();
   if (!initData) return null;
 

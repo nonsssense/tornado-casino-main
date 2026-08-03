@@ -1,0 +1,195 @@
+/**
+ * Guest Mode UI — locked panels and login modal.
+ */
+
+.guest-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-overlay-backdrop);
+  opacity: 0;
+  transition: opacity var(--duration-base) var(--ease-out);
+}
+
+.guest-modal-backdrop--visible {
+  opacity: 1;
+}
+
+.guest-modal {
+  position: relative;
+  width: calc(100% - var(--space-8));
+  max-width: 340px;
+  padding: var(--space-6) var(--space-5) var(--space-5);
+  background: var(--color-bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--color-border-default);
+  box-shadow: var(--shadow-card);
+  transform: scale(0.92);
+  opacity: 0;
+  transition:
+    transform var(--duration-base) var(--ease-out),
+    opacity var(--duration-base) var(--ease-out);
+}
+
+.guest-modal-backdrop--visible .guest-modal {
+  transform: scale(1);
+  opacity: 1;
+}
+
+.guest-modal__close {
+  position: absolute;
+  top: var(--space-3);
+  right: var(--space-3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.06);
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-md);
+  line-height: 1;
+  cursor: pointer;
+}
+
+.guest-modal__body {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-4);
+  text-align: center;
+}
+
+.guest-modal__title {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-tight);
+}
+
+.guest-modal__message {
+  margin: 0;
+  font-family: var(--font-family-base);
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-base);
+}
+
+.guest-modal__cta {
+  width: 100%;
+}
+
+.guest-notice {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-5) var(--space-4);
+  text-align: center;
+  border-radius: var(--radius-md);
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--color-border-subtle);
+}
+
+.guest-notice__text {
+  margin: 0;
+  font-size: var(--font-size-base);
+  color: var(--color-text-secondary);
+  line-height: var(--line-height-base);
+}
+
+.guest-locked {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border-subtle);
+  background: var(--color-bg-elevated);
+  min-height: 9rem;
+}
+
+.guest-locked__blur {
+  padding: var(--space-4);
+  filter: blur(5px);
+  opacity: 0.55;
+  user-select: none;
+  pointer-events: none;
+}
+
+.guest-locked__fake-line {
+  height: 0.85rem;
+  margin-bottom: var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.guest-locked__fake-line--wide {
+  height: 1.1rem;
+  width: 78%;
+}
+
+.guest-locked__fake-actions {
+  display: flex;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+  height: 2.25rem;
+  border-radius: var(--radius-full);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.guest-locked__overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  text-align: center;
+  background: linear-gradient(
+    180deg,
+    rgba(0, 0, 0, 0.35) 0%,
+    rgba(0, 0, 0, 0.55) 100%
+  );
+}
+
+.guest-locked__message {
+  margin: 0;
+  max-width: 18rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-primary);
+  line-height: var(--line-height-base);
+}
+
+.guest-profile-note {
+  margin: var(--space-3) 0 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+  text-align: center;
+  line-height: var(--line-height-base);
+}
+
+.wallet-view--guest-disabled .wallet-view__field-block,
+.wallet-view--guest-disabled .wallet-view__percent-row,
+.wallet-view--guest-disabled .wallet-view__pair-slot {
+  opacity: 0.55;
+  pointer-events: none;
+  filter: grayscale(0.15);
+}
+
+.balance-modal--guest .balance-modal__card-value {
+  opacity: 0.7;
+}
+
+.referrals-link--guest .referrals-link__input {
+  opacity: 0.55;
+}

@@ -8,6 +8,7 @@ import { WITHDRAW_ADDRESS_PLACEHOLDER } from '../../utils/wallet.constants.js';
 import { formatUsd } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
+import { isAuthenticated } from '../../services/auth-state.js';
 import { t } from '../../i18n/index.js';
 import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
 import { Button } from '../../components/base/Button.js';
@@ -16,6 +17,8 @@ import { Toast } from '../../components/base/Toast.js';
 import { AmountInput, updateAmountInputCurrency } from '../../components/shared/AmountInput.js';
 import { MethodSelector } from '../../components/shared/MethodSelector.js';
 import { createCoinNetworkPair } from '../../components/shared/CoinNetworkPair.js';
+import { createGuestNotice } from '../../components/shared/GuestLock.js';
+import { requireAuth } from '../../components/shared/GuestLoginModal.js';
 
 const ICON_INFO = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="currentColor" opacity="0.15"/><path d="M12 8v5M12 16h.01" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>';
 
@@ -256,6 +259,16 @@ export function createWithdrawView(options = {}) {
   }
 
   function updateSubmitButton() {
+    if (!isAuthenticated()) {
+      actionMount.replaceChildren(
+        createGuestNotice({
+          message: t('guest.withdraw.message'),
+          className: 'wallet-view__guest-notice',
+        }),
+      );
+      return;
+    }
+
     actionMount.replaceChildren(
       Button({
         label: t('wallet.withdraw.submit'),
@@ -273,17 +286,27 @@ export function createWithdrawView(options = {}) {
   async function loadWithdrawInfo() {
     state.minimumUsd = null;
     updateMinAmount();
+    if (!isAuthenticated()) {
+      updateMinAmount();
+      return;
+    }
     try {
       const data = await walletService.getWithdrawMinimum();
       const minUsd = Number(data?.minimum_usd);
       state.minimumUsd = Number.isFinite(minUsd) ? minUsd : null;
-    } catch {
-      state.minimumUsd = null;
+    } catch (error) {
+      if (error?.status === 401) {
+        state.minimumUsd = null;
+      } else {
+        state.minimumUsd = null;
+      }
     }
     updateMinAmount();
   }
 
   async function submitWithdraw() {
+    if (!requireAuth()) return;
+
     const ctx = currentContext();
     const address = state.address.trim();
     const amount = Number(state.amount);
@@ -329,6 +352,11 @@ export function createWithdrawView(options = {}) {
       renderAddressField();
       await balanceService.fetchBalances();
     } catch (error) {
+      if (error?.status === 401 || !isAuthenticated()) {
+        requireAuth();
+        return;
+      }
+
       const detail = error?.data?.detail;
       let message = t('wallet.withdraw.error.generic');
 
@@ -413,10 +441,16 @@ export function createWithdrawView(options = {}) {
   renderMain();
 
   const element = createElement('div', {
-    className: 'wallet-view wallet-view--withdraw',
+    className: [
+      'wallet-view',
+      'wallet-view--withdraw',
+      isAuthenticated() ? '' : 'wallet-view--guest-disabled',
+    ].filter(Boolean).join(' '),
     attrs: { 'data-view': 'withdraw' },
     children: [methodMount, mainMount],
   });
+
+  updateSubmitButton();
 
   return {
     element,

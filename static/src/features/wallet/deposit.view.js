@@ -12,6 +12,7 @@ import { formatCryptoAmount, formatUsd } from '../../utils/format.js';
 import { walletService } from '../../services/wallet.service.js';
 import { balanceService } from '../../services/balance.service.js';
 import { bonusService } from '../../services/bonus.service.js';
+import { isAuthenticated, subscribeAuthStatus, AUTH_STATUS } from '../../services/auth-state.js';
 import { t } from '../../i18n/index.js';
 import { getCoinNetwork, getDefaultNetworkId } from './wallet.utils.js';
 import { createDepositBonusCard } from './deposit.bonus-card.js';
@@ -23,6 +24,7 @@ import { QrLightbox } from '../../components/base/QrLightbox.js';
 import { Toast } from '../../components/base/Toast.js';
 import { createCoinNetworkPair } from '../../components/shared/CoinNetworkPair.js';
 import { MethodSelector } from '../../components/shared/MethodSelector.js';
+import { createGuestLockedPanel } from '../../components/shared/GuestLock.js';
 
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
@@ -123,6 +125,16 @@ export function createDepositView(options = {}) {
       },
     });
     pairMount.replaceChildren(coinNetworkPair.element);
+  }
+
+  function renderAddressGuest() {
+    addressMount.replaceChildren(
+      createGuestLockedPanel({
+        message: t('guest.deposit.message'),
+        className: 'wallet-view__address-guest',
+      }),
+    );
+    statusMount.replaceChildren();
   }
 
   function renderAddressLoading() {
@@ -293,6 +305,14 @@ export function createDepositView(options = {}) {
     state.minimum = null;
     state.minimumUsd = null;
 
+    if (!isAuthenticated()) {
+      state.loading = false;
+      renderAddressGuest();
+      updateInfo();
+      updateStatus();
+      return;
+    }
+
     if (!ctx) {
       state.loading = false;
       state.error = t('wallet.deposit.error.unsupported');
@@ -322,6 +342,17 @@ export function createDepositView(options = {}) {
       if (data.deposit_id) startStatusPolling(data.deposit_id);
     } catch (error) {
       if (generation !== loadGeneration) return;
+
+      // Guest / missing session — never show raw Unauthorized toasts.
+      if (error?.status === 401 || !isAuthenticated()) {
+        state.loading = false;
+        state.deposit = null;
+        state.error = null;
+        renderAddressGuest();
+        updateInfo();
+        updateStatus();
+        return;
+      }
 
       state.loading = false;
       state.deposit = null;
@@ -482,6 +513,18 @@ export function createDepositView(options = {}) {
   renderMain();
   void loadDeposit();
 
+  const unsubscribeAuth = subscribeAuthStatus((status) => {
+    if (status === AUTH_STATUS.AUTHENTICATED && state.method === 'crypto') {
+      void loadDeposit();
+    } else if (status === AUTH_STATUS.GUEST && state.method === 'crypto') {
+      stopStatusPolling();
+      state.deposit = null;
+      renderAddressGuest();
+      updateInfo();
+      updateStatus();
+    }
+  });
+
   const element = createElement('div', {
     className: 'wallet-view wallet-view--deposit',
     attrs: { 'data-view': 'deposit' },
@@ -497,6 +540,7 @@ export function createDepositView(options = {}) {
     destroy() {
       loadGeneration += 1;
       state.completionHandled = true;
+      unsubscribeAuth();
       stopStatusPolling();
       void closeQrLightbox();
       coinNetworkPair?.destroy?.();
