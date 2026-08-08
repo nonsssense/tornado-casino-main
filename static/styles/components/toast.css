@@ -45,10 +45,12 @@
 }
 
 .toast--game-win {
+  position: relative;
   flex-direction: column;
   align-items: flex-start;
-  gap: var(--space-2);
-  padding: var(--space-4);
+  gap: var(--space-1);
+  padding: var(--space-2) var(--space-3);
+  padding-right: var(--space-8);
   border-color: rgba(74, 222, 128, 0.4);
   background: linear-gradient(145deg, #1a1f1c 0%, var(--color-bg-elevated) 100%);
   box-shadow:
@@ -107,8 +109,20 @@
   color: var(--color-text-primary);
 }
 
+.toast--game-win .toast__header {
+  gap: 0;
+}
+
+.toast--game-win .toast__meta {
+  font-size: 0.625rem;
+}
+
+.toast--game-win .toast__title {
+  font-size: var(--font-size-sm);
+}
+
 .toast--game-win .toast__message {
-  font-size: var(--font-size-xl);
+  font-size: var(--font-size-lg);
   font-weight: var(--font-weight-bold);
   color: var(--color-success);
   line-height: var(--line-height-tight);
@@ -116,13 +130,8 @@
 
 .toast--game-win .toast__close {
   position: absolute;
-  top: var(--space-2);
-  right: var(--space-2);
-}
-
-.toast--game-win {
-  position: relative;
-  padding-right: var(--space-10);
+  top: var(--space-1);
+  right: var(--space-1);
 }
 
 .toast--success {

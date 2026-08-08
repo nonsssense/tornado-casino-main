@@ -11,6 +11,7 @@ import {
   NAV_ROUTE_MAP,
   isStandaloneRoute,
 } from './routes.js';
+import { ROUTE_NAMES } from './route-names.js';
 import { initOverlayManager, overlayManager } from '../overlays/index.js';
 import { DURATION, wait, waitFrames } from '../animations/transitions.js';
 import { t } from '../i18n/index.js';
@@ -125,8 +126,9 @@ export function navigateByNavId(navId) {
  * Driven only by route screenType (app vs standalone) — never by overlay
  * open/close, and never by per-page exception lists.
  * @param {boolean} standalone
+ * @param {string|null} routeName
  */
-function applyStandaloneChrome(standalone) {
+function applyStandaloneChrome(standalone, routeName = null) {
   if (!shell?.root) return;
 
   const next = Boolean(standalone);
@@ -141,7 +143,13 @@ function applyStandaloneChrome(standalone) {
   }
 
   const header = shell.root.querySelector('.app-header');
-  header?.classList.toggle('app-header--game', next);
+  // "game" header mode (hides logo, shows back control fallback) should only
+  // apply to actual game routes. Standalone non-game pages keep the normal
+  // header with Tornado logo for direct return to Casino.
+  const currentIsGameStandalone = routeName === ROUTE_NAMES.DICE
+    || routeName === ROUTE_NAMES.PLINKO
+    || routeName === ROUTE_NAMES.CRASH;
+  header?.classList.toggle('app-header--game', next && currentIsGameStandalone);
 
   const useNativeBack = isTelegramBackButtonSupported();
   header?.classList.toggle('app-header--native-back', useNativeBack && next);
@@ -153,14 +161,14 @@ function applyStandaloneChrome(standalone) {
  * @param {string} routeName
  */
 function updateRouteChrome(_controller, routeName) {
-  applyStandaloneChrome(isStandaloneRoute(routeName));
+  applyStandaloneChrome(isStandaloneRoute(routeName), routeName);
 }
 
 /**
  * @param {string} routeName
  */
 function applyChromeForRoute(routeName) {
-  applyStandaloneChrome(isStandaloneRoute(routeName));
+  applyStandaloneChrome(isStandaloneRoute(routeName), routeName);
 }
 
 /**

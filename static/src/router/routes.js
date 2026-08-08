@@ -78,6 +78,14 @@ export const ROUTES = {
       return createBonusesController();
     },
   },
+  [ROUTE_NAMES.PERSONAL_DATA]: {
+    navId: 'profile',
+    screenType: SCREEN_TYPES.STANDALONE,
+    async createController() {
+      const { createPersonalDataController } = await import('../pages/personal-data.page.js');
+      return createPersonalDataController();
+    },
+  },
   [ROUTE_NAMES.BONUS_DETAIL]: {
     navId: 'profile',
     screenType: SCREEN_TYPES.STANDALONE,

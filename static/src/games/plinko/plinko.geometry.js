@@ -110,7 +110,12 @@ export function buildCollisionPath(bits, layout) {
 export function formatMultiplierLabel(value) {
   if (!Number.isFinite(value)) return '…';
   const decimals = value >= 100 ? 0 : 2;
-  const text = value.toFixed(decimals).replace(/\.?0+$/, '');
+  // Only strip trailing zeros after a decimal point (1.50 → 1.5).
+  // Never strip zeros from integers (900 must stay 900, not 9).
+  let text = value.toFixed(decimals);
+  if (text.includes('.')) {
+    text = text.replace(/\.?0+$/, '');
+  }
   return `${text}×`;
 }
 

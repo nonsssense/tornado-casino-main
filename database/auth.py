@@ -10,7 +10,7 @@ class AccountBannedError(Exception):
     """Raised when a banned user attempts authentication."""
 
 
-def userValidate(data):
+def userValidate(data, ip=None):
     """
     Upsert Telegram user.
 
@@ -38,6 +38,7 @@ def userValidate(data):
             server_seed = ProvablyFair.generateServerSeed()
             values = dict(
                 tg_id=user["id"],
+                ip_address=ip,
                 lang_code=user.get("language_code"),
                 status='real',
                 first_name=user.get("first_name"),

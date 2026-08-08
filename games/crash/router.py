@@ -8,10 +8,17 @@ from pydantic import BaseModel, Field
 from database.crash import CrashDatabase
 from games.crash.crash_game import crash_loop
 from games.crash.websocketCrash import ws_manager
-from handler_helpers import prepareRequest, recordUserEvent
+from handler_helpers import prepareRequest, recordUserEvent, getIpAddress
 from log_manager import log
+from rate_limit import enforce as enforce_rate_limit
 
 router = APIRouter(prefix="/crash", tags=["crash"])
+
+# Abuse limits (defense-in-depth; DB locks remain the financial control).
+# Crash rounds run on ~10s cadence with at most 2 bets/user, so these ceilings are
+# far above legitimate play while still stopping floods.
+_BET_PER_USER = (30, 10.0)       # 30 bet attempts / 10s / user
+_CASHOUT_PER_USER = (60, 10.0)   # 60 cashout attempts / 10s / user
 
 # Shared wiring — loop broadcasts through this manager
 crash_loop.set_ws_manager(ws_manager)
@@ -19,6 +26,7 @@ crash_loop.set_ws_manager(ws_manager)
 
 class CrashBetRequest(BaseModel):
     amount: float = Field(..., gt=0)
+    auto_cashout_multiplier: float | None = Field(default=None, gt=1.0)
 
 
 class CrashCashoutRequest(BaseModel):
@@ -27,13 +35,31 @@ class CrashCashoutRequest(BaseModel):
     bet_id: int = Field(..., gt=0)
 
 
+def _ensure_crash_owner():
+    """Fail closed if this process is not the authoritative Crash owner.
+
+    Guarantees Crash never accepts a financial bet/cashout in an unsupported
+    multi-worker configuration where the round loop runs in a different process
+    than the HTTP handler (see H-1). In the supported single-worker deployment the
+    loop owner is the only process, so this is a no-op after startup.
+    """
+    if not crash_loop.is_loop_owner():
+        raise HTTPException(
+            status_code=503,
+            detail="Crash is starting or not available on this worker. Retry shortly.",
+        )
+
+
 @router.post("/bet")
 async def place_bet(request: Request, body: CrashBetRequest):
     session_token, user_id = prepareRequest(request, "CrashBet")
+    _ensure_crash_owner()
+    enforce_rate_limit("crash_bet", str(user_id), *_BET_PER_USER)
     try:
         result = await crash_loop.place_bet(
             user_id=user_id,
             amount=body.amount,
+            auto_cashout_multiplier=body.auto_cashout_multiplier,
         )
         return {"ok": True, **result}
     except HTTPException as exc:
@@ -48,6 +74,8 @@ async def place_bet(request: Request, body: CrashBetRequest):
 @router.post("/cashout")
 async def cashout(request: Request, body: CrashCashoutRequest):
     _, user_id = prepareRequest(request, "CrashCashout")
+    _ensure_crash_owner()
+    enforce_rate_limit("crash_cashout", str(user_id), *_CASHOUT_PER_USER)
     try:
         result = await crash_loop.cashout(
             bet_id=body.bet_id,
@@ -105,7 +133,10 @@ async def crash_websocket(websocket: WebSocket):
     except Exception:
         log.exception("Crash websocket session lookup failed; continuing anonymously")
 
-    await ws_manager.connect(websocket)
+    accepted = await ws_manager.connect(websocket)
+    if not accepted:
+        # Connection limit exceeded — socket already closed by the manager.
+        return
 
     # Push current snapshot so late joiners sync without waiting for next event
     try:

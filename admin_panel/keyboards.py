@@ -1,4 +1,36 @@
-from aiogram.types import InlineKeyboardMarkup, InlineKeyboardButton
+from aiogram.types import (
+    InlineKeyboardMarkup,
+    InlineKeyboardButton,
+    KeyboardButton,
+    ReplyKeyboardMarkup,
+)
+
+
+# ------------------------- persistent reply keyboard -------------------------
+# Bottom "launcher" keyboard shown after /start. Each label is routed by
+# admin_panel/handlers/quick.py to the matching section.
+BTN_DASH = "📊 Dashboard"
+BTN_ANALYTICS = "📈 Analytics"
+BTN_PLAYERS = "👤 Players"
+BTN_PAYMENTS = "💳 Payments"
+BTN_PROMO = "🎁 Promo"
+BTN_SETTINGS = "⚙ Settings"
+BTN_SEARCH = "🔍 Search"
+BTN_MENU = "🏠 Menu"
+
+
+def main_reply_kb() -> ReplyKeyboardMarkup:
+    return ReplyKeyboardMarkup(
+        keyboard=[
+            [KeyboardButton(text=BTN_DASH), KeyboardButton(text=BTN_ANALYTICS)],
+            [KeyboardButton(text=BTN_PLAYERS), KeyboardButton(text=BTN_PAYMENTS)],
+            [KeyboardButton(text=BTN_PROMO), KeyboardButton(text=BTN_SETTINGS)],
+            [KeyboardButton(text=BTN_SEARCH), KeyboardButton(text=BTN_MENU)],
+        ],
+        resize_keyboard=True,
+        is_persistent=True,
+        input_field_placeholder="Operator menu",
+    )
 
 
 def btn(text: str, data: str) -> InlineKeyboardButton:
@@ -90,7 +122,7 @@ def withdraw_actions(withdraw_id: int, user_id: int) -> InlineKeyboardMarkup:
     wid = int(withdraw_id)
     uid = int(user_id)
     return with_nav(
-        [btn("✅ Approve", f"op:wd:ok:{wid}"), btn("❌ Reject", f"op:wd:no:{wid}")],
+        [btn("✅ Завершено", f"op:wd:ok:{wid}"), btn("❌ Reject", f"op:wd:no:{wid}")],
         [btn("👤 View Player", f"op:p:view:{uid}")],
         back="op:pay:wd:PENDING",
     )

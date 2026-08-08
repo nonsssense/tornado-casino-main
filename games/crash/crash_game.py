@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import heapq
 import math
 import time
 from typing import TypedDict
@@ -35,11 +36,13 @@ import sqlalchemy as sa
 # multiplier = floor(100 * e^(GROWTH_RATE * elapsed_ms^GROWTH_POWER)) / 100
 # POWER < 1 reduces late-round acceleration (Aviator-like readability).
 # Provably Fair crash points are independent of this curve.
-GROWTH_RATE = 0.00062204
+# GROWTH_RATE scaled by 1.5^GROWTH_POWER so wall-clock time to any
+# multiplier is ~1.5x shorter (provably fair crash points unchanged).
+GROWTH_RATE = 0.00084311
 GROWTH_POWER = 0.75
 
 
-class ActiveCrashBet(TypedDict):
+class ActiveCrashBet(TypedDict, total=False):
     user_id: int
     crash_id: int
     amount: float
@@ -48,6 +51,37 @@ class ActiveCrashBet(TypedDict):
     crash_stats_id: int
     wallet_id: int
     placed_at: float
+    auto_cashout_multiplier: float | None
+
+
+def normalize_auto_cashout_multiplier(value) -> float | None:
+    """Optional auto-cashout target. None = disabled. Must be > 1.00x."""
+    if value is None:
+        return None
+    try:
+        multiplier = float(value)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid auto cashout multiplier",
+        ) from exc
+    if not math.isfinite(multiplier):
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid auto cashout multiplier",
+        )
+    if multiplier <= 1.0:
+        raise HTTPException(
+            status_code=400,
+            detail="Auto cashout must be greater than 1.00x",
+        )
+    if multiplier > 1_000_000:
+        raise HTTPException(
+            status_code=400,
+            detail="Auto cashout multiplier is too high",
+        )
+    # Match crash display precision (2 decimal places).
+    return math.floor(multiplier * 100 + 1e-9) / 100
 
 
 class CrashManager:
@@ -138,12 +172,34 @@ class CrashGameLoop:
         # Current-round settlements (cashed out / lost) for reconnect snapshots.
         # Cleared on each ROUND_OPEN. Not durable across process restart.
         self.round_settlements: dict[int, dict] = {}
+        # Auto-cashout index: min-heap of (target, bet_id) + pending map for
+        # O(log n) scheduling. Lazy deletion when a bet is removed manually.
+        self._auto_cashout_heap: list[tuple[float, int]] = []
+        self._auto_cashout_pending: dict[int, float] = {}
+        # Highest multiplier fully scanned for auto cashouts this round.
+        # Targets are due when watermark < target <= reached (never equality-only).
+        self._auto_cashout_watermark: float = 1.0
         self.phase_ends_at = None
         self._lock = asyncio.Lock()
         self._running = False
+        # True only in the process that owns the singleton advisory lock and runs
+        # the authoritative round loop. HTTP bet/cashout handlers must refuse to
+        # mutate financial state unless they run in THIS process (see is_loop_owner).
+        self._loop_owner = False
 
     def set_ws_manager(self, ws_manager):
         self.ws_manager = ws_manager
+
+    def is_loop_owner(self) -> bool:
+        """Whether this process owns the authoritative in-memory Crash state.
+
+        In a (misconfigured) multi-worker deployment only ONE process acquires the
+        PostgreSQL advisory lock and runs the round loop; its in-memory active_bets
+        are the only source of truth. Any other worker returns False here so its
+        HTTP handlers fail closed instead of debiting wallets for bets the loop will
+        never see.
+        """
+        return self._loop_owner
 
     # ------------------------------------------------------------------
     # Shared growth formula (must match frontend)
@@ -217,6 +273,9 @@ class CrashGameLoop:
                     {
                         "amount": mine["amount"],
                         "bet_id": mine["bet_id"],
+                        "auto_cashout_multiplier": mine.get(
+                            "auto_cashout_multiplier"
+                        ),
                     }
                 )
             payload["my_bets"] = my_bets
@@ -277,9 +336,11 @@ class CrashGameLoop:
         rows = []
         for bet_id, bet in sorted(self.active_bets.items()):
             user_id = bet["user_id"]
+            # Public row: expose only display name + amount + bet_id (bet_id is a
+            # per-round bet handle, not a user/account identifier). Internal
+            # database user_id is intentionally NOT broadcast to other players.
             rows.append(
                 {
-                    "user_id": user_id,
                     "username": names.get(
                         user_id,
                         format_crash_player_name(user_id),
@@ -311,13 +372,45 @@ class CrashGameLoop:
             if not owned_bets:
                 self.user_bets.pop(user_id, None)
 
+        self._unregister_auto_cashout(bet_id)
         return bet
+
+    def _clear_auto_cashouts(self) -> None:
+        self._auto_cashout_heap.clear()
+        self._auto_cashout_pending.clear()
+        self._auto_cashout_watermark = 1.0
+
+    def _register_auto_cashout(self, bet_id: int, target: float) -> None:
+        self._auto_cashout_pending[bet_id] = target
+        heapq.heappush(self._auto_cashout_heap, (target, bet_id))
+
+    def _unregister_auto_cashout(self, bet_id: int) -> None:
+        self._auto_cashout_pending.pop(bet_id, None)
+
+    def _compact_auto_cashout_heap(self) -> None:
+        """Drop stale heap entries when lazy deletions accumulate."""
+        if len(self._auto_cashout_heap) <= max(8, 2 * len(self._auto_cashout_pending)):
+            return
+        rebuilt = [
+            (target, bet_id)
+            for target, bet_id in self._auto_cashout_heap
+            if self._auto_cashout_pending.get(bet_id) == target
+        ]
+        heapq.heapify(rebuilt)
+        self._auto_cashout_heap = rebuilt
 
     # ------------------------------------------------------------------
     # Betting / cashout (called from router)
     # ------------------------------------------------------------------
 
-    async def place_bet(self, user_id: int, amount: float) -> dict:
+    async def place_bet(
+        self,
+        user_id: int,
+        amount: float,
+        auto_cashout_multiplier=None,
+    ) -> dict:
+        auto_cashout = normalize_auto_cashout_multiplier(auto_cashout_multiplier)
+
         async with self._lock:
             if self.state != self.STATE_BETTING:
                 raise HTTPException(status_code=409, detail="Bets are closed")
@@ -397,8 +490,11 @@ class CrashGameLoop:
                 "crash_stats_id": crash_stats_id,
                 "wallet_id": wallet_id,
                 "placed_at": time.time(),
+                "auto_cashout_multiplier": auto_cashout,
             }
             self.user_bets.setdefault(user_id, set()).add(bet_id)
+            if auto_cashout is not None:
+                self._register_auto_cashout(bet_id, auto_cashout)
 
             names = CrashDatabase.get_user_display_names([user_id])
             username = names.get(
@@ -409,13 +505,13 @@ class CrashGameLoop:
             log.info(
                 f"Crash bet placed | round={self.current_round} | "
                 f"user_id={user_id} | amount={amount} | bet_id={bet_id} | "
-                f"crash_stats_id={crash_stats_id}"
+                f"crash_stats_id={crash_stats_id} | "
+                f"auto_cashout={auto_cashout}"
             )
 
             await self._broadcast(
                 {
                     "event": "PLAYER_BET",
-                    "user_id": user_id,
                     "username": username,
                     "bet": float(amount),
                     "bet_id": bet_id,
@@ -429,6 +525,7 @@ class CrashGameLoop:
                 "bet_id": bet_id,
                 "user_id": user_id,
                 "username": username,
+                "auto_cashout_multiplier": auto_cashout,
             }
 
     async def cashout(self, bet_id: int, user_id: int) -> dict:
@@ -443,6 +540,7 @@ class CrashGameLoop:
         self,
         bet_id: int,
         expected_user_id: int,
+        settlement_multiplier: float | None = None,
     ) -> dict:
         if self.state != self.STATE_FLYING:
             raise HTTPException(status_code=409, detail="Round is not flying")
@@ -464,9 +562,19 @@ class CrashGameLoop:
         if self.round_start_time is None or self.current_crash is None:
             raise HTTPException(status_code=409, detail="Round not ready")
 
-        current_multiplier = self.get_current_multiplier()
-        if current_multiplier >= self.current_crash:
-            raise HTTPException(status_code=409, detail="Already crashed")
+        if settlement_multiplier is None:
+            current_multiplier = self.get_current_multiplier()
+            # Manual cashout: must still be strictly before the crash point.
+            if current_multiplier >= self.current_crash:
+                raise HTTPException(status_code=409, detail="Already crashed")
+        else:
+            current_multiplier = float(settlement_multiplier)
+            if not math.isfinite(current_multiplier) or current_multiplier < 1.0:
+                raise HTTPException(status_code=409, detail="Invalid cashout multiplier")
+            # Auto cashout may settle at exactly the crash point when the target
+            # was crossed on the tick that reached the crash (range crossing).
+            if current_multiplier > self.current_crash + 1e-12:
+                raise HTTPException(status_code=409, detail="Already crashed")
 
         amount = bet["amount"]
         real_part = float(bet.get("real_part") or amount)
@@ -535,7 +643,6 @@ class CrashGameLoop:
 
         event = {
             "event": "PLAYER_CASHOUT",
-            "user_id": user_id,
             "username": username,
             "bet_id": bet_id,
             "bet": amount,
@@ -561,6 +668,98 @@ class CrashGameLoop:
             "profit": profit,
         }
 
+    async def _process_auto_cashouts(self, up_to_multiplier: float | None = None) -> None:
+        """Cash out bets whose auto targets were crossed up to a multiplier.
+
+        Uses a min-heap of targets so each tick only pops due entries — not a
+        full scan of every active bet. Range detection is watermark-based:
+        a target fires when watermark < target <= reached (never requires an
+        exact landing on the target). Caps at the crash point so targets above
+        the crash never win.
+        """
+        async with self._lock:
+            await self._process_auto_cashouts_locked(up_to_multiplier)
+
+    async def _process_auto_cashouts_locked(
+        self,
+        up_to_multiplier: float | None = None,
+    ) -> None:
+        if self.state != self.STATE_FLYING:
+            return
+        if self.round_start_time is None or self.current_crash is None:
+            return
+        if not self._auto_cashout_pending and not self._auto_cashout_heap:
+            if up_to_multiplier is not None:
+                self._auto_cashout_watermark = max(
+                    self._auto_cashout_watermark,
+                    min(float(up_to_multiplier), float(self.current_crash)),
+                )
+            return
+
+        live_multiplier = self.get_current_multiplier()
+        if up_to_multiplier is None:
+            reached = live_multiplier
+        else:
+            reached = float(up_to_multiplier)
+
+        # Never settle auto cashouts above the authoritative crash point.
+        crash_point = float(self.current_crash)
+        reached = min(reached, crash_point)
+
+        if reached <= self._auto_cashout_watermark + 1e-12:
+            return
+
+        # Pay at the live server multiplier, clamped to the crash point so a
+        # tick that jumps past crash still settles crossed targets safely.
+        settlement = min(live_multiplier, crash_point)
+
+        due: list[tuple[int, int, float]] = []
+        while self._auto_cashout_heap:
+            target, bet_id = self._auto_cashout_heap[0]
+            if target > reached + 1e-12:
+                break
+            heapq.heappop(self._auto_cashout_heap)
+
+            pending_target = self._auto_cashout_pending.get(bet_id)
+            if pending_target is None or abs(pending_target - target) > 1e-12:
+                continue
+            if bet_id not in self.active_bets:
+                self._unregister_auto_cashout(bet_id)
+                continue
+            if target <= self._auto_cashout_watermark + 1e-12:
+                continue
+
+            due.append((bet_id, self.active_bets[bet_id]["user_id"], target))
+
+        for bet_id, user_id, target in due:
+            if bet_id not in self.active_bets:
+                self._unregister_auto_cashout(bet_id)
+                continue
+            try:
+                result = await self._cashout_bet_locked(
+                    bet_id=bet_id,
+                    expected_user_id=user_id,
+                    settlement_multiplier=settlement,
+                )
+                log.info(
+                    f"Crash auto cashout | round={self.current_round} | "
+                    f"user_id={user_id} | bet_id={bet_id} | "
+                    f"target={target} | multiplier={result['multiplier']}"
+                )
+            except HTTPException as exc:
+                log.info(
+                    f"Crash auto cashout skipped | bet_id={bet_id} | "
+                    f"status={exc.status_code} | detail={exc.detail}"
+                )
+            except Exception:
+                log.exception(
+                    f"Crash auto cashout failed | bet_id={bet_id} | "
+                    f"user_id={user_id}"
+                )
+
+        self._auto_cashout_watermark = reached
+        self._compact_auto_cashout_heap()
+
     # ------------------------------------------------------------------
     # Main loop
     # ------------------------------------------------------------------
@@ -580,6 +779,10 @@ class CrashGameLoop:
             )
             self._running = False
             return
+
+        # This process is now the single authoritative Crash owner. Only now may
+        # HTTP bet/cashout handlers in this process mutate financial state.
+        self._loop_owner = True
 
         self.recover_unsettled_bets_on_boot()
 
@@ -704,6 +907,7 @@ class CrashGameLoop:
             self.state = self.STATE_BETTING
             self.round_start_time = None
             self.round_settlements.clear()
+            self._clear_auto_cashouts()
             self.betting_ends_at = time.time() + self.BETTING_TIME
             self.phase_ends_at = self.betting_ends_at
 
@@ -750,10 +954,19 @@ class CrashGameLoop:
         )
 
         while time.time() < crash_time:
-            await asyncio.sleep(self.FLYING_TICK)
+            await self._process_auto_cashouts()
+            remaining = crash_time - time.time()
+            if remaining <= 0:
+                break
+            await asyncio.sleep(min(self.FLYING_TICK, remaining))
 
         # -------------------- CRASHED --------------------
         async with self._lock:
+            # Settle every auto target <= crash_point before marking losses,
+            # even if the last poll jumped from below the target past the crash.
+            await self._process_auto_cashouts_locked(
+                up_to_multiplier=self.current_crash
+            )
             self.state = self.STATE_CRASHED
             self.phase_ends_at = time.time() + self.ROUND_END_DELAY
             await self._resolve_lost_bets()

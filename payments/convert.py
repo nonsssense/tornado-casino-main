@@ -73,6 +73,50 @@ def convert(symbol_in: str, amount_in: float) -> float:
     return round(amount_in * price, 2)
 
 
+# Fiat currency → Binance spot symbol. Symbol is quoted IN the fiat, i.e. the
+# price is "fiat units per 1 USDT" (USDT ≈ USD). e.g. USDTKZT = KZT per 1 USDT.
+BINANCE_SYMBOL_BY_FIAT = {
+    "KZT": "USDTKZT",
+}
+
+
+def resolve_fiat_symbol(currency: str) -> str | None:
+    """Map a fiat currency code to its Binance symbol, or None if unsupported."""
+    if not currency:
+        return None
+    return BINANCE_SYMBOL_BY_FIAT.get(currency.strip().upper())
+
+
+def fiat_to_usd(currency: str, amount_fiat: float) -> tuple[float, float]:
+    """Convert a deposited fiat amount to USD (deposit side, NO margin).
+
+    Returns (usd_amount, convert_rate) where convert_rate is the "fiat per 1 USD"
+    price from Binance (e.g. USDTKZT) and usd_amount = round(amount_fiat / rate, 2).
+
+    The 1% margin (spread) is intentionally NOT applied here — it belongs on the
+    withdrawal (USD→fiat) leg. Deposits credit at the clean spot rate so the player
+    sees the full amount they paid.
+    """
+    amount_fiat = float(amount_fiat)
+    if amount_fiat <= 0:
+        raise ValueError("Fiat amount must be greater than zero")
+
+    symbol = resolve_fiat_symbol(currency)
+    if symbol is None:
+        raise RuntimeError(f"No Binance symbol for fiat currency {currency}")
+
+    rate = float(get_price(symbol))  # fiat units per 1 USDT (≈ USD)
+    if rate <= 0:
+        raise RuntimeError(f"Invalid market rate for {symbol}")
+
+    usd_amount = round(amount_fiat / rate, 2)
+    log.info(
+        f"Fiat convert | currency={currency} | symbol={symbol} | amount_fiat={amount_fiat} | "
+        f"usd={usd_amount} | convert_rate={rate}"
+    )
+    return usd_amount, rate
+
+
 def crypto_to_usd(coin: str, amount_in: float) -> tuple[float, float]:
     """Convert a deposited crypto amount to USD.
 

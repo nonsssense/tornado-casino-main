@@ -107,6 +107,12 @@ function CompactSelect(options) {
                 className: 'wallet-pair__menu-label',
                 text: option.label,
               }),
+              option.recommended
+                ? createElement('span', {
+                  className: 'wallet-pair__menu-badge',
+                  text: t('wallet.network.recommended'),
+                })
+                : null,
             ].filter(Boolean),
           }),
         ),
@@ -202,6 +208,7 @@ export function createCoinNetworkPair(options = {}) {
           id: item.id,
           label: t(item.labelKey),
           icon: item.icon,
+          recommended: item.recommended === true,
         })),
         onToggle: () => {
           openMenu = openMenu === 'network' ? null : 'network';

@@ -29,7 +29,11 @@ _deposit_schema_ready = False
 
 
 def ensure_deposit_schema():
-    """Add bonus grant result columns for deposit status UX (idempotent)."""
+    """Add bonus grant result columns for deposit status UX (idempotent).
+
+    Must only run at process startup — never inside an HTTP request or while
+    another connection holds locks on `deposit` / related tables.
+    """
     global _deposit_schema_ready
     if _deposit_schema_ready:
         return
@@ -294,12 +298,18 @@ def coins_match(stored_ticker: str, webhook_coin: str) -> bool:
 
     return stored == received or stored.replace("/", "_") == received
 
+FORWARDING_BUFFER_USD = {
+    "trc20_usdt": 5.0,
+    "trx": 5.0,
+}
+
+
+def _forwarding_buffer_usd(ticker: str) -> float:
+    key = (ticker or "").strip().lower().replace("/", "_")
+    return float(FORWARDING_BUFFER_USD.get(key, 0.0))
+
 
 def resolve_effective_deposit_minimum(ticker: str, blockbee_minimum) -> dict:
-    """Effective deposit minimum = max(product USD floor, BlockBee minimum).
-
-    Returns coin + USD fields so UI and create validation share one rule.
-    """
     bb_min_coin = float(blockbee_minimum or 0)
     product_min_usd = float(DEPOSIT_MIN_USD)
 
@@ -321,19 +331,35 @@ def resolve_effective_deposit_minimum(ticker: str, blockbee_minimum) -> dict:
         )
         bb_min_usd = 0.0
 
-    if bb_min_usd + 1e-9 >= product_min_usd:
-        effective_coin = bb_min_coin
-        effective_usd = round(bb_min_usd, 2)
+    buffer_usd = _forwarding_buffer_usd(ticker)
+    # Effective USD floor = max(product floor, BlockBee minimum + forwarding buffer).
+    floor_usd = max(product_min_usd, bb_min_usd + buffer_usd)
+
+    if buffer_usd <= 0:
+        # No buffer (every network except TRON): keep prior behaviour — use the
+        # exact-granularity coin minimum of whichever side dominates.
+        if bb_min_usd + 1e-9 >= product_min_usd:
+            effective_coin = bb_min_coin
+        else:
+            effective_coin = float(product_min_coin)
     else:
-        effective_coin = float(product_min_coin)
-        effective_usd = round(product_min_usd, 2)
+        # TRON: floor is BlockBee-min + buffer (or product floor). Convert to coin.
+        try:
+            effective_coin, _ = usd_to_crypto(ticker, floor_usd)
+        except Exception:
+            log.exception(
+                f"Failed to convert buffered deposit min to crypto | ticker={ticker} | "
+                f"floor_usd={floor_usd}"
+            )
+            effective_coin = float(product_min_coin)
 
     return {
         "minimum": effective_coin,
-        "minimum_usd": effective_usd,
+        "minimum_usd": round(floor_usd, 2),
         "blockbee_minimum": bb_min_coin,
         "blockbee_minimum_usd": round(bb_min_usd, 2),
         "product_minimum_usd": product_min_usd,
+        "forwarding_buffer_usd": buffer_usd,
     }
 
 
@@ -371,7 +397,7 @@ class DepositManager:
 
         log.info(
             f"Completing deposit | user_id={self.user_id} | deposit_id={deposit.get('id')} | "
-            f"amount={webhook.get('value_forwarded_coin')}"
+            f"amount={webhook.get('value_coin')}"
         )
         self.completeDeposit(deposit,webhook)
 
@@ -412,7 +438,11 @@ class DepositManager:
 
     def completeDeposit(self, deposit, webhook):
         try:
-            crypto_amount = float(webhook["value_forwarded_coin"])
+            # Credit what LANDED on the deposit address (gross), so the player gets
+            # exactly what their exchange showed as "amount to receive". The house
+            # absorbs BlockBee's fee_coin (provider fee + forwarding), i.e. the gap
+            # between value_coin and value_forwarded_coin.
+            crypto_amount = float(webhook["value_coin"])
             payment_uuid = webhook.get("uuid")
             # Custom payment flow uses `coin`; checkout-style payloads may use `paid_coin`.
             coin = webhook.get("coin") or webhook.get("paid_coin") or deposit.get("coin")
@@ -536,10 +566,15 @@ class DepositManager:
                 f"coin={coin_for_convert} | received_amount={crypto_amount} | "
                 f"convert_rate={convert_rate} | usd_amount={usd_amount}"
             )
+            from admin_panel.alerts import send_alert
+            send_alert(
+                f"Crypto deposit credited | user #{locked['user_id']} | "
+                f"{crypto_amount:g} {coin_for_convert} → ${usd_amount:.2f}",
+                category="deposit",
+            )
 
             # Commercial side effects go through PromotionManager (bonus + referral FTD).
             # Wallet row remains locked for the rest of this transaction.
-            ensure_deposit_schema()
             deposit_index = BonusManager(locked["user_id"]).countCompletedDeposits(
                 conn=conn
             ) + 1
@@ -581,7 +616,7 @@ class DepositManager:
             f"transaction_id={transaction_id} | status={status}"
         )
         if crypto_amount is None:
-            crypto_amount = webhook.get("value_forwarded_coin")
+            crypto_amount = webhook.get("value_coin")
 
         values = {
             "address_in": webhook["address_in"],

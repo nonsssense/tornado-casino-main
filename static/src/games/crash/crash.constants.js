@@ -11,7 +11,9 @@
  * stay readable, while early 1x→2x pacing stays close to classic feel.
  * Provably-fair crash points are unchanged — only time↔display mapping.
  */
-export const CRASH_GROWTH_RATE = 0.00062204;
+// Scaled by 1.5^POWER vs prior 0.00062204 so time-to-multiplier is ~1.5x shorter.
+// Must stay in sync with backend games/crash/crash_game.py GROWTH_RATE.
+export const CRASH_GROWTH_RATE = 0.00084311;
 export const CRASH_GROWTH_POWER = 0.75;
 
 /** Bet amount bounds for local +/- controls (mirror backend config). */
@@ -25,6 +27,15 @@ export const CRASH_BET_LIMITS = {
 
 /** Quick-select amounts shown under the Bet Amount steppers. */
 export const CRASH_QUICK_BETS = [0.1, 0.2, 0.5, 1, 2, 4];
+
+/**
+ * Auto Cashout UX limits (frontend popup only).
+ * Backend still accepts >1.00x up to its own ceiling; this UI caps at 10×.
+ */
+export const CRASH_AUTO_CASHOUT_MIN = 1.0;
+export const CRASH_AUTO_CASHOUT_MAX = 10;
+export const CRASH_AUTO_CASHOUT_DEFAULT = 1.5;
+export const CRASH_AUTO_CASHOUT_PRESETS = [1.5, 2, 3, 5, 10];
 
 /** Match backend CrashGameLoop.BETTING_TIME for progress denominator. */
 export const CRASH_BETTING_DURATION_SEC = 8;

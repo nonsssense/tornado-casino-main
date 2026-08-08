@@ -118,7 +118,7 @@ export function Toast(options = {}) {
  * @param {number} [options.duration]
  */
 export function showGameWinToast(options = {}) {
-  const { gameName, amount, duration = 4200 } = options;
+  const { gameName, amount, duration = 2500 } = options;
 
   return Toast({
     type: 'success',

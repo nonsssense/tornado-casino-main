@@ -22,7 +22,7 @@ import {
   subscribeAuthStatus,
 } from './auth-state.js';
 
-/** @type {{ id?: number|string, username?: string, first_name?: string, last_name?: string }|null} */
+/** @type {{ id?: number|string, username?: string, first_name?: string, last_name?: string, photo_url?: string }|null} */
 let authUser = null;
 
 /** @type {{ show?: boolean, variant?: string, referred?: boolean, campaign_id?: string }|null} */
@@ -183,7 +183,7 @@ export function handleSessionExpired() {
 
 /**
  * Server-validated Telegram user from the last successful /api/auth.
- * @returns {{ id?: number|string, username?: string, first_name?: string, last_name?: string }|null}
+ * @returns {{ id?: number|string, username?: string, first_name?: string, last_name?: string, photo_url?: string }|null}
  */
 export function getAuthUser() {
   return authUser;

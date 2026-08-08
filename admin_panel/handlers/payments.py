@@ -3,7 +3,7 @@ from aiogram.types import CallbackQuery
 
 from admin_panel.access import OWNER_ADMIN
 from admin_panel.helpers import clip, edit_or_answer, require_roles
-from admin_panel.keyboards import payments_menu, with_nav, withdraw_actions
+from admin_panel.keyboards import btn, payments_menu, with_nav, withdraw_actions
 from admin_panel.services import payments as pay_svc
 from admin_panel.state import clear_pending
 
@@ -85,7 +85,7 @@ def register(dp):
         wid = int(callback.data.split(":")[-1])
         result = await pay_svc.approve_withdraw(wid, callback.from_user.id)
         if result.get("ok"):
-            await callback.answer("Approved", show_alert=True)
+            await callback.answer("Завершено", show_alert=True)
         else:
             await callback.answer(result.get("error", "Failed"), show_alert=True)
         w = pay_svc.get_withdraw(wid)

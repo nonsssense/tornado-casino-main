@@ -13,9 +13,12 @@ import { t } from '../i18n/index.js';
 
 export const profileService = {
   /**
-   * @returns {Promise<{ nickname: string, status: string, userId: string, email: string, balances: { real: number, bonus: number }|null, isGuest: boolean }>}
+   * @param {{ soft?: boolean }} [options]
+   * @returns {Promise<{ nickname: string, status: string, userId: string, email: string, photoUrl: string|null, balances: { real: number, bonus: number }|null, isGuest: boolean }>}
    */
-  async getProfile() {
+  async getProfile(options = {}) {
+    const soft = Boolean(options.soft);
+
     if (!isAuthenticated()) {
       const dash = t('common.emDash');
       return {
@@ -23,6 +26,7 @@ export const profileService = {
         status: dash,
         userId: dash,
         email: dash,
+        photoUrl: null,
         balances: null,
         isGuest: true,
       };
@@ -30,9 +34,15 @@ export const profileService = {
 
     const user = getAuthUser();
     const cachedBalances = balanceService.getBalances();
+    const cachedStatus = referralService.getStatus();
+
     const [balances, referralStatus] = await Promise.all([
       cachedBalances ? Promise.resolve(cachedBalances) : balanceService.fetchBalances(),
-      referralService.fetchStatus().catch(() => null),
+      soft && cachedStatus
+        ? Promise.resolve({ status: cachedStatus })
+        : referralService.fetchStatus().catch(() => (
+          cachedStatus ? { status: cachedStatus } : null
+        )),
     ]);
 
     const nickname = user?.username
@@ -44,11 +54,16 @@ export const profileService = {
       || referralService.getStatus()
       || dash;
 
+    const photoUrl = typeof user?.photo_url === 'string' && user.photo_url.trim()
+      ? user.photo_url.trim()
+      : null;
+
     return {
       nickname,
       status,
       userId: user?.id ? String(user.id) : dash,
       email: dash,
+      photoUrl,
       balances,
       isGuest: false,
     };

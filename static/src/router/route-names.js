@@ -8,6 +8,7 @@ export const ROUTE_NAMES = {
   DICE: 'dice',
   PLINKO: 'plinko',
   CRASH: 'crash',
+  PERSONAL_DATA: 'personal-data',
   BONUSES: 'bonuses',
   BONUS_DETAIL: 'bonus-detail',
 };

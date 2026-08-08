@@ -15,6 +15,7 @@ import {
 } from '../services/auth.service.js';
 import { balanceService } from '../services/balance.service.js';
 import { settingsService } from '../services/settings.service.js';
+import { appState } from '../services/app-state.js';
 import { mountAppShell } from './shell.js';
 import { router } from '../router/index.js';
 import { initI18n, subscribeLocale, t } from '../i18n/index.js';
@@ -35,6 +36,7 @@ let localeSubscribed = false;
 let welcomeShown = false;
 
 export function initApp() {
+  appState.init();
   shellInstance = mountAppShell({
     balanceAmount: balancePlaceholder(),
     balanceLoading: true,
@@ -145,8 +147,9 @@ function ensureLocaleSubscription() {
 
   subscribeLocale(async () => {
     if (overlayManager.isOpen()) {
-      await overlayManager.close();
+      await overlayManager.close({ destroy: true });
     }
+    await overlayManager.clearRetained?.();
     document.title = t('app.title');
     await router.refreshForLocale();
   });

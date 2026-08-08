@@ -110,9 +110,24 @@
       rgba(255, 255, 255, 0.06) 0%,
       rgba(255, 255, 255, 0.02) 100%
     );
+  overflow: hidden;
   transition:
     border-color var(--transition-fast),
     background-color var(--transition-fast);
+}
+
+.avatar-placeholder--photo {
+  border-style: solid;
+  border-color: rgba(252, 211, 18, 0.28);
+  background: transparent;
+}
+
+.avatar-placeholder__img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center;
 }
 
 .avatar-placeholder__icon {

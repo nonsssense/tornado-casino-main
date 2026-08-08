@@ -1,0 +1,20 @@
+[
+  {
+    "src": "kaspi bank logo.png",
+    "out": "kaspi.webp",
+    "original": 112192,
+    "webp": 15216
+  },
+  {
+    "src": "berek bank logo.png",
+    "out": "bereke.webp",
+    "original": 87560,
+    "webp": 4430
+  },
+  {
+    "src": "activabonus banner for fiat deposit.png",
+    "out": "bonus-banner.webp",
+    "original": 750377,
+    "webp": 11280
+  }
+]

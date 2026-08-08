@@ -5,11 +5,8 @@ import os
 
 white_ids = {
     5478327492: "owner",
-    1200219142: "owner",
-    #456123789: "investor",
-    #741852963: "support",
 }
-
+#     1200219142: "owner",
 # Always resolve .env from the project root (this file's directory), not process cwd.
 _ENV_FILE = Path(__file__).resolve().parent / '.env'
 load_dotenv(_ENV_FILE)
@@ -18,8 +15,66 @@ bot_token = os.getenv('BOT_TOKEN')
 admin_bot_token = os.getenv('ADMIN_BOT_TOKEN')
 db_url = os.getenv('DB_URL')
 
-# When true: SQLAlchemy echo + /api/debug/* routes. Production must leave unset/false.
-DEBUG = os.getenv('DEBUG', 'false').strip().lower() in ('1', 'true', 'yes', 'on')
+
+def _env_flag(name: str, default: str = 'false') -> bool:
+    return (os.getenv(name, default) or '').strip().lower() in ('1', 'true', 'yes', 'on')
+
+
+# Deployment environment. Defaults to "production" so that a missing/misconfigured
+# environment FAILS CLOSED to the secure behaviour (no DEBUG, no SQL echo, Secure
+# cookies). Set APP_ENV=development locally to opt into developer conveniences.
+APP_ENV = (os.getenv('APP_ENV') or 'production').strip().lower()
+IS_PRODUCTION = APP_ENV in ('production', 'prod')
+
+# When true: SQLAlchemy echo + /api/debug/* routes. DEBUG can NEVER be enabled in a
+# production environment, even if the operator explicitly sets DEBUG=true — the
+# request is ignored and a warning is emitted. This prevents SQL parameters and
+# diagnostic authentication telemetry from leaking on the production server.
+_DEBUG_REQUESTED = _env_flag('DEBUG', 'false')
+DEBUG = _DEBUG_REQUESTED and not IS_PRODUCTION
+if _DEBUG_REQUESTED and IS_PRODUCTION:
+    import sys
+    print(
+        "[config] WARNING: DEBUG=true ignored because APP_ENV is production. "
+        "Diagnostic endpoints and SQL echo remain disabled.",
+        file=sys.stderr,
+    )
+
+# ------------------------------ Session cookie security ------------------------
+# The auth cookie MUST be Secure in production (only sent over HTTPS). Default is
+# True (fail closed). Local plain-HTTP development can set SESSION_COOKIE_SECURE=false.
+SESSION_COOKIE_SECURE = _env_flag('SESSION_COOKIE_SECURE', 'true')
+# Telegram Mini App is loaded inside a Telegram-controlled iframe/webview and the
+# API is same-origin, so "Lax" keeps the cookie flowing while blocking cross-site
+# POST CSRF. Do not relax without a specific reason.
+SESSION_COOKIE_SAMESITE = (os.getenv('SESSION_COOKIE_SAMESITE') or 'Lax').strip() or 'Lax'
+# Enable HSTS response header (only meaningful over HTTPS). Off by default so local
+# HTTP dev is unaffected; production/nginx should also set it at the edge.
+ENABLE_HSTS = _env_flag('ENABLE_HSTS', 'true' if IS_PRODUCTION else 'false')
+HSTS_MAX_AGE = int(os.getenv('HSTS_MAX_AGE', '31536000') or 31536000)
+
+# ------------------------------ Trusted reverse proxy --------------------------
+# Number of trusted reverse proxies in front of the app (e.g. one nginx = 1). The
+# real client IP is taken as the Nth value from the RIGHT of X-Forwarded-For, so a
+# client-supplied (left-most, spoofed) XFF value can never become the apparent IP.
+# Set to 0 to trust request.client.host directly (no proxy / direct dev).
+TRUSTED_PROXY_COUNT = int(os.getenv('TRUSTED_PROXY_COUNT', '1') or 1)
+
+# ------------------------------ Withdrawal step-up -----------------------------
+# A withdrawal is created in an "unconfirmed" security state and must be confirmed
+# by the user from the Telegram bot before it becomes eligible for admin approval.
+WITHDRAW_CONFIRMATION_TTL_MINUTES = int(
+    os.getenv('WITHDRAW_CONFIRMATION_TTL_MINUTES', '15') or 15
+)
+
+# ------------------------------ Rate limiting (defense-in-depth) ---------------
+# In-process limiter (no external dependency). These are abuse-prevention limits,
+# NOT financial-integrity controls (DB locks / idempotency remain authoritative).
+RATE_LIMIT_ENABLED = _env_flag('RATE_LIMIT_ENABLED', 'true')
+
+# ------------------------------ Crash WebSocket limits -------------------------
+CRASH_WS_MAX_TOTAL = int(os.getenv('CRASH_WS_MAX_TOTAL', '5000') or 5000)
+CRASH_WS_MAX_PER_IP = int(os.getenv('CRASH_WS_MAX_PER_IP', '20') or 20)
 
 # Public bot username (without @) for referral Mini App deep links.
 BOT_USERNAME = (os.getenv('BOT_USERNAME') or 'wwwinwwwin_bot').lstrip('@')
@@ -30,6 +85,13 @@ BLOCKBEE_API_KEY = os.getenv('API_BLOCKBEE')
 DOMEN = os.getenv('DOMEN')
 BLOCKBEE_PUBLIC_KEY_PATH = Path(os.getenv("BLOCKBEE_PUBLIC_KEY_PATH"))
 binance_api_url = os.getenv('BINANCE_API')
+
+# --------------------------- NirvanaPay (fiat / KZT PSP) -----------------------
+# Separate provider (like BlockBee) for fiat KZT card-to-card deposits.
+NIRVANA_API_PUBLIC_KEY = os.getenv('NIRVANA_API_PUBLIC_KEY')
+NIRVANA_API_PRIVATE_KEY = os.getenv('NIRVANA_API_PRIVATE_KEY')
+# Product floor for fiat (KZT) deposits — fixed per product decision (1500 KZT).
+FIAT_DEPOSIT_MIN_KZT = float(os.getenv('FIAT_DEPOSIT_MIN_KZT', '1500') or 1500)
 
 
 # -------------------------- Game bet limits (backend source of truth) ----------

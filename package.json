@@ -8,7 +8,9 @@
     "preview": "vite preview",
     "backend": "python -m uvicorn main:app --host 127.0.0.1 --port 8080",
     "backend:reload": "python -m uvicorn main:app --host 127.0.0.1 --port 8080 --reload",
-    "optimize:assets": "node scripts/optimize-assets.mjs"
+    "optimize:assets": "node scripts/optimize-assets.mjs",
+    "optimize:personal-data-assets": "node scripts/optimize-personal-data-assets.mjs",
+    "optimize:fiat-assets": "node scripts/optimize-fiat-assets.mjs"
   },
   "devDependencies": {
     "concurrently": "^10.0.3",

@@ -78,7 +78,7 @@ class _FakeBet:
     def __init__(self, user_id, bet_transaction_id, balance_type):
         self.user_id = user_id
 
-    def createBet(self, conn, game, amount, result, profit):
+    def createBet(self, conn, game, amount, result, profit, **kwargs):
         bet_id = self.next_id
         type(self).next_id += 1
         return bet_id
@@ -138,6 +138,14 @@ class _FakeCrashDatabase:
         return 1
 
 
+class _FakePromotionManager:
+    def __init__(self, user_id=None, campaign_manager=None):
+        self.user_id = user_id
+
+    def on_bet_settled(self, **kwargs):
+        return None
+
+
 class CrashGameLoopRuntimeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         _FakeBet.next_id = 101
@@ -154,6 +162,7 @@ class CrashGameLoopRuntimeTests(unittest.IsolatedAsyncioTestCase):
             patch.object(crash_game, "Bet", _FakeBet),
             patch.object(crash_game, "CrashDatabase", _FakeCrashDatabase),
             patch.object(crash_game, "lock_wallet", _fake_lock_wallet),
+            patch.object(crash_game, "PromotionManager", _FakePromotionManager),
         ]
         for patcher in self.patchers:
             patcher.start()
@@ -370,6 +379,235 @@ class CrashGameLoopRuntimeTests(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.loop.active_bets, {})
         self.assertEqual(self.loop.user_bets, {})
+
+    async def test_place_bet_stores_auto_cashout_multiplier(self):
+        result = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=2.5,
+        )
+        bet_id = result["bet_id"]
+        self.assertEqual(result["auto_cashout_multiplier"], 2.5)
+        self.assertEqual(
+            self.loop.active_bets[bet_id]["auto_cashout_multiplier"],
+            2.5,
+        )
+        state = self.loop.get_state(viewer_user_id=7)
+        self.assertEqual(state["my_bets"][0]["auto_cashout_multiplier"], 2.5)
+
+    async def test_place_bet_rejects_invalid_auto_cashout(self):
+        with self.assertRaises(HTTPException) as raised:
+            await self.loop.place_bet(
+                user_id=7,
+                amount=1,
+                auto_cashout_multiplier=1.0,
+            )
+        self.assertEqual(raised.exception.status_code, 400)
+
+    async def test_auto_cashout_triggers_like_manual_cashout(self):
+        placed = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=2.0,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop.get_current_multiplier = lambda: 2.03
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts()
+
+        self.assertNotIn(placed["bet_id"], self.loop.active_bets)
+        self.assertNotIn(placed["bet_id"], self.loop._auto_cashout_pending)
+        self.assertEqual(
+            self.loop.round_settlements[placed["bet_id"]]["status"],
+            "cashed_out",
+        )
+        self.assertEqual(
+            self.loop.ws_manager.messages[-1]["event"],
+            "PLAYER_CASHOUT",
+        )
+        self.assertEqual(
+            self.loop.ws_manager.messages[-1]["bet_id"],
+            placed["bet_id"],
+        )
+        self.assertEqual(self.loop.ws_manager.messages[-1]["multiplier"], 2.03)
+
+    async def test_manual_cashout_cancels_auto_cashout(self):
+        placed = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=5.0,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop.get_current_multiplier = lambda: 2.0
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop.cashout(placed["bet_id"], user_id=7)
+        await self.loop._process_auto_cashouts()
+
+        self.assertEqual(len(self.loop.ws_manager.messages), 1)
+        self.assertNotIn(placed["bet_id"], self.loop.active_bets)
+        self.assertNotIn(placed["bet_id"], self.loop._auto_cashout_pending)
+
+    async def test_auto_cashout_range_crossing_does_not_require_exact_hit(self):
+        """1.98 → 2.02 must cash out a 2.00 target without landing on 2.00."""
+        placed = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=2.0,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop._auto_cashout_watermark = 1.98
+        self.loop.get_current_multiplier = lambda: 2.02
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts()
+
+        self.assertNotIn(placed["bet_id"], self.loop.active_bets)
+        self.assertEqual(self.loop._auto_cashout_watermark, 2.02)
+        self.assertEqual(self.loop.round_settlements[placed["bet_id"]]["multiplier"], 2.02)
+
+    async def test_auto_cashout_before_losses_when_tick_jumps_past_crash(self):
+        """Targets <= crash win even if the poll jumps past the crash point."""
+        low = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=1.99,
+        )
+        mid = await self.loop.place_bet(
+            user_id=8,
+            amount=1,
+            auto_cashout_multiplier=2.0,
+        )
+        # Same user max 2 bets — use another user for crash-equal target.
+        at_crash = await self.loop.place_bet(
+            user_id=9,
+            amount=1,
+            auto_cashout_multiplier=2.01,
+        )
+        above = await self.loop.place_bet(
+            user_id=10,
+            amount=1,
+            auto_cashout_multiplier=2.02,
+        )
+
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 2.01
+        self.loop._auto_cashout_watermark = 1.98
+        self.loop.get_current_multiplier = lambda: 2.02
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts_locked(up_to_multiplier=2.01)
+
+        self.assertNotIn(low["bet_id"], self.loop.active_bets)
+        self.assertNotIn(mid["bet_id"], self.loop.active_bets)
+        self.assertNotIn(at_crash["bet_id"], self.loop.active_bets)
+        self.assertIn(above["bet_id"], self.loop.active_bets)
+        self.assertEqual(
+            self.loop.round_settlements[low["bet_id"]]["status"],
+            "cashed_out",
+        )
+        self.assertEqual(
+            self.loop.round_settlements[at_crash["bet_id"]]["multiplier"],
+            2.01,
+        )
+        self.assertEqual(self.loop._auto_cashout_watermark, 2.01)
+
+        await self.loop._resolve_lost_bets()
+        self.assertEqual(
+            self.loop.round_settlements[above["bet_id"]]["status"],
+            "lost",
+        )
+
+    async def test_auto_cashout_multiple_targets_same_tick(self):
+        first = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=1.5,
+        )
+        second = await self.loop.place_bet(
+            user_id=8,
+            amount=1,
+            auto_cashout_multiplier=1.8,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop._auto_cashout_watermark = 1.2
+        self.loop.get_current_multiplier = lambda: 2.0
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts()
+
+        self.assertNotIn(first["bet_id"], self.loop.active_bets)
+        self.assertNotIn(second["bet_id"], self.loop.active_bets)
+        cashout_events = [
+            msg for msg in self.loop.ws_manager.messages if msg["event"] == "PLAYER_CASHOUT"
+        ]
+        self.assertEqual(len(cashout_events), 2)
+
+    async def test_auto_cashout_same_target_multiple_players(self):
+        a = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=2.5,
+        )
+        b = await self.loop.place_bet(
+            user_id=8,
+            amount=1,
+            auto_cashout_multiplier=2.5,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop.get_current_multiplier = lambda: 2.5
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts()
+
+        self.assertNotIn(a["bet_id"], self.loop.active_bets)
+        self.assertNotIn(b["bet_id"], self.loop.active_bets)
+        self.assertEqual(len(self.loop.ws_manager.messages), 2)
+
+    async def test_auto_cashout_duplicate_process_does_not_double_pay(self):
+        placed = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=2.0,
+        )
+        self.loop.state = self.loop.STATE_FLYING
+        self.loop.round_start_time = time.time()
+        self.loop.current_crash = 10.0
+        self.loop.get_current_multiplier = lambda: 2.1
+        self.loop.ws_manager = _FakeWebSocketManager()
+
+        await self.loop._process_auto_cashouts()
+        await self.loop._process_auto_cashouts()
+
+        self.assertEqual(len(self.loop.ws_manager.messages), 1)
+        self.assertEqual(
+            self.loop.round_settlements[placed["bet_id"]]["status"],
+            "cashed_out",
+        )
+
+    async def test_place_bet_indexes_auto_cashout_on_heap(self):
+        placed = await self.loop.place_bet(
+            user_id=7,
+            amount=1,
+            auto_cashout_multiplier=3.25,
+        )
+        self.assertEqual(
+            self.loop._auto_cashout_pending[placed["bet_id"]],
+            3.25,
+        )
+        self.assertIn((3.25, placed["bet_id"]), self.loop._auto_cashout_heap)
 
 
 class CrashHistorySecrecyTests(unittest.TestCase):

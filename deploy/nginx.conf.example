@@ -5,9 +5,32 @@
 # Point root to the casinobot project directory (or a deploy package that includes
 # dist/, assets/, banners/, soundeffects/).
 
+# IMPORTANT deployment requirements for TORNADO:
+#   * Run the app with EXACTLY ONE worker (Crash keeps authoritative round state in
+#     memory in a single process; extra workers refuse to accept bets — see H-1).
+#         uvicorn main:app --host 127.0.0.1 --port 8080 --workers 1
+#     Do NOT put multiple app workers behind this upstream.
+#   * TORNADO reads the real client IP as the RIGHT-MOST X-Forwarded-For entry
+#     assuming exactly ONE trusted proxy (TRUSTED_PROXY_COUNT=1). This config
+#     appends the real peer via $proxy_add_x_forwarded_for and also sets X-Real-IP,
+#     so a client-supplied (spoofed) XFF value can never become the apparent IP.
+#     If you add another proxy hop (e.g. Cloudflare), bump TRUSTED_PROXY_COUNT.
+
 upstream tornado_app {
     server 127.0.0.1:8080;
     keepalive 32;
+}
+
+# Rate-limit zones (must live in the http{} context; shown here for reference).
+# Coarse per-IP limits at the edge complement the app's in-process limiter.
+limit_req_zone $binary_remote_addr zone=tornado_api:10m rate=20r/s;
+limit_req_zone $binary_remote_addr zone=tornado_auth:10m rate=1r/s;
+
+# Redirect all plain HTTP to HTTPS so the Secure session cookie is always usable.
+server {
+    listen 80;
+    server_name example.com;
+    return 301 https://$host$request_uri;
 }
 
 server {
@@ -16,6 +39,11 @@ server {
 
     # ssl_certificate     /etc/ssl/certs/example.pem;
     # ssl_certificate_key /etc/ssl/private/example.key;
+
+    # Enforce HTTPS for future visits (HSTS). Do NOT add X-Frame-Options here:
+    # Telegram Mini Apps must remain framable inside the Telegram client.
+    add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+    add_header X-Content-Type-Options "nosniff" always;
 
     # Prefer Brotli; gzip is the fallback for older clients.
     brotli on;
@@ -84,6 +112,7 @@ server {
         proxy_pass http://tornado_app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         add_header Cache-Control "no-cache, must-revalidate";
@@ -91,9 +120,23 @@ server {
 
     # API + Crash WebSocket → uvicorn.
     location /api/ {
+        # Coarse flood protection; burst allows normal gameplay bursts.
+        limit_req zone=tornado_api burst=40 nodelay;
         proxy_pass http://tornado_app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+    }
+
+    # Tighter limit specifically for the authentication surface.
+    location = /api/auth {
+        limit_req zone=tornado_auth burst=10 nodelay;
+        proxy_pass http://tornado_app;
+        proxy_http_version 1.1;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
     }
@@ -102,6 +145,7 @@ server {
         proxy_pass http://tornado_app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header Upgrade $http_upgrade;
@@ -113,6 +157,7 @@ server {
         proxy_pass http://tornado_app;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         add_header Cache-Control "no-cache, must-revalidate";

@@ -169,7 +169,7 @@ async function handleBatchPlay({ bid, risk_mode, rows, count }) {
       showGameWinToast({
         gameName: t('plinko.batchResult', { count }),
         amount: totalPayout,
-        duration: 4200,
+        duration: 2500,
       });
     } else {
       Toast({
@@ -294,7 +294,7 @@ async function handlePlay() {
       showGameWinToast({
         gameName: t('plinko.toast.winMeta', { mult }),
         amount: payout,
-        duration: premium ? 4800 : 3800,
+        duration: premium ? 2800 : 2500,
       });
     } else {
       Toast({

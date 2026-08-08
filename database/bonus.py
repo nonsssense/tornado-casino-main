@@ -112,7 +112,12 @@ SKIP_NO_TIER = "no_tier"
 SKIP_ALREADY_GRANTED = "already_granted"
 
 
-def _ensure_selection_column():
+def ensure_bonus_selection_schema():
+    """Ensure wallet.selected_bonus_source exists (idempotent).
+
+    Must only run at process startup — never mid-request while another
+    connection holds locks on `wallet` (e.g. deposit completeDeposit).
+    """
     global _selection_column_ready
     if _selection_column_ready:
         return
@@ -125,6 +130,10 @@ def _ensure_selection_column():
         )
     _selection_column_ready = True
     log.info("Wallet selected_bonus_source column ensured")
+
+
+# Back-compat alias for existing call sites (no-op after startup flag is set).
+_ensure_selection_column = ensure_bonus_selection_schema
 
 
 class BonusManager:

@@ -9,21 +9,47 @@ import '../../styles/pages/referrals.css';
 
 /**
  * @param {object} options
+ * @param {boolean} [options.retainOnClose]
  * @param {function} [options.onClose]
+ * @param {function} [options.onHide]
  * @param {function} [options.onBeforeRemove]
  */
 export function createReferralsOverlay(options = {}) {
-  const { onClose, onBeforeRemove } = options;
+  const {
+    retainOnClose = false,
+    onClose,
+    onHide,
+    onBeforeRemove,
+  } = options;
   const modal = createReferralsModal();
 
-  return BottomSheet({
+  const sheet = BottomSheet({
     content: modal.element,
     ariaLabel: t('referrals.overlay.title'),
     panelClass: 'bottom-sheet__panel--wallet bottom-sheet__panel--referrals',
+    retainOnClose,
     onClose: () => {
       modal.destroy();
       if (onClose) onClose();
     },
-    onBeforeRemove,
+    onHide,
+    onBeforeRemove: () => {
+      // Hard destroy path — subscription cleanup.
+      if (!retainOnClose) {
+        modal.destroy();
+      }
+      if (typeof onBeforeRemove === 'function') onBeforeRemove();
+    },
   });
+
+  return {
+    ...sheet,
+    destroy() {
+      modal.destroy();
+      return sheet.destroy();
+    },
+    refresh() {
+      modal.refresh?.();
+    },
+  };
 }

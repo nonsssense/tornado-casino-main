@@ -940,10 +940,13 @@ async function handlePanelAction(panelId) {
     syncPanelUi(panelId);
 
     try {
-      const result = await crashService.placeBet(amount);
+      const autoCashout = panel.getAutoCashoutMultiplier?.() ?? null;
+      const result = await crashService.placeBet(amount, autoCashout);
       panelState.bet = {
         amount: Number(result.amount ?? amount),
         bet_id: result.bet_id,
+        auto_cashout_multiplier:
+          result.auto_cashout_multiplier ?? autoCashout ?? null,
       };
       panelState.status = 'waiting';
       panelState.result = null;
@@ -996,7 +999,7 @@ async function handlePanelAction(panelId) {
     showGameWinToast({
       gameName: t('games.crash.name'),
       amount: Number(result.payout) || 0,
-      duration: 3600,
+      duration: 2500,
     });
   } catch (error) {
     if (panelState.bet) panelState.status = 'active';

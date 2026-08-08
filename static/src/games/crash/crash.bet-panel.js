@@ -22,6 +22,7 @@ import { CRASH_BET_LIMITS } from './crash.constants.js';
  *   getAmount: () => number,
  *   setAmount: (amount: number) => void,
  *   setAmountMax: (max: number) => void,
+ *   getAutoCashoutMultiplier: () => number|null,
  *   setMode: (mode: 'bet' | 'cashout', meta?: { payout?: number, multiplier?: number }) => void,
  *   getMode: () => 'bet' | 'cashout',
  *   setDisabled: (disabled: boolean) => void,
@@ -55,7 +56,7 @@ export function createBetPanel(options = {}) {
 
   const rightColumn = createElement('div', {
     className: 'crash-bet-panel__right',
-    children: [actionButton.element, autoCashOut],
+    children: [actionButton.element, autoCashOut.element],
   });
 
   const element = createElement('article', {
@@ -79,6 +80,7 @@ export function createBetPanel(options = {}) {
     getAmount: () => amountControl.getAmount(),
     setAmount: (amount) => amountControl.setAmount(amount),
     setAmountMax: (max) => amountControl.setMax(max),
+    getAutoCashoutMultiplier: () => autoCashOut.getMultiplier(),
     setMode: (mode, meta) => actionButton.setMode(mode, meta),
     getMode: () => actionButton.getMode(),
     setDisabled(disabled) {
@@ -86,11 +88,13 @@ export function createBetPanel(options = {}) {
       actionDisabled = Boolean(disabled);
       amountControl.setDisabled(amountDisabled);
       actionButton.setDisabled(actionDisabled);
+      autoCashOut.setDisabled(amountDisabled);
       syncDisabledClass();
     },
     setAmountDisabled(disabled) {
       amountDisabled = Boolean(disabled);
       amountControl.setDisabled(amountDisabled);
+      autoCashOut.setDisabled(amountDisabled);
       syncDisabledClass();
     },
     setActionDisabled(disabled) {

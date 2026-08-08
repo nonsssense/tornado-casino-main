@@ -72,14 +72,17 @@ function createProfileSkeletonCard() {
 /**
  * @param {Record<string, string>} values
  * @param {function} [onStatusInfo]
- * @param {{ isGuest?: boolean }} [options]
+ * @param {{ isGuest?: boolean, photoUrl?: string|null }} [options]
  * @returns {HTMLElement}
  */
 function createProfileCard(values, onStatusInfo, options = {}) {
   const isGuest = Boolean(options.isGuest);
 
   const children = [
-    AvatarPlaceholder({ className: 'profile-card__avatar' }),
+    AvatarPlaceholder({
+      className: 'profile-card__avatar',
+      src: options.photoUrl || null,
+    }),
     createElement('div', {
       className: 'profile-card__info',
       children: PROFILE_FIELDS.map((field) => {
@@ -184,11 +187,12 @@ function createProfileMenu(onMenuAction) {
  * @param {object} [options]
  * @param {function(string): void} [options.onMenuAction]
  * @param {function(): void} [options.onStatusInfo]
- * @returns {HTMLElement}
+ * @returns {{ element: HTMLElement, refresh: () => void, destroy: () => void }}
  */
 export function createProfileModal(options = {}) {
   const { onMenuAction, onStatusInfo } = options;
   const cardMount = createElement('div');
+  let loadGeneration = 0;
 
   const modal = createElement('div', {
     className: 'profile-modal',
@@ -206,36 +210,58 @@ export function createProfileModal(options = {}) {
     ],
   });
 
-  cardMount.replaceChildren(createProfileSkeletonCard());
+  function paintProfile(profile) {
+    replaceChildrenFadeIn(
+      cardMount,
+      createProfileCard(
+        {
+          status: profile.status,
+          nickname: profile.nickname,
+          'user-id': profile.userId,
+          email: profile.email,
+        },
+        onStatusInfo,
+        { isGuest: profile.isGuest, photoUrl: profile.photoUrl },
+      ),
+      150,
+    );
+  }
 
-  profileService.getProfile()
-    .then((profile) => {
-      replaceChildrenFadeIn(
-        cardMount,
-        createProfileCard(
-          {
-            status: profile.status,
-            nickname: profile.nickname,
-            'user-id': profile.userId,
-            email: profile.email,
-          },
-          onStatusInfo,
-          { isGuest: profile.isGuest },
-        ),
-        150,
-      );
-    })
-    .catch(() => {
-      replaceChildrenFadeIn(
-        cardMount,
-        createProfileCard(
-          { nickname: t('guest.name') },
-          onStatusInfo,
-          { isGuest: true },
-        ),
-        150,
-      );
-    });
+  function loadProfile({ soft = false } = {}) {
+    const generation = ++loadGeneration;
+    const hasCard = Boolean(cardMount.querySelector('.profile-card:not(.profile-card--skeleton)'));
+    if (!soft || !hasCard) {
+      cardMount.replaceChildren(createProfileSkeletonCard());
+    }
 
-  return modal;
+    profileService.getProfile({ soft })
+      .then((profile) => {
+        if (generation !== loadGeneration) return;
+        paintProfile(profile);
+      })
+      .catch(() => {
+        if (generation !== loadGeneration) return;
+        replaceChildrenFadeIn(
+          cardMount,
+          createProfileCard(
+            { nickname: t('guest.name') },
+            onStatusInfo,
+            { isGuest: true },
+          ),
+          150,
+        );
+      });
+  }
+
+  loadProfile();
+
+  return {
+    element: modal,
+    refresh(options = {}) {
+      loadProfile({ soft: options.soft !== false });
+    },
+    destroy() {
+      loadGeneration += 1;
+    },
+  };
 }

@@ -17,8 +17,10 @@ export {
   cashoutCrash,
 } from './crash.js';
 export { createDeposit, fetchBalance, fetchDepositMinimum, fetchDepositStatus, fetchHistory, submitWithdraw } from './wallet.js';
+export { createFiatDeposit } from './fiat.js';
 export { fetchBonusOffers, fetchActiveBonuses, selectBonusOffer } from './bonus.js';
 export { fetchBonusCatalog, fetchBonusCatalogItem } from './bonus-catalog.js';
 export { fetchCampaigns, fetchCampaignDetail } from './campaigns.js';
 export { fetchReferralSummary, fetchReferralStatus, claimReferralEarnings } from './referrals.js';
 export { fetchSettings, updateSettings } from './settings.js';
+export { fetchPersonalData } from './personal-data.js';

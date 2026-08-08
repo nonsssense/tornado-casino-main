@@ -144,6 +144,48 @@ def _wallet_snapshot(user_id: int, conn) -> dict:
     }
 
 
+def get_risk_stats(user_id: int) -> dict:
+    """Compact risk snapshot for withdrawal review / admin alerts."""
+    uid = int(user_id)
+    with engine.begin() as conn:
+        user = conn.execute(
+            sa.select(users_table).where(users_table.c.id == uid)
+        ).mappings().first()
+        wallet = _wallet_snapshot(uid, conn)
+        dep = conn.execute(
+            sa.select(
+                sa.func.count().label("cnt"),
+                sa.func.coalesce(
+                    sa.func.sum(deposit_table.c.usd_amount), 0
+                ).label("total"),
+            ).where(
+                deposit_table.c.user_id == uid,
+                deposit_table.c.status == "Completed",
+            )
+        ).mappings().first()
+        wd_done = conn.execute(
+            sa.select(sa.func.count()).where(
+                withdraw_table.c.user_id == uid,
+                withdraw_table.c.status == "COMPLETED",
+            )
+        ).scalar_one()
+
+    return {
+        "tg_id": user.get("tg_id") if user else None,
+        "username": user.get("username") if user else None,
+        # `ip_address` is captured once at first /api/auth (registration IP).
+        "ip_address": user.get("ip_address") if user else None,
+        "registered_at": user.get("created_at") if user else None,
+        "status": user.get("status") if user else None,
+        "deposits_count": int((dep and dep["cnt"]) or 0),
+        "deposits_total_usd": float((dep and dep["total"]) or 0),
+        "withdraws_completed": int(wd_done or 0),
+        "real": wallet["real"],
+        "bonus": wallet["bonus"],
+        "pending": wallet["pending"],
+    }
+
+
 def build_player_profile(user_id: int) -> dict | None:
     user = get_player(user_id)
     if user is None:

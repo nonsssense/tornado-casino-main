@@ -755,25 +755,63 @@
 .crash-bet-button--cashout .crash-bet-button__payout--purple { color: #f0e0ff; }
 .crash-bet-button--cashout .crash-bet-button__payout--red { color: #ffd6e0; }
 
-/* Auto Cash Out placeholder — same width as BET */
+/* Auto Cash Out — toggle + popup configuration */
 
 .crash-auto-cashout {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch;
   justify-content: center;
-  gap: 0.125rem;
+  gap: 0.15rem;
   width: 100%;
   min-height: 3rem;
-  padding: var(--space-2) var(--space-3);
+  padding: 0.2rem;
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: var(--radius-md);
   background: rgba(0, 0, 0, 0.45);
-  color: rgba(255, 255, 255, 0.55);
+  color: rgba(255, 255, 255, 0.75);
   text-align: center;
-  pointer-events: none;
   user-select: none;
+  transition:
+    border-color 180ms ease,
+    background-color 180ms ease,
+    box-shadow 180ms ease;
+}
+
+.crash-auto-cashout--on {
+  border-color: rgba(252, 211, 18, 0.45);
+  background: rgba(252, 211, 18, 0.08);
+  box-shadow:
+    0 0 14px rgba(252, 211, 18, 0.16),
+    inset 0 0 0 1px rgba(252, 211, 18, 0.08);
+}
+
+.crash-auto-cashout--disabled {
+  opacity: 0.55;
+  pointer-events: none;
+}
+
+.crash-auto-cashout__toggle,
+.crash-auto-cashout__value-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  margin: 0;
+  padding: 0.2rem 0.55rem;
+  border: 0;
+  border-radius: calc(var(--radius-md) - 0.1rem);
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+.crash-auto-cashout__toggle:active,
+.crash-auto-cashout__value-btn:active {
+  background: rgba(255, 255, 255, 0.04);
 }
 
 .crash-auto-cashout__label {
@@ -783,14 +821,222 @@
   text-transform: uppercase;
   line-height: 1.1;
   color: rgba(255, 255, 255, 0.38);
+  transition: color 180ms ease;
+}
+
+.crash-auto-cashout--on .crash-auto-cashout__label {
+  color: rgba(252, 211, 18, 0.92);
+}
+
+.crash-auto-cashout__value-btn {
+  gap: 0.1rem;
+  align-items: baseline;
+  min-width: 0;
 }
 
 .crash-auto-cashout__value {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.88);
   font-size: var(--font-size-sm);
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.02em;
   line-height: 1.1;
-  color: rgba(255, 255, 255, 0.62);
+  font-variant-numeric: tabular-nums;
+}
+
+.crash-auto-cashout--on .crash-auto-cashout__value {
+  color: #fff;
+}
+
+.crash-auto-cashout__suffix {
+  flex: 0 0 auto;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.crash-auto-cashout--on .crash-auto-cashout__suffix {
+  color: rgba(252, 211, 18, 0.8);
+}
+
+/* Auto Cashout config popup */
+
+.crash-auto-cashout-popup {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-modal-backdrop, 900);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.62);
+  opacity: 0;
+  visibility: hidden;
+  transition:
+    opacity 180ms ease,
+    visibility 180ms ease;
+}
+
+.crash-auto-cashout-popup--visible {
+  opacity: 1;
+  visibility: visible;
+}
+
+.crash-auto-cashout-popup__dialog {
+  position: relative;
+  z-index: var(--z-modal, 1000);
+  width: min(100%, 19.5rem);
+  display: flex;
+  flex-direction: column;
+  gap: 0.85rem;
+  padding: 1rem 1rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 1rem;
+  background:
+    linear-gradient(180deg, rgba(34, 37, 42, 0.98) 0%, rgba(22, 24, 28, 0.98) 100%);
+  box-shadow:
+    0 18px 40px rgba(0, 0, 0, 0.45),
+    0 0 0 1px rgba(252, 211, 18, 0.05) inset;
+  transform: translateY(0.55rem) scale(0.97);
+  transition: transform 180ms ease;
+}
+
+.crash-auto-cashout-popup--visible .crash-auto-cashout-popup__dialog {
+  transform: translateY(0) scale(1);
+}
+
+.crash-auto-cashout-popup__title {
+  margin: 0;
+  text-align: center;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  color: #fff;
+  letter-spacing: 0.01em;
+}
+
+.crash-auto-cashout-popup__presets {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.crash-auto-cashout-popup__preset,
+.crash-auto-cashout-popup__custom-toggle,
+.crash-auto-cashout-popup__btn {
+  min-height: 2.35rem;
+  margin: 0;
+  border-radius: 0.7rem;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.88);
+  font-family: inherit;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  transition:
+    background-color 150ms ease,
+    border-color 150ms ease,
+    color 150ms ease,
+    box-shadow 150ms ease;
+}
+
+.crash-auto-cashout-popup__preset:active,
+.crash-auto-cashout-popup__custom-toggle:active,
+.crash-auto-cashout-popup__btn:active {
+  transform: scale(0.98);
+}
+
+.crash-auto-cashout-popup__preset--active,
+.crash-auto-cashout-popup__custom-toggle--active {
+  border-color: rgba(252, 211, 18, 0.55);
+  background: rgba(252, 211, 18, 0.14);
+  color: #fcd312;
+  box-shadow: 0 0 12px rgba(252, 211, 18, 0.12);
+}
+
+.crash-auto-cashout-popup__custom-toggle {
+  width: 100%;
+}
+
+.crash-auto-cashout-popup__custom-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.crash-auto-cashout-popup__custom-panel[hidden] {
+  display: none;
+}
+
+.crash-auto-cashout-popup__custom-label {
+  padding-inline: 0.15rem;
+  font-size: var(--font-size-xs);
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.crash-auto-cashout-popup__custom-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-height: 2.6rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  background: rgba(0, 0, 0, 0.4);
+}
+
+.crash-auto-cashout-popup__custom-input {
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  outline: none;
+}
+
+.crash-auto-cashout-popup__custom-suffix {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-semibold);
+}
+
+.crash-auto-cashout-popup__error {
+  margin: 0;
+  font-size: var(--font-size-xs);
+  color: #f87171;
+  text-align: center;
+}
+
+.crash-auto-cashout-popup__error[hidden] {
+  display: none;
+}
+
+.crash-auto-cashout-popup__actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  margin-top: 0.15rem;
+}
+
+.crash-auto-cashout-popup__btn--cancel {
+  background: rgba(255, 255, 255, 0.04);
+  color: rgba(255, 255, 255, 0.78);
+}
+
+.crash-auto-cashout-popup__btn--save {
+  border-color: rgba(252, 211, 18, 0.55);
+  background: rgba(252, 211, 18, 0.16);
+  color: #fcd312;
+}
+
+.crash-auto-cashout-popup__btn--save:hover {
+  background: rgba(252, 211, 18, 0.22);
 }
 
 @media (max-width: 360px) {

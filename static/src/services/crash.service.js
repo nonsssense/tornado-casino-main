@@ -155,10 +155,20 @@ export const crashService = {
 
   /**
    * @param {number} amount
+   * @param {number|null} [autoCashoutMultiplier]
    */
-  async placeBet(amount) {
+  async placeBet(amount, autoCashoutMultiplier = null) {
     try {
-      const result = await placeCrashBet({ amount });
+      /** @type {{ amount: number, auto_cashout_multiplier?: number }} */
+      const payload = { amount };
+      if (
+        autoCashoutMultiplier != null
+        && Number.isFinite(autoCashoutMultiplier)
+        && autoCashoutMultiplier > 1
+      ) {
+        payload.auto_cashout_multiplier = autoCashoutMultiplier;
+      }
+      const result = await placeCrashBet(payload);
       void balanceService.fetchBalances().catch(() => {});
       return result;
     } catch (error) {

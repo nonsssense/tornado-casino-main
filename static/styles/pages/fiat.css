@@ -1,0 +1,393 @@
+/**
+ * Fiat (KZT) deposit flow — bank select, amount input, payment requisites.
+ * Lives inside the wallet bottom sheet; matches the wallet design language.
+ */
+
+.fiat-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+/* —— Step 1: choose bank —— */
+.fiat-view__label {
+  padding-inline: 0.15rem;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.01em;
+  color: rgba(255, 255, 255, 0.52);
+}
+
+.fiat-bank-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.65rem;
+}
+
+.fiat-bank {
+  display: grid;
+  grid-template-columns: 2.75rem minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.85rem;
+  width: 100%;
+  min-height: 4rem;
+  padding: 0.7rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-base);
+  background: rgba(255, 255, 255, 0.03);
+  color: var(--color-text-primary);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.fiat-bank:hover {
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.14);
+}
+
+.fiat-bank:active {
+  transform: scale(0.99);
+}
+
+.fiat-bank__logo {
+  width: 2.75rem;
+  height: 2.75rem;
+  border-radius: 0.7rem;
+  object-fit: contain;
+  background: #fff;
+  pointer-events: none;
+}
+
+.fiat-bank__name {
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.fiat-bank__min {
+  flex-shrink: 0;
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+  white-space: nowrap;
+}
+
+/* —— Shared sub-page header (amount / payment) —— */
+.fiat-subhead {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+}
+
+.fiat-subhead__back {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  color: #fff;
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.fiat-subhead__back:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.fiat-subhead__back:active {
+  transform: translateY(-50%) scale(0.92);
+}
+
+.fiat-subhead__back svg {
+  display: block;
+  width: 1.25rem;
+  height: 1.25rem;
+}
+
+.fiat-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.fiat-identity__logo {
+  width: 1.85rem;
+  height: 1.85rem;
+  border-radius: 0.45rem;
+  object-fit: contain;
+  background: #fff;
+}
+
+.fiat-identity__name {
+  font-size: var(--font-size-lg);
+  font-weight: var(--font-weight-bold);
+  color: #fff;
+  line-height: 1.1;
+}
+
+/* —— Step 2: amount input —— */
+.fiat-amount {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 1.75rem 0 0.5rem;
+}
+
+.fiat-amount__input {
+  width: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: #fff;
+  text-align: center;
+  font-family: var(--font-family-base);
+  font-size: clamp(1.7rem, 8vw, 2.35rem);
+  font-weight: var(--font-weight-bold);
+  line-height: 1.1;
+  outline: none;
+}
+
+.fiat-amount__input::placeholder {
+  color: rgba(255, 255, 255, 0.32);
+  font-weight: var(--font-weight-semibold);
+}
+
+.fiat-amount__currency {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: 0.08em;
+  color: var(--color-text-secondary);
+  text-transform: uppercase;
+}
+
+.fiat-quick {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.fiat-quick__btn {
+  min-height: 2.35rem;
+  padding: 0 0.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.03);
+  color: rgba(255, 255, 255, 0.9);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-semibold);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.fiat-quick__btn:hover {
+  border-color: rgba(252, 211, 18, 0.45);
+}
+
+.fiat-quick__btn:active {
+  transform: scale(0.96);
+}
+
+.fiat-amount__error {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-error);
+  text-align: center;
+}
+
+.fiat-amount__submit {
+  min-height: 3rem;
+  font-size: var(--font-size-md);
+  font-weight: var(--font-weight-semibold);
+  background: linear-gradient(
+    180deg,
+    var(--color-accent-hover) 0%,
+    var(--color-accent) 48%,
+    var(--color-accent-active) 100%
+  );
+  box-shadow:
+    0 4px 16px rgba(252, 211, 18, 0.28),
+    0 1px 0 rgba(255, 255, 255, 0.2) inset;
+}
+
+.fiat-amount__submit:hover:not(:disabled) {
+  background: linear-gradient(
+    180deg,
+    #ffe066 0%,
+    var(--color-accent-hover) 50%,
+    var(--color-accent) 100%
+  );
+}
+
+/* —— Bonus banner (dynamic text over provided artwork) —— */
+.fiat-bonus-banner {
+  width: 100%;
+}
+
+.fiat-bonus-banner[hidden] {
+  display: none;
+}
+
+.fiat-bonus-banner__media {
+  position: relative;
+  display: block;
+  width: 100%;
+  border-radius: 1rem;
+  overflow: hidden;
+  border: 1px solid rgba(34, 197, 94, 0.22);
+}
+
+.fiat-bonus-banner__img {
+  display: block;
+  width: 100%;
+  height: auto;
+  vertical-align: top;
+}
+
+.fiat-bonus-banner__text {
+  position: absolute;
+  top: 50%;
+  left: clamp(0.9rem, 5%, 1.5rem);
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  max-width: 62%;
+}
+
+.fiat-bonus-banner__title {
+  font-size: clamp(1rem, 5vw, 1.4rem);
+  font-weight: var(--font-weight-bold);
+  color: #fff;
+  line-height: 1.1;
+}
+
+.fiat-bonus-banner__title strong {
+  color: var(--color-accent);
+  font-weight: var(--font-weight-bold);
+}
+
+.fiat-bonus-banner__sub {
+  font-size: clamp(0.7rem, 3.4vw, 0.85rem);
+  font-weight: var(--font-weight-medium);
+  color: #4ade80;
+  line-height: 1.2;
+}
+
+/* —— Step 3: payment requisites —— */
+.fiat-payment {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 1.5rem 0 0.5rem;
+}
+
+.fiat-payment__label {
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--color-text-secondary);
+}
+
+.fiat-payment__amount {
+  font-size: clamp(1.6rem, 8vw, 2.2rem);
+  font-weight: var(--font-weight-bold);
+  color: #fff;
+  line-height: 1.1;
+}
+
+.fiat-cred {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+.fiat-cred__row {
+  display: grid;
+  grid-template-columns: minmax(5rem, 34%) minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.85rem 0.95rem;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-base);
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.fiat-cred__label {
+  font-size: var(--font-size-sm);
+  color: var(--color-text-secondary);
+}
+
+.fiat-cred__value {
+  font-family: var(--font-family-mono);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  color: #fff;
+  word-break: break-all;
+  line-height: 1.4;
+}
+
+.fiat-cred__copy {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.1rem;
+  height: 2.1rem;
+  padding: 0;
+  border: 1px solid rgba(252, 211, 18, 0.4);
+  border-radius: 0.6rem;
+  background: transparent;
+  color: var(--color-accent);
+  cursor: pointer;
+  transition:
+    background-color var(--transition-fast),
+    transform var(--transition-fast);
+}
+
+.fiat-cred__copy:hover {
+  background: rgba(252, 211, 18, 0.12);
+}
+
+.fiat-cred__copy:active {
+  transform: scale(0.94);
+}
+
+.fiat-cred__copy svg {
+  display: block;
+  width: 1rem;
+  height: 1rem;
+}
+
+.fiat-payment__pending,
+.fiat-payment__hint {
+  margin: 0;
+  font-size: var(--font-size-sm);
+  color: var(--color-text-muted);
+  text-align: center;
+  line-height: 1.5;
+}

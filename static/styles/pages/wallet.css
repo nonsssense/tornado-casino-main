@@ -1396,6 +1396,17 @@
   white-space: nowrap;
 }
 
+.wallet-pair__menu-badge {
+  margin-left: auto;
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.4rem;
+  background: rgba(252, 211, 18, 0.16);
+  color: #fcd312;
+  font-size: 0.66rem;
+  font-weight: var(--font-weight-semibold, 600);
+  white-space: nowrap;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .wallet-method__thumb {
     transition: none;
@@ -1566,6 +1577,16 @@
 
 .wallet-view--deposit .wallet-view__bonus-slot {
   width: 100%;
+}
+
+/* Deposit-only shadow allowance: keep global sheet clipping behavior unchanged. */
+.bottom-sheet__panel--wallet:has(.wallet-modal[data-active-view='deposit'] .deposit-bonus-banner) {
+  overflow-x: visible;
+  overflow-y: hidden;
+}
+
+.bottom-sheet__panel--wallet:has(.wallet-modal[data-active-view='deposit'] .deposit-bonus-banner) .bottom-sheet__scroll {
+  overflow-x: visible;
 }
 
 .wallet-view--deposit .wallet-view__address-error {

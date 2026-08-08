@@ -4,7 +4,7 @@ from aiogram.types import CallbackQuery, Message
 
 from admin_panel.access import STAFF, get_role
 from admin_panel.helpers import edit_or_answer, require_roles, require_whitelist
-from admin_panel.keyboards import main_menu
+from admin_panel.keyboards import main_menu, main_reply_kb
 from admin_panel.state import clear_pending
 
 
@@ -14,10 +14,12 @@ def register(dp):
     async def start(message: Message):
         clear_pending(message.from_user.id)
         role = get_role(message.from_user.id)
+        # Show the persistent bottom launcher once, then the inline menu.
         await message.answer(
             f"Tornado Operator Panel\n\nRole: {str(role).upper()}",
-            reply_markup=main_menu(),
+            reply_markup=main_reply_kb(),
         )
+        await message.answer("Choose a section:", reply_markup=main_menu())
 
     @dp.message(Command("cancel"))
     @require_whitelist

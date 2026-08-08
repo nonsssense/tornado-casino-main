@@ -3,6 +3,7 @@ from database.event_treck import Event, is_tracked_event
 from database.session import SessionManager, getActiveSessionUserId
 from database.wallet import BALANCE_REAL
 from log_manager import log
+from fastapi import Request
 
 
 def getUserId(session_token):
@@ -85,3 +86,43 @@ def balanceCheck(wallet, wallet_id, bid, balance_type=BALANCE_REAL):
         )
         return "not enough"
     return balance
+
+def getIpAddress(request) -> str:
+    """Resolve the real client IP behind a trusted reverse proxy.
+
+    SECURITY: X-Forwarded-For is fully client-controllable. nginx APPENDS the real
+    peer to XFF (``$proxy_add_x_forwarded_for``), so a spoofed value sent by the
+    client ends up on the LEFT and the trusted proxy's observation on the RIGHT.
+    We therefore read XFF from the right using ``TRUSTED_PROXY_COUNT`` instead of
+    blindly trusting the left-most (attacker-chosen) entry.
+
+    IP is only used for rate limiting / abuse detection / logging — never as an
+    authentication factor.
+    """
+    from config import TRUSTED_PROXY_COUNT
+
+    client_host = None
+    client = getattr(request, "client", None)
+    if client is not None:
+        client_host = getattr(client, "host", None)
+
+    # No trusted proxy configured → trust only the direct socket peer.
+    if TRUSTED_PROXY_COUNT <= 0:
+        return client_host or "unknown"
+
+    forwarded = request.headers.get("X-Forwarded-For")
+    if forwarded:
+        parts = [p.strip() for p in forwarded.split(",") if p.strip()]
+        # Take the hop appended by our own (Nth-from-edge) trusted proxy. Only trust
+        # it when the header is at least as deep as the configured proxy count; a
+        # shorter header means the value at that position would be client-controlled,
+        # so we fall through to safer sources instead of picking the left-most entry.
+        if len(parts) >= TRUSTED_PROXY_COUNT:
+            return parts[len(parts) - TRUSTED_PROXY_COUNT]
+
+    # nginx `proxy_set_header X-Real-IP $remote_addr` overwrites any client value.
+    real = request.headers.get("X-Real-IP")
+    if real:
+        return real.strip()
+
+    return client_host or "unknown"

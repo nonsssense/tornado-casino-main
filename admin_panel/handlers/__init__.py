@@ -7,6 +7,7 @@ from admin_panel.handlers import input_router as input_h
 from admin_panel.handlers import payments as payments_h
 from admin_panel.handlers import players as players_h
 from admin_panel.handlers import promotions as promotions_h
+from admin_panel.handlers import quick as quick_h
 from admin_panel.handlers import search as search_h
 from admin_panel.handlers import settings as settings_h
 
@@ -20,5 +21,7 @@ def register_handlers(dp: Dispatcher) -> None:
     analytics_h.register(dp)
     settings_h.register(dp)
     search_h.register(dp)
+    # Reply-keyboard launcher: exact-text handlers, must precede input_router.
+    quick_h.register(dp)
     # Text pending-input router must be last among message handlers.
     input_h.register(dp)

@@ -346,6 +346,23 @@ export function createReferralsModal() {
 
   return {
     element,
+    refresh() {
+      if (!isAuthenticated()) {
+        summary = guestSummary();
+        renderMain();
+        return;
+      }
+      const cached = referralService.getSummary();
+      if (cached) {
+        summary = { ...cached, isGuest: false };
+        renderMain();
+        return;
+      }
+      void referralService.fetchSummary().catch(() => {
+        summary = guestSummary();
+        renderMain();
+      });
+    },
     destroy() {
       unsubscribe();
     },

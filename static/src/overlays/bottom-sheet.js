@@ -19,11 +19,13 @@ const DIRECTION_LOCK_PX = 8;
  * @param {HTMLElement} [options.header] - optional fixed header above scroll
  * @param {function} [options.onClose]
  * @param {function} [options.onBeforeRemove]
+ * @param {function} [options.onHide] - called when retained (parked) instead of destroyed
+ * @param {boolean} [options.retainOnClose=false] - park sheet for reuse instead of destroying
  * @param {string} [options.ariaLabel]
  * @param {string} [options.panelClass]
  * @param {'standard'|'balance'} [options.size]
  * @param {boolean} [options.manageBodyScroll=true] - set false when stacking above another sheet
- * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
+ * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: (opts?: object) => Promise<void>, destroy: () => Promise<void> }}
  */
 export function BottomSheet(options = {}) {
   const {
@@ -31,6 +33,8 @@ export function BottomSheet(options = {}) {
     header = null,
     onClose,
     onBeforeRemove,
+    onHide,
+    retainOnClose = false,
     ariaLabel = t('common.dialog'),
     panelClass = '',
     size = 'standard',
@@ -38,6 +42,9 @@ export function BottomSheet(options = {}) {
   } = options;
 
   let isClosing = false;
+  let isDestroyed = false;
+  /** Invalidates in-flight close animations when reopen happens mid-dismiss. */
+  let closeGeneration = 0;
 
   /** @type {null | 'undecided' | 'scroll' | 'dismiss' | 'ignore'} */
   let gestureMode = null;
@@ -298,6 +305,10 @@ export function BottomSheet(options = {}) {
   }
 
   function open() {
+    if (isDestroyed) return;
+    closeGeneration += 1;
+    isClosing = false;
+    root.classList.remove('bottom-sheet--closing');
     root.setAttribute('aria-hidden', 'false');
     lockScroll();
     bindGestureListeners();
@@ -305,21 +316,28 @@ export function BottomSheet(options = {}) {
     // Double rAF: paint closed state first, then animate in (no flash)
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
+        if (isDestroyed || isClosing) return;
         root.classList.add('bottom-sheet--visible');
       });
     });
   }
 
   /**
-   * @param {{ fromDrag?: boolean }} [opts]
+   * @param {{ fromDrag?: boolean, destroy?: boolean }} [opts]
    */
   function close(opts = {}) {
+    if (isDestroyed) {
+      return Promise.resolve();
+    }
+
     if (isClosing) {
       return Promise.resolve();
     }
 
     isClosing = true;
+    const generation = ++closeGeneration;
     const fromDrag = Boolean(opts.fromDrag);
+    const hardDestroy = Boolean(opts.destroy) || !retainOnClose;
     const dismissOffset = dragOffsetY;
 
     root.classList.remove('bottom-sheet--visible');
@@ -335,9 +353,27 @@ export function BottomSheet(options = {}) {
 
     return new Promise((resolve) => {
       setTimeout(() => {
+        if (generation !== closeGeneration) {
+          resolve();
+          return;
+        }
+
         unlockScroll();
         unbindGestureListeners();
         clearDragStyles();
+        root.classList.remove('bottom-sheet--closing');
+
+        if (!hardDestroy) {
+          // Park for reuse — detach from overlay root, keep element + listeners ownership.
+          isClosing = false;
+          root.setAttribute('aria-hidden', 'true');
+          root.remove();
+          if (typeof onHide === 'function') onHide();
+          resolve();
+          return;
+        }
+
+        isDestroyed = true;
         if (onBeforeRemove) onBeforeRemove();
         root.remove();
         if (onClose) onClose();
@@ -346,5 +382,9 @@ export function BottomSheet(options = {}) {
     });
   }
 
-  return { element: root, footer, open, close };
+  function destroy() {
+    return close({ destroy: true });
+  }
+
+  return { element: root, footer, open, close, destroy };
 }

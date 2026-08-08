@@ -3,6 +3,36 @@ import sqlalchemy as sa
 from log_manager import log
 
 
+def get_user_id_by_telegram_id(tg_id):
+    """Resolve the internal user_id for a Telegram account id, or None.
+
+    Used by the bot step-up confirmation flow to bind a Telegram callback (from a
+    cryptographically authenticated Telegram user) to the internal account.
+    """
+    try:
+        tg_id = int(tg_id)
+    except (TypeError, ValueError):
+        return None
+    with engine.begin() as conn:
+        row = conn.execute(
+            sa.select(users_table.c.id).where(users_table.c.tg_id == tg_id)
+        ).scalar_one_or_none()
+    return int(row) if row is not None else None
+
+
+def get_telegram_id_by_user_id(user_id):
+    """Resolve the Telegram account id for an internal user_id, or None."""
+    try:
+        user_id = int(user_id)
+    except (TypeError, ValueError):
+        return None
+    with engine.begin() as conn:
+        row = conn.execute(
+            sa.select(users_table.c.tg_id).where(users_table.c.id == user_id)
+        ).scalar_one_or_none()
+    return int(row) if row is not None else None
+
+
 def getUserData(user_id, conn=None):
     """
     Load Provably Fair material for a user.

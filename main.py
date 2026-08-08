@@ -1,5 +1,12 @@
 # ----config import-----
-from config import bot_token, DEBUG
+from config import (
+    bot_token,
+    DEBUG,
+    SESSION_COOKIE_SECURE,
+    SESSION_COOKIE_SAMESITE,
+    ENABLE_HSTS,
+    HSTS_MAX_AGE,
+)
 
 # ------fastapi import------
 from fastapi import FastAPI, Response, Request, HTTPException
@@ -22,7 +29,8 @@ from aiogram.exceptions import TelegramConflictError
 from games.game_manager import GameManager
 from games.crash.router import router as crash_router
 from games.crash.crash_game import crash_loop
-from handler_helpers import prepareRequest, recordUserEvent
+from handler_helpers import prepareRequest, recordUserEvent, getIpAddress
+from rate_limit import enforce as enforce_rate_limit
 from bot import casino_dp, casino_bot
 from admin_bot import admin_dp, admin_bot
 from log_manager import log
@@ -31,10 +39,11 @@ from telegram_auth import validate_init_data, has_telegram_id, extract_telegram_
 
 # -------database imports------
 from database.auth import userValidate, getUserDisplayFields, AccountBannedError, getWelcomeState, dismissWelcome
-from database.bonus import BonusManager
+from database.bonus import BonusManager, ensure_bonus_selection_schema
 from database.campaign import CampaignManager
 from database.db_config import getTelegramId
 from database.referral import ReferralManager
+from database.personal_data import get_personal_data_payload
 from database.user_settings import get_user_settings, update_user_settings
 from database.wallet import WalletManager
 
@@ -42,10 +51,19 @@ from database.wallet import WalletManager
 from payments.deposit import (
     BlockBeeClient,
     DepositManager,
+    ensure_deposit_schema,
     normalize_blockbee_ticker,
     resolve_effective_deposit_minimum,
 )
 from payments.withdraw import WithdrawManager, WithdrawBelowMinimumError, get_withdraw_minimum_usd
+from payments.fiat_deposit import (
+    FiatDeposit,
+    FiatProviderError,
+    NIRVANA_WHITELIST_IPS,
+    ensure_fiat_deposit_schema,
+    fiat_deposit_reconcile_loop,
+)
+from admin_panel.alerts import send_alert
 
 # -----------exceptions----------
 from exceptions import notEnoughBalance
@@ -73,12 +91,25 @@ async def static_cache_control(request: Request, call_next):
     response = await call_next(request)
     path = request.url.path or "/"
 
+    # Security headers. NOTE: intentionally NO X-Frame-Options/frame-ancestors —
+    # Telegram Mini Apps run inside a Telegram-controlled iframe and must be framable.
+    response.headers.setdefault("X-Content-Type-Options", "nosniff")
+    response.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    if ENABLE_HSTS:
+        # Harmless over plain HTTP (browsers ignore it); enforced once on HTTPS.
+        response.headers.setdefault(
+            "Strict-Transport-Security",
+            f"max-age={HSTS_MAX_AGE}; includeSubDomains",
+        )
+
     if "Cache-Control" in response.headers:
         return response
 
     if path.startswith("/app/"):
         response.headers["Cache-Control"] = "public, max-age=31536000, immutable"
-    elif path.startswith(("/assets/", "/banners/", "/soundeffects/")):
+    elif path.startswith(
+        ("/assets/", "/banners/", "/soundeffects/", "/personal_data_assets/")
+    ):
         response.headers["Cache-Control"] = "public, max-age=604800"
     elif path == "/" or path.endswith(".html"):
         response.headers["Cache-Control"] = "no-cache, must-revalidate"
@@ -89,6 +120,12 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 app.mount("/banners", StaticFiles(directory="banners"), name="banners")
 app.mount("/soundeffects", StaticFiles(directory="soundeffects"), name="soundeffects")
+os.makedirs("personal_data_assets", exist_ok=True)
+app.mount(
+    "/personal_data_assets",
+    StaticFiles(directory="personal_data_assets"),
+    name="personal_data_assets",
+)
 
 # Vite production bundles (hashed JS/CSS/images). Directory may be empty until `npm run build`.
 os.makedirs("dist/app", exist_ok=True)
@@ -122,6 +159,9 @@ _bots_enabled = False
 
 # Idle session sweeper — closes orphaned / idle active sessions
 _session_sweeper_task = None
+
+# Fiat (NirvanaPay) deposit reconcile loop — safety net for lost callbacks
+_fiat_reconcile_task = None
 
 
 def _bot_debug_ctx(label: str) -> str:
@@ -225,10 +265,14 @@ async def on_startup():
     from database.campaign import ensure_campaign_schema
     from database.perf_indexes import ensure_hot_path_indexes
     from database.session import session_idle_sweeper_loop
+    # All DDL must finish here — never during HTTP/webhook handlers.
     ensure_wallet_schema()
     ensure_campaign_schema()
+    ensure_bonus_selection_schema()
+    ensure_deposit_schema()
+    ensure_fiat_deposit_schema()
     ensure_hot_path_indexes()
-    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _session_sweeper_task, _bots_enabled
+    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _session_sweeper_task, _bots_enabled, _fiat_reconcile_task
 
     log.info(_bot_debug_ctx("FastAPI on_startup BEGIN"))
     _bots_enabled = True
@@ -270,15 +314,33 @@ async def on_startup():
     else:
         log.info(_bot_debug_ctx("Session idle sweeper already running; skip duplicate start"))
 
+    if _fiat_reconcile_task is None or _fiat_reconcile_task.done():
+        _fiat_reconcile_task = asyncio.create_task(
+            fiat_deposit_reconcile_loop(),
+            name="fiat-deposit-reconcile",
+        )
+        log.info(_bot_debug_ctx("Fiat deposit reconcile task created"))
+    else:
+        log.info(_bot_debug_ctx("Fiat deposit reconcile already running; skip duplicate start"))
+
+    # Bind the admin-alert dispatcher to this loop and start forwarding ERROR
+    # logs + business events to the admin bot.
+    from admin_panel.alerts import init_alerts
+    init_alerts(asyncio.get_running_loop())
+    log.info(_bot_debug_ctx("Admin alerts dispatcher initialized"))
+
     log.info(_bot_debug_ctx("FastAPI on_startup END"))
 
 
 @app.on_event("shutdown")
 async def on_shutdown():
-    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _session_sweeper_task, _bots_enabled
+    global _crash_loop_task, _casino_bot_task, _admin_bot_task, _session_sweeper_task, _bots_enabled, _fiat_reconcile_task
 
     log.info(_bot_debug_ctx("FastAPI on_shutdown BEGIN"))
     _bots_enabled = False
+
+    from admin_panel.alerts import shutdown_alerts
+    shutdown_alerts()
 
     await _stop_bot_polling(_casino_bot_task, casino_dp, casino_bot, "casino")
     _casino_bot_task = None
@@ -294,6 +356,15 @@ async def on_shutdown():
             pass
         log.info(_bot_debug_ctx("Session idle sweeper task cancelled"))
     _session_sweeper_task = None
+
+    if _fiat_reconcile_task is not None and not _fiat_reconcile_task.done():
+        _fiat_reconcile_task.cancel()
+        try:
+            await _fiat_reconcile_task
+        except asyncio.CancelledError:
+            pass
+        log.info(_bot_debug_ctx("Fiat deposit reconcile task cancelled"))
+    _fiat_reconcile_task = None
 
     if _crash_loop_task is not None and not _crash_loop_task.done():
         _crash_loop_task.cancel()
@@ -502,7 +573,9 @@ async def post_client_event(json: ClientEventRequest, request: Request):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint} | event_type={json.event_type}")
     try:
-        prepareRequest(request, json.event_type)
+        _, user_id = prepareRequest(request, json.event_type)
+        if json.event_type == "app_open":
+            send_alert(f"Player #{user_id} opened the app", category="app_open")
         return {"ok": True}
     except HTTPException:
         raise
@@ -550,6 +623,10 @@ async def root(response: Response, request: Request, initdata: UserRequest):
         event_type = 'Auth'
         init_data = initdata.initdata or ""
 
+        # Abuse guard on the auth surface (per client IP). Telegram HMAC validation
+        # remains the real authentication control. 30 attempts / minute / IP.
+        enforce_rate_limit("auth", getIpAddress(request), 30, 60.0)
+
         if not init_data:
             raise HTTPException(
                 status_code=401,
@@ -568,12 +645,19 @@ async def root(response: Response, request: Request, initdata: UserRequest):
                 detail="Invalid Telegram InitData",
             )
 
-        user_id, is_new_user = userValidate(initdata)
+        ip = getIpAddress(request)
+        user_id, is_new_user = userValidate(initdata, ip)
         telegram_id = getTelegramId(initdata)
         log.info(
             f"Telegram validation succeeded | request_id={request_id} | "
             f"telegram_id={telegram_id} | user_id={user_id} | is_new_user={is_new_user}"
         )
+
+        if is_new_user:
+            send_alert(
+                f"New player #{user_id} | tg={telegram_id} | ip={ip}",
+                category="new_user",
+            )
 
         session_token, _ = prepareRequest(request, user_id, event_type)
 
@@ -581,8 +665,8 @@ async def root(response: Response, request: Request, initdata: UserRequest):
             key="session_token",
             value=session_token,
             httponly=True,
-            secure=False,
-            samesite="Lax"
+            secure=SESSION_COOKIE_SECURE,
+            samesite=SESSION_COOKIE_SAMESITE,
         )
 
         # Profile display fields — only after HMAC-validated initData.
@@ -648,6 +732,7 @@ async def roll_dice(json: DiceRequest, request: Request):
     user_id = None
     try:
         session_token, user_id = prepareRequest(request, "dice")
+        enforce_rate_limit("dice", str(user_id), 120, 60.0)
         return GameManager(user_id).playDice(json)
     except HTTPException as exc:
         if user_id is not None and exc.status_code == 400:
@@ -701,6 +786,7 @@ async def plinco(json: PlincoRequest, request: Request):
     user_id = None
     try:
         session_token, user_id = prepareRequest(request, 'plinco')
+        enforce_rate_limit("plinco", str(user_id), 120, 60.0)
         return GameManager(user_id).playPlinco(json)
     except HTTPException as exc:
         if user_id is not None and exc.status_code == 400:
@@ -723,6 +809,7 @@ async def plinco_batch(json: PlincoBatchRequest, request: Request):
     user_id = None
     try:
         session_token, user_id = prepareRequest(request, "plinco_batch")
+        enforce_rate_limit("plinco_batch", str(user_id), 60, 60.0)
         return GameManager(user_id).playPlincoBatch(json)
     except HTTPException as exc:
         if user_id is not None and exc.status_code == 400:
@@ -741,6 +828,12 @@ class DepositRequest(BaseModel):
     # Optional: address creation does not require a declared amount.
     # When provided, it is validated against the effective deposit minimum.
     amount: float | None = Field(default=None, gt=0)
+
+
+class FiatDepositRequest(BaseModel):
+    # Fiat (KZT) deposit needs a concrete amount and a payment method (token).
+    amount: float = Field(..., gt=0)
+    token: str
 
 
 class WithdrawRequest(BaseModel):
@@ -981,6 +1074,26 @@ async def claim_referral_earnings(request: Request):
         log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
 
 
+@app.get("/api/profile/personal-data")
+async def get_profile_personal_data(request: Request):
+    endpoint = "/api/profile/personal-data"
+    start = time.perf_counter()
+    log.info(f"Endpoint started | endpoint={endpoint}")
+    try:
+        _, user_id = prepareRequest(request, "profile_personal_data")
+        return get_personal_data_payload(user_id)
+    except HTTPException:
+        raise
+    except ValueError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception:
+        log.exception(f"Endpoint failed | endpoint={endpoint}")
+        raise
+    finally:
+        duration_ms = (time.perf_counter() - start) * 1000
+        log.info(f"Endpoint completed | endpoint={endpoint} | duration_ms={duration_ms:.2f}")
+
+
 DEPOSIT_STATUS_MAP = {
     "Open deposit window": "pending",
     "Pending": "confirming",
@@ -1165,6 +1278,12 @@ async def create_deposit(json: DepositRequest, request: Request):
 
     amount_usd = float(json.amount) if json.amount is not None else None
 
+    send_alert(
+        f"Deposit attempt (crypto) | user #{user_id} | {ticker}"
+        + (f" | ~${amount_usd:g}" if amount_usd is not None else ""),
+        category="deposit_attempt",
+    )
+
     client = BlockBeeClient()
     try:
         info = await client.get_ticker_info(ticker)
@@ -1237,6 +1356,50 @@ async def create_deposit(json: DepositRequest, request: Request):
         "qr_code": qr_code,
     }
 
+@app.post("/api/wallet/fiatdeposit")
+async def create_fiat_deposit(json: FiatDepositRequest, request: Request):
+    """Create a NirvanaPay (KZT) fiat deposit order and return payment requisites."""
+    session_token, user_id = prepareRequest(request, "deposit")
+
+    ip = getIpAddress(request)
+    user_agent = request.headers.get("user-agent", "")
+
+    wallet = WalletManager(user_id)
+    wallet_id = wallet.ensureWallet()
+
+    send_alert(
+        f"Deposit attempt (fiat) | user #{user_id} | {json.amount:g} KZT | {json.token}",
+        category="deposit_attempt",
+    )
+
+    fiat = FiatDeposit(user_id)
+    try:
+        order = await fiat.create_order(
+            wallet_id=wallet_id,
+            amount_kzt=json.amount,
+            token=json.token,
+            ip=ip,
+            user_agent=user_agent,
+        )
+    except ValueError as exc:
+        log.warning(
+            f"Fiat deposit rejected (400) | user_id={user_id} | "
+            f"amount={json.amount!r} | token={json.token!r} | reason={exc}"
+        )
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    except FiatProviderError as exc:
+        raise HTTPException(status_code=502, detail=str(exc)) from exc
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception(f"Fiat deposit creation failed | user_id={user_id}")
+        raise HTTPException(
+            status_code=502,
+            detail="Unable to create deposit order",
+        ) from exc
+
+    return order
+
 
 @app.get("/api/wallet/withdraw/minimum")
 async def get_withdraw_minimum(request: Request):
@@ -1260,6 +1423,9 @@ async def get_withdraw_minimum(request: Request):
 @app.post("/api/wallet/withdraw")
 async def create_withdraw(json: WithdrawRequest, request: Request):
     session_token, user_id = prepareRequest(request, "withdraw")
+    # Abuse guard (defense-in-depth). The one-active-withdrawal DB constraint is the
+    # real control; this just blunts request floods. 5 attempts / minute / user.
+    enforce_rate_limit("withdraw_create", str(user_id), 5, 60.0)
 
     try:
         ticker = normalize_blockbee_ticker(json.ticker)
@@ -1310,14 +1476,96 @@ async def create_withdraw(json: WithdrawRequest, request: Request):
     except ValueError as exc:
         raise HTTPException(status_code=400, detail=str(exc)) from exc
 
+    # Step-up: the withdrawal is created security-UNCONFIRMED and is NOT yet eligible
+    # for admin payout. Deliver a Telegram confirmation prompt to the account owner.
+    # Admins are alerted only after the user confirms (from bot.confirm_withdraw_callback).
+    from bot import send_withdraw_confirmation
+    from database.user_db import get_telegram_id_by_user_id
+
+    row = WithdrawManager.getWithdraw(withdraw_id)
+    tg_id = get_telegram_id_by_user_id(user_id)
+    delivered = False
+    if row is not None and tg_id is not None:
+        delivered = await send_withdraw_confirmation(
+            tg_id=tg_id,
+            withdraw_id=withdraw_id,
+            token=row.get("confirmation_token"),
+            amount=row.get("amount"),
+            coin=row.get("coin"),
+            address=row.get("address"),
+        )
+
+    if not delivered:
+        # Could not reach the user on Telegram → release the hold so funds are not
+        # stranded, and tell the client to open the bot and retry.
+        try:
+            WithdrawManager(user_id).cancelWithdrawByUser(
+                withdraw_id, reason="confirmation_undeliverable"
+            )
+        except Exception:
+            log.exception(
+                f"Failed to release undeliverable withdraw | withdraw_id={withdraw_id}"
+            )
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "code": "confirmation_undeliverable",
+                "message": (
+                    "Open the Tornado bot in Telegram and press Start, then request "
+                    "the withdrawal again to receive the confirmation prompt."
+                ),
+            },
+        )
+
     return {
         "withdraw_id": withdraw_id,
         "status": "PENDING",
+        "confirmation_required": True,
     }
+
+
+@app.get("/api/fiatpayment/webhook")
+async def nirvana_webhook(request: Request):
+    """NirvanaPay callback (GET ?id=<external_id>).
+
+    The callback is only a trigger: its body/status is never trusted. We verify
+    the source IP, then reconcile by always re-fetching the real status from
+    Nirvana. Always answer 200 so the PSP does not hammer retries.
+    """
+    ip = getIpAddress(request)
+    # Coarse per-IP flood guard for the callback surface (reconcile is idempotent).
+    enforce_rate_limit("nirvana_webhook", ip, 240, 60.0)
+    if NIRVANA_WHITELIST_IPS:
+        if ip not in NIRVANA_WHITELIST_IPS:
+            log.warning(f"Unauthorized Nirvana webhook request from IP: {ip}")
+            raise HTTPException(status_code=403, detail="Invalid PSP IP")
+    else:
+        log.warning(
+            "NIRVANA_CALLBACK_IPS is not configured — skipping callback IP check "
+            "(development only; production MUST set it)"
+        )
+
+    external_id = request.query_params.get("id")
+    if not external_id:
+        log.warning("Nirvana webhook received without id — ignored")
+        return {"ok": True}
+
+    try:
+        await FiatDeposit.reconcile_external(external_id)
+    except Exception:
+        log.exception(
+            f"Nirvana webhook reconcile failed | external_id={external_id}"
+        )
+
+    return {"ok": True}
 
 
 @app.post("/api/payment/webhook")
 async def blockbee_webhook(request: Request):
+
+    # Coarse per-IP flood guard. Signature verification + idempotent credit remain
+    # the real controls; this only limits unsigned request spam.
+    enforce_rate_limit("blockbee_webhook", getIpAddress(request), 240, 60.0)
 
     if not await BlockBeeVerifier().verify(request):
         raise HTTPException(
@@ -1377,7 +1625,18 @@ async def spa_fallback(full_path: str):
     start = time.perf_counter()
     log.info(f"Endpoint started | endpoint={endpoint}")
     try:
-        if full_path.startswith(("api", "crash", "static", "assets", "banners", "app")):
+        if full_path.startswith(
+            (
+                "api",
+                "crash",
+                "static",
+                "assets",
+                "banners",
+                "app",
+                "soundeffects",
+                "personal_data_assets",
+            )
+        ):
             log.warning(f"SPA fallback rejected reserved path | path={full_path}")
             raise HTTPException(status_code=404, detail="Not Found")
         return _index_html_response()

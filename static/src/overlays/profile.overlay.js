@@ -9,20 +9,48 @@ import '../../styles/pages/profile.css';
 
 /**
  * @param {object} options
+ * @param {boolean} [options.retainOnClose]
  * @param {function} [options.onClose]
+ * @param {function} [options.onHide]
  * @param {function} [options.onBeforeRemove]
- * @returns {{ element: HTMLElement, footer: HTMLElement, open: () => void, close: () => Promise<void> }}
+ * @returns {{
+ *   element: HTMLElement,
+ *   footer: HTMLElement,
+ *   open: () => void,
+ *   close: (opts?: object) => Promise<void>,
+ *   destroy: () => Promise<void>,
+ *   refresh: () => void,
+ * }}
  */
 export function createProfileOverlay(options = {}) {
-  const { onClose, onBeforeRemove, onMenuAction, onStatusInfo } = options;
+  const {
+    retainOnClose = false,
+    onClose,
+    onHide,
+    onBeforeRemove,
+    onMenuAction,
+    onStatusInfo,
+  } = options;
 
-  const content = createProfileModal({ onMenuAction, onStatusInfo });
+  const modal = createProfileModal({ onMenuAction, onStatusInfo });
 
-  return BottomSheet({
-    content,
+  const sheet = BottomSheet({
+    content: modal.element,
     ariaLabel: t('profile.overlay.title'),
     panelClass: 'bottom-sheet__panel--wallet bottom-sheet__panel--profile',
+    retainOnClose,
     onClose,
-    onBeforeRemove,
+    onHide,
+    onBeforeRemove: () => {
+      modal.destroy?.();
+      if (typeof onBeforeRemove === 'function') onBeforeRemove();
+    },
   });
+
+  return {
+    ...sheet,
+    refresh() {
+      modal.refresh?.();
+    },
+  };
 }

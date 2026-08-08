@@ -123,7 +123,7 @@ async function handlePlay() {
       showGameWinToast({
         gameName: t('games.dice.name'),
         amount: Number(result.gross_payout) || 0,
-        duration: 4200,
+        duration: 2500,
       });
     } else {
       Toast({

@@ -176,6 +176,24 @@ export function createWalletModal(options = {}) {
 
   return {
     element: walletModal,
+    setTab(tabId) {
+      if (!VIEW_FACTORIES[tabId]) return;
+      if (tabId === activeTab) {
+        showActiveView();
+        return;
+      }
+      switchTab(tabId);
+    },
+    pause() {
+      controllers.forEach((controller) => {
+        controller.pause?.();
+      });
+    },
+    resume() {
+      const active = controllers.get(activeTab);
+      active?.resume?.();
+      active?.onTabVisible?.();
+    },
     destroy() {
       controllers.forEach((controller) => {
         controller.destroy?.();

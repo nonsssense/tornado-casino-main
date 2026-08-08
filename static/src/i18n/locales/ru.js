@@ -16,6 +16,7 @@ export const ru = {
     usd: 'USD',
     copy: 'Копировать',
     player: 'Игрок',
+    back: 'Назад',
   },
 
   app: {
@@ -216,6 +217,7 @@ export const ru = {
       btc: { label: 'Bitcoin', name: 'Сеть Bitcoin' },
       ethereum: { label: 'Ethereum', name: 'Сеть Ethereum' },
       tron: { label: 'Tron', name: 'Сеть Tron' },
+      recommended: 'низкая комиссия',
     },
     deposit: {
       addressLabel: {
@@ -431,6 +433,38 @@ export const ru = {
         loadFailed: 'Не удалось загрузить бонусы.',
       },
     },
+    fiat: {
+      chooseBank: 'Выберите банк',
+      minFrom: 'от {amount}',
+      enterAmount: 'Введите сумму:',
+      topUp: 'Пополнить',
+      amountToPay: 'Сумма к оплате',
+      recipient: 'Получатель',
+      account: 'Счёт',
+      copy: 'Копировать',
+      requisitesPending: 'Реквизиты готовятся…',
+      paymentHint: 'Переведите точную сумму на указанный счёт. Баланс обновится автоматически после подтверждения оплаты.',
+      banks: {
+        kaspi: 'Kaspi',
+        bereke: 'Bereke Bank',
+      },
+      bonus: {
+        title: 'Бонус {percent}',
+        available: 'На первый депозит активен',
+        active: 'Бонус активен',
+      },
+      validation: {
+        amount: 'Введите корректную сумму',
+      },
+      error: {
+        generic: 'Не удалось создать заявку на пополнение. Попробуйте ещё раз.',
+        provider: 'Платёжный провайдер временно недоступен. Попробуйте ещё раз.',
+      },
+      toast: {
+        copied: 'Скопировано',
+        copyFailed: 'Не удалось скопировать',
+      },
+    },
   },
 
   profile: {
@@ -451,6 +485,34 @@ export const ru = {
       nickname: { label: 'Никнейм', placeholder: 'Harry' },
       userId: { label: 'User ID', placeholder: '123456789' },
       email: { label: 'Email', placeholder: 'example@email.com' },
+    },
+  },
+
+  personalData: {
+    walletOverview: 'Обзор кошелька',
+    statisticsTitle: 'Статистика',
+    nextStatus: 'Следующий',
+    maxStatus: 'Максимальный статус',
+    maxStatusReached: 'Максимальный статус достигнут',
+    loadError: 'Не удалось загрузить личные данные',
+    wallet: {
+      realBalance: 'Реальный баланс',
+      bonusBalance: 'Бонусный баланс',
+      withdrawableBalance: 'Баланс к выводу',
+      remainingWager: 'Остаток отыгрыша',
+    },
+    statistics: {
+      totalDeposits: 'Всего депозитов',
+      totalDepositAmount: 'Сумма депозитов',
+      totalWithdrawals: 'Всего выводов',
+      totalWithdrawalAmount: 'Сумма выводов',
+      totalBets: 'Всего ставок',
+      totalWager: 'Общий вейджер',
+      totalWins: 'Всего выигрышей',
+      totalLosses: 'Всего проигрышей',
+      favoriteGame: 'Любимая игра',
+      averageBet: 'Средняя ставка',
+      totalPlayTime: 'Общее время игры',
     },
   },
 
@@ -677,7 +739,16 @@ export const ru = {
     autoCashout: {
       auto: 'Авто',
       cashOut: 'Кэшаут',
-      aria: 'Автокэшаут',
+      aria: 'Множитель автокэшаута',
+      toggleAria: 'Включить автокэшаут',
+      popupTitle: 'Автокэшаут',
+      custom: 'Своё значение',
+      customHint: 'Введите множитель до 10×',
+      customAria: 'Свой множитель автокэшаута',
+      cancel: 'Отмена',
+      save: 'Сохранить',
+      errorMin: 'Должно быть больше 1.00×',
+      errorMax: 'Максимум автокэшаута — 10×',
     },
     liveBets: {
       title: 'Живые ставки',

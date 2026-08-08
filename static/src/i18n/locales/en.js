@@ -16,6 +16,7 @@ export const en = {
     usd: 'USD',
     copy: 'Copy',
     player: 'Player',
+    back: 'Back',
   },
 
   app: {
@@ -216,6 +217,7 @@ export const en = {
       btc: { label: 'Bitcoin', name: 'Bitcoin network' },
       ethereum: { label: 'Ethereum', name: 'Ethereum network' },
       tron: { label: 'Tron', name: 'Tron network' },
+      recommended: 'low fee',
     },
     deposit: {
       addressLabel: {
@@ -431,6 +433,38 @@ export const en = {
         loadFailed: 'Unable to load bonuses.',
       },
     },
+    fiat: {
+      chooseBank: 'Select a bank',
+      minFrom: 'from {amount}',
+      enterAmount: 'Enter amount:',
+      topUp: 'Deposit',
+      amountToPay: 'Amount to pay',
+      recipient: 'Recipient',
+      account: 'Account',
+      copy: 'Copy',
+      requisitesPending: 'Payment details are being prepared…',
+      paymentHint: 'Transfer the exact amount to the account above. Your balance updates automatically once the payment is confirmed.',
+      banks: {
+        kaspi: 'Kaspi',
+        bereke: 'Bereke Bank',
+      },
+      bonus: {
+        title: 'Bonus {percent}',
+        available: 'Active on your first deposit',
+        active: 'Bonus is active',
+      },
+      validation: {
+        amount: 'Enter a valid amount',
+      },
+      error: {
+        generic: 'Unable to create the deposit order. Please try again.',
+        provider: 'Payment provider is temporarily unavailable. Please try again.',
+      },
+      toast: {
+        copied: 'Copied',
+        copyFailed: 'Failed to copy',
+      },
+    },
   },
 
   profile: {
@@ -451,6 +485,34 @@ export const en = {
       nickname: { label: 'Nickname', placeholder: 'Harry' },
       userId: { label: 'User ID', placeholder: '123456789' },
       email: { label: 'Email', placeholder: 'example@email.com' },
+    },
+  },
+
+  personalData: {
+    walletOverview: 'Wallet Overview',
+    statisticsTitle: 'Statistics',
+    nextStatus: 'Next',
+    maxStatus: 'Top status',
+    maxStatusReached: 'Maximum status reached',
+    loadError: 'Failed to load personal data',
+    wallet: {
+      realBalance: 'Real Balance',
+      bonusBalance: 'Bonus Balance',
+      withdrawableBalance: 'Withdrawable Balance',
+      remainingWager: 'Remaining Wager',
+    },
+    statistics: {
+      totalDeposits: 'Total Deposits',
+      totalDepositAmount: 'Total Deposit Amount',
+      totalWithdrawals: 'Total Withdrawals',
+      totalWithdrawalAmount: 'Total Withdrawal Amount',
+      totalBets: 'Total Bets',
+      totalWager: 'Total Wager',
+      totalWins: 'Total Wins',
+      totalLosses: 'Total Losses',
+      favoriteGame: 'Favorite Game',
+      averageBet: 'Average Bet',
+      totalPlayTime: 'Total Play Time',
     },
   },
 
@@ -677,7 +739,16 @@ export const en = {
     autoCashout: {
       auto: 'Auto',
       cashOut: 'Cash Out',
-      aria: 'Auto cash out',
+      aria: 'Auto cash out multiplier',
+      toggleAria: 'Toggle auto cash out',
+      popupTitle: 'Auto Cashout',
+      custom: 'Custom Value',
+      customHint: 'Enter a multiplier up to 10×',
+      customAria: 'Custom auto cash out multiplier',
+      cancel: 'Cancel',
+      save: 'Save',
+      errorMin: 'Must be greater than 1.00×',
+      errorMax: 'Maximum auto cashout is 10×',
     },
     liveBets: {
       title: 'Live Bets',

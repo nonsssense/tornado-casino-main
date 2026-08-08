@@ -22,7 +22,7 @@ export async function fetchCrashHistory(limit = 10) {
 }
 
 /**
- * @param {{ amount: number }} payload
+ * @param {{ amount: number, auto_cashout_multiplier?: number|null }} payload
  */
 export async function placeCrashBet(payload) {
   return request('/crash/bet', {

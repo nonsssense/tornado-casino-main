@@ -1,5 +1,5 @@
 /**
- * Deposit view — crypto deposit + bank coming-soon, welcome bonus banner.
+ * Deposit view — crypto deposit + fiat (KZT) bank flow, welcome bonus banner.
  * Address is requested immediately after coin/network selection.
  */
 
@@ -25,6 +25,7 @@ import { Toast } from '../../components/base/Toast.js';
 import { createCoinNetworkPair } from '../../components/shared/CoinNetworkPair.js';
 import { MethodSelector } from '../../components/shared/MethodSelector.js';
 import { createGuestLockedPanel } from '../../components/shared/GuestLock.js';
+import { createFiatDepositView } from './fiat/fiat-deposit.view.js';
 
 const ICON_COPY = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>';
 
@@ -65,6 +66,8 @@ export function createDepositView(options = {}) {
   let bonusInfoView = null;
   /** @type {{ element: HTMLElement, setCoinId: Function, setNetworkId: Function, destroy: Function }|null} */
   let coinNetworkPair = null;
+  /** @type {{ element: HTMLElement, destroy: () => void }|null} */
+  let fiatView = null;
 
   const methodMount = createElement('div', { className: 'wallet-view__method-slot' });
   const mainMount = createElement('div', { className: 'wallet-view__main' });
@@ -438,22 +441,23 @@ export function createDepositView(options = {}) {
     bonusMount.replaceChildren(bonusCard.element);
   }
 
-  function renderBankComingSoon() {
-    mainMount.replaceChildren(
-      createElement('div', {
-        className: 'wallet-view__coming-soon',
-        children: [
-          createElement('p', {
-            className: 'wallet-view__coming-soon-title',
-            text: t('wallet.method.comingSoon'),
-          }),
-          createElement('p', {
-            className: 'wallet-view__coming-soon-text',
-            text: t('wallet.method.comingSoonHint'),
-          }),
-        ],
-      }),
-    );
+  function mountFiatView() {
+    if (!fiatView) {
+      fiatView = createFiatDepositView({
+        onSubpageChange: (isSubpage) => {
+          // Hide the crypto/bank method selector while inside a deeper fiat step
+          // (amount / payment), matching the mockups.
+          methodMount.hidden = isSubpage;
+        },
+      });
+    }
+    mainMount.replaceChildren(fiatView.element);
+  }
+
+  function unmountFiatView() {
+    fiatView?.destroy?.();
+    fiatView = null;
+    methodMount.hidden = false;
   }
 
   function renderCryptoMain() {
@@ -468,9 +472,10 @@ export function createDepositView(options = {}) {
 
   function renderMain() {
     if (state.method === 'bank') {
-      renderBankComingSoon();
+      mountFiatView();
       return;
     }
+    unmountFiatView();
     renderCryptoMain();
   }
 
@@ -537,6 +542,14 @@ export function createDepositView(options = {}) {
     element,
     setCoinId,
     setNetworkId,
+    pause() {
+      stopStatusPolling();
+    },
+    resume() {
+      if (state.deposit?.deposit_id && isAuthenticated() && state.method === 'crypto') {
+        startStatusPolling(state.deposit.deposit_id);
+      }
+    },
     destroy() {
       loadGeneration += 1;
       state.completionHandled = true;
@@ -546,6 +559,7 @@ export function createDepositView(options = {}) {
       coinNetworkPair?.destroy?.();
       bonusCard?.destroy?.();
       bonusInfoView?.destroy?.();
+      fiatView?.destroy?.();
     },
   };
 }

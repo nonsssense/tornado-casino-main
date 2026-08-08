@@ -99,6 +99,31 @@ user_trust_score_table = sa.Table(
     autoload_with=engine
 )
 
+# Withdrawal step-up confirmation columns (Telegram-confirmed before admin payout).
+# Added before reflection so `withdraw_table.c.confirmation_*` exist. Legacy rows are
+# backfilled to 'confirmed' so pre-existing PENDING payouts are not stranded; every
+# NEW withdrawal is inserted as 'unconfirmed' by WithdrawManager.
+with engine.begin() as _conn:
+    _conn.execute(sa.text(
+        "ALTER TABLE withdraws ADD COLUMN IF NOT EXISTS confirmation_status VARCHAR(16)"
+    ))
+    _conn.execute(sa.text(
+        "ALTER TABLE withdraws ADD COLUMN IF NOT EXISTS confirmation_token VARCHAR(64)"
+    ))
+    _conn.execute(sa.text(
+        "ALTER TABLE withdraws ADD COLUMN IF NOT EXISTS confirmation_expires_at TIMESTAMP"
+    ))
+    _conn.execute(sa.text(
+        "ALTER TABLE withdraws ADD COLUMN IF NOT EXISTS confirmed_at TIMESTAMP"
+    ))
+    _conn.execute(sa.text(
+        "ALTER TABLE withdraws ADD COLUMN IF NOT EXISTS confirmation_payload_hash VARCHAR(64)"
+    ))
+    _conn.execute(sa.text(
+        "UPDATE withdraws SET confirmation_status='confirmed' "
+        "WHERE confirmation_status IS NULL"
+    ))
+
 withdraw_table = sa.Table(
     'withdraws',
     metadata,

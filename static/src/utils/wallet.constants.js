@@ -54,6 +54,15 @@ export const WALLET_COINS = [
 export const WALLET_NETWORKS = {
   usdt: [
     {
+      id: 'solana',
+      labelKey: 'wallet.network.solana.label',
+      networkKey: 'wallet.network.solana.name',
+      icon: `${WALLET_ASSET_BASE}/solana%20icon.webp`,
+      ticker: 'sol/usdt',
+      addressKey: 'wallet.deposit.addressLabel.usdt_solana',
+      recommended: true,
+    },
+    {
       id: 'trc20',
       labelKey: 'wallet.network.trc20.label',
       networkKey: 'wallet.network.trc20.name',
@@ -76,14 +85,6 @@ export const WALLET_NETWORKS = {
       icon: `${WALLET_ASSET_BASE}/tether.webp`,
       ticker: 'bep20/usdt',
       addressKey: 'wallet.deposit.addressLabel.usdt_bep20',
-    },
-    {
-      id: 'solana',
-      labelKey: 'wallet.network.solana.label',
-      networkKey: 'wallet.network.solana.name',
-      icon: `${WALLET_ASSET_BASE}/solana%20icon.webp`,
-      ticker: 'sol/usdt',
-      addressKey: 'wallet.deposit.addressLabel.usdt_solana',
     },
   ],
   btc: [
@@ -128,6 +129,15 @@ export const WALLET_NETWORKS = {
   ],
   usdc: [
     {
+      id: 'solana',
+      labelKey: 'wallet.network.solana.label',
+      networkKey: 'wallet.network.solana.name',
+      icon: `${WALLET_ASSET_BASE}/solana%20icon.webp`,
+      ticker: 'sol/usdc',
+      addressKey: 'wallet.deposit.addressLabel.usdc_solana',
+      recommended: true,
+    },
+    {
       id: 'erc20',
       labelKey: 'wallet.network.erc20.label',
       networkKey: 'wallet.network.erc20.name',
@@ -142,14 +152,6 @@ export const WALLET_NETWORKS = {
       icon: `${WALLET_ASSET_BASE}/usdc%20icon.webp`,
       ticker: 'bep20/usdc',
       addressKey: 'wallet.deposit.addressLabel.usdc_bep20',
-    },
-    {
-      id: 'solana',
-      labelKey: 'wallet.network.solana.label',
-      networkKey: 'wallet.network.solana.name',
-      icon: `${WALLET_ASSET_BASE}/solana%20icon.webp`,
-      ticker: 'sol/usdc',
-      addressKey: 'wallet.deposit.addressLabel.usdc_solana',
     },
   ],
 };

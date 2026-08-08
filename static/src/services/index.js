@@ -22,6 +22,7 @@ export {
   subscribeAuthStatus,
 } from './auth.service.js';
 export { walletService } from './wallet.service.js';
+export { fiatService } from './fiat.service.js';
 export { balanceService } from './balance.service.js';
 export { gameService } from './game.service.js';
 export { crashService, calculateCrashMultiplier, getLiveMultiplier } from './crash.service.js';
@@ -35,3 +36,5 @@ export { balanceTypeService, BALANCE_TYPES } from './balance-type.service.js';
 export { soundManager } from './sound.service.js';
 export { settingsService } from './settings.service.js';
 export { trackingService } from './tracking.service.js';
+export { personalDataService } from './personal-data.service.js';
+export { appState } from './app-state.js';
