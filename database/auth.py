@@ -38,7 +38,6 @@ def userValidate(data, ip=None):
             server_seed = ProvablyFair.generateServerSeed()
             values = dict(
                 tg_id=user["id"],
-                ip_address=ip,
                 lang_code=user.get("language_code"),
                 status='real',
                 first_name=user.get("first_name"),
@@ -49,6 +48,9 @@ def userValidate(data, ip=None):
                 hash_server_seed=ProvablyFair.getServerSeedHash(server_seed),
                 nonce=1,
             )
+            # Registration IP — only when the reflected schema has the column.
+            if "ip_address" in users_table.c:
+                values["ip_address"] = ip
             # Persist plaintext seed when the column exists (HMAC for Dice/PF games).
             if "server_seed" in users_table.c:
                 values["server_seed"] = server_seed

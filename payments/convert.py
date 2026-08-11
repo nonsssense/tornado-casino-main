@@ -88,15 +88,6 @@ def resolve_fiat_symbol(currency: str) -> str | None:
 
 
 def fiat_to_usd(currency: str, amount_fiat: float) -> tuple[float, float]:
-    """Convert a deposited fiat amount to USD (deposit side, NO margin).
-
-    Returns (usd_amount, convert_rate) where convert_rate is the "fiat per 1 USD"
-    price from Binance (e.g. USDTKZT) and usd_amount = round(amount_fiat / rate, 2).
-
-    The 1% margin (spread) is intentionally NOT applied here — it belongs on the
-    withdrawal (USD→fiat) leg. Deposits credit at the clean spot rate so the player
-    sees the full amount they paid.
-    """
     amount_fiat = float(amount_fiat)
     if amount_fiat <= 0:
         raise ValueError("Fiat amount must be greater than zero")

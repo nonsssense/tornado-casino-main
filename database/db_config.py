@@ -14,6 +14,10 @@ with engine.begin() as _conn:
     _conn.execute(sa.text(
         "ALTER TABLE users ADD COLUMN IF NOT EXISTS welcome_pending BOOLEAN NOT NULL DEFAULT FALSE"
     ))
+    # Registration IP captured once at first /api/auth (shown in admin player card).
+    _conn.execute(sa.text(
+        "ALTER TABLE users ADD COLUMN IF NOT EXISTS ip_address VARCHAR(45)"
+    ))
 
 user_events_table = sa.Table(
     "user_events",
